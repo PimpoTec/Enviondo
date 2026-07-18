@@ -10,7 +10,7 @@ const COLUMNAS_290 = [
   ['saero_noche_piloto', 'S/Aeródromo Noche Piloto'], ['saero_noche_copiloto', 'S/Aeródromo Noche Copiloto'],
   ['trav_dia_piloto', 'Travesía Día Piloto'], ['trav_dia_copiloto', 'Travesía Día Copiloto'],
   ['trav_noche_piloto', 'Travesía Noche Piloto'], ['trav_noche_copiloto', 'Travesía Noche Copiloto'],
-  ['tiempo_total', 'Tiempo Total'], ['aterrizajes_dia', 'Aterr. Día'], ['aterrizajes_noche', 'Aterr. Noche'],
+  ['tiempo_total', 'Tiempo Total'], ['aterrizajes_dia', 'Aterr. Día'], ['aterrizajes_noche', 'Aterr. Noche'], ['remolques', 'Remolques'],
   ['instruccion_vuelo', 'Instrucción'], ['multimotor', 'Multimotor'], ['reactor', 'Reactor'], ['turbohelice', 'Turbohélice'],
   ['aeroaplicador', 'Aeroaplicador'], ['instrumentos_real', 'Instrumentos Real'], ['instrumentos_capota', 'Instrumentos Capota'],
   ['adiestrador_simulador', 'Adiestrador/Simulador'], ['instructor_nombre', 'Instructor'], ['instructor_matricula', 'Mat. Instructor'],
@@ -122,10 +122,11 @@ const ViewExportar = {
   },
 
   async _exportarJson() {
-    const [vuelos, aeronaves, config, vencimientos] = await Promise.all([
-      Repo.listarVuelos(), Repo.listarAeronaves(), Repo.listarConfigLicencia(), Repo.listarVencimientos(),
+    const [vuelos, aeronaves, config, vencimientos, programados] = await Promise.all([
+      Repo.listarVuelos(), Repo.listarAeronaves(), Repo.listarConfigLicenciaTodos(), Repo.listarVencimientos(),
+      Repo.listarVuelosProgramados(),
     ]);
-    const backup = { generado: new Date().toISOString(), vuelos, aeronaves, config_licencia: config, vencimientos };
+    const backup = { generado: new Date().toISOString(), vuelos, aeronaves, config_licencia: config, vencimientos, vuelos_programados: programados };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

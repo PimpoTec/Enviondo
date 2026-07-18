@@ -25,11 +25,12 @@ const ViewTotales = {
       </div>
 
       <div class="card">
-        <h2>🛬 Aterrizajes</h2>
-        <div class="grid cols-3">
+        <h2>🛬 Aterrizajes y remolques</h2>
+        <div class="grid cols-4">
           ${stat('Día', agg.aterrizajes_dia, '')}
           ${stat('Noche', agg.aterrizajes_noche, '')}
-          ${stat('Total', agg.aterrizajes_dia + agg.aterrizajes_noche, '')}
+          ${stat('Total aterrizajes', agg.aterrizajes_dia + agg.aterrizajes_noche, '')}
+          ${stat('Remolques', agg.remolques, '')}
         </div>
       </div>
 

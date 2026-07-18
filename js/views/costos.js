@@ -5,7 +5,10 @@
 const ViewCostos = {
   async render() {
     const main = document.getElementById('main-content');
-    const [vuelos, config] = await Promise.all([Repo.listarVuelos(), Repo.listarConfigLicencia()]);
+    const vuelos = await Repo.listarVuelos();
+    const cursoActivo = await Repo.getCursoActivo();
+    const config = await Repo.listarConfigLicencia(cursoActivo);
+    const curso = CURSOS.find((c) => c.id === cursoActivo) || CURSOS[1];
     const agg = agregarVuelos(vuelos);
     const costoPromedioHora = agg.tiempo_total > 0 ? Calc.round2(agg.costo_total / agg.tiempo_total) : 0;
 
@@ -19,9 +22,9 @@ const ViewCostos = {
         <div class="grid cols-3">
           <div class="stat"><div class="num">${fmtMoneda(agg.costo_total)}</div><div class="lbl">Gastado total</div></div>
           <div class="stat"><div class="num">${fmtMoneda(costoPromedioHora)}</div><div class="lbl">Costo promedio / hora</div></div>
-          <div class="stat"><div class="num">${fmtMoneda(proyeccion)}</div><div class="lbl">Proyección hasta la CPL</div></div>
+          <div class="stat"><div class="num">${fmtMoneda(proyeccion)}</div><div class="lbl">Proyección hasta completar ${curso.id}</div></div>
         </div>
-        <p class="muted" style="margin-top:8px">Proyección = horas que faltan para el total de la licencia (${horasFaltantes} hs) × costo promedio por hora volada hasta ahora.</p>
+        <p class="muted" style="margin-top:8px">Proyección = horas que faltan para el total de ${curso.label} (${horasFaltantes} hs) × costo promedio por hora volada hasta ahora.</p>
       </div>
 
       <div class="card">

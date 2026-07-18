@@ -2,18 +2,41 @@
 // CAPA DE DATOS — wrappers finos sobre Supabase para cada tabla.
 // ============================================================================
 
-const REQUISITOS_DEFAULT = [
-  { nombre_requisito: 'total', label: 'Total', minimo_horas: 200, orden: 1 },
-  { nombre_requisito: 'pic', label: 'Piloto al mando (PIC)', minimo_horas: 100, orden: 2 },
-  { nombre_requisito: 'travesia_pic', label: 'Travesía como PIC', minimo_horas: 20, orden: 3 },
-  { nombre_requisito: 'nocturnas', label: 'Nocturnas', minimo_horas: 10, orden: 4 },
-  { nombre_requisito: 'instrumentos', label: 'Instrumentos (real + capota)', minimo_horas: 10, orden: 5 },
-  { nombre_requisito: 'aterrizajes_noche', label: 'Aterrizajes nocturnos (unidades)', minimo_horas: 5, orden: 6 },
+// Cursos/carreras soportados. "licencia_objetivo" es la etiqueta larga que
+// se guarda en config_licencia; "id" es el valor corto que se guarda en
+// perfil_piloto.curso_activo.
+const CURSOS = [
+  { id: 'APPL', label: 'APPL — Piloto de Planeador (en curso)', licencia_objetivo: 'APPL — Piloto de Planeador' },
+  { id: 'PPA', label: 'PPA — Piloto Privado de Avión', licencia_objetivo: 'PPA — Piloto Privado de Avión' },
+  { id: 'PCA', label: 'PCA — Piloto Comercial de Avión', licencia_objetivo: 'PCA — Piloto Comercial de Avión' },
+  { id: 'TLA', label: 'TLA — Piloto de Transporte de Línea Aérea', licencia_objetivo: 'TLA — Transporte de Línea Aérea' },
 ];
+
+// Mínimos de referencia por curso. Son EDITABLES desde Perfil y quedan
+// marcados como referenciales — confirmar contra la normativa vigente
+// (RAAC 61.129 y las especificaciones puntuales de cada curso).
+const REQUISITOS_DEFAULT_POR_CURSO = {
+  APPL: [
+    { nombre_requisito: 'remolques', label: 'Remolques', minimo_horas: 40, orden: 1 },
+  ],
+  PPA: [
+    { nombre_requisito: 'total', label: 'Total', minimo_horas: 40, orden: 1 },
+  ],
+  PCA: [
+    { nombre_requisito: 'total', label: 'Total', minimo_horas: 200, orden: 1 },
+  ],
+  TLA: [
+    { nombre_requisito: 'total', label: 'Total', minimo_horas: 1000, orden: 1 },
+  ],
+};
 
 async function usuarioActual() {
   const { data } = await window.db.auth.getUser();
   return data.user;
+}
+
+function cursoPorId(id) {
+  return CURSOS.find((c) => c.id === id) || CURSOS[1];
 }
 
 const Repo = {
@@ -73,33 +96,83 @@ const Repo = {
     if (error) throw error;
   },
 
-  // ---- Config licencia ----
-  async listarConfigLicencia() {
-    const { data, error } = await window.db.from('config_licencia').select('*').order('orden');
+  // ---- Vuelos programados (agenda de próximos vuelos) ----
+  async listarVuelosProgramados() {
+    const { data, error } = await window.db.from('vuelos_programados')
+      .select('*, aeronaves(matricula, marca_modelo)')
+      .gte('fecha', new Date().toISOString().slice(0, 10))
+      .order('fecha', { ascending: true });
+    if (error) throw error;
+    return data;
+  },
+  async crearVueloProgramado(v) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('vuelos_programados').insert({ ...v, user_id: user.id });
+    if (error) throw error;
+  },
+  async borrarVueloProgramado(id) {
+    const { error } = await window.db.from('vuelos_programados').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // ---- Perfil del piloto (curso activo) ----
+  async getCursoActivo() {
+    const user = await usuarioActual();
+    const { data, error } = await window.db.from('perfil_piloto').select('*').eq('user_id', user.id).maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA' });
+      if (e2) throw e2;
+      return 'PPA';
+    }
+    return data.curso_activo;
+  },
+  async setCursoActivo(cursoId) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('perfil_piloto')
+      .upsert({ user_id: user.id, curso_activo: cursoId, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error) throw error;
+  },
+
+  // ---- Config licencia (mínimos por curso) ----
+  async listarConfigLicencia(cursoId) {
+    const curso = cursoPorId(cursoId);
+    const { data, error } = await window.db.from('config_licencia')
+      .select('*').eq('licencia_objetivo', curso.licencia_objetivo).order('orden');
     if (error) throw error;
     if (!data || data.length === 0) {
-      await this.sembrarConfigLicenciaDefault();
-      const { data: d2, error: e2 } = await window.db.from('config_licencia').select('*').order('orden');
+      await this.sembrarConfigLicenciaDefault(cursoId);
+      const { data: d2, error: e2 } = await window.db.from('config_licencia')
+        .select('*').eq('licencia_objetivo', curso.licencia_objetivo).order('orden');
       if (e2) throw e2;
       return d2;
     }
     return data;
   },
-  async sembrarConfigLicenciaDefault() {
+  async sembrarConfigLicenciaDefault(cursoId) {
     const user = await usuarioActual();
-    const rows = REQUISITOS_DEFAULT.map((r) => ({
+    const curso = cursoPorId(cursoId);
+    const requisitos = REQUISITOS_DEFAULT_POR_CURSO[curso.id] || [];
+    const rows = requisitos.map((r) => ({
       user_id: user.id,
-      licencia_objetivo: 'CPL Avión',
+      licencia_objetivo: curso.licencia_objetivo,
       nombre_requisito: r.nombre_requisito,
       minimo_horas: r.minimo_horas,
       orden: r.orden,
     }));
+    if (!rows.length) return;
     const { error } = await window.db.from('config_licencia').insert(rows);
     if (error) throw error;
   },
   async guardarConfigLicencia(row) {
     const { error } = await window.db.from('config_licencia').update({ minimo_horas: row.minimo_horas }).eq('id', row.id);
     if (error) throw error;
+  },
+  // Todos los requisitos de todos los cursos (para el backup completo).
+  async listarConfigLicenciaTodos() {
+    const { data, error } = await window.db.from('config_licencia').select('*').order('licencia_objetivo').order('orden');
+    if (error) throw error;
+    return data;
   },
 
   // ---- Vencimientos ----
@@ -129,7 +202,7 @@ function agregarVuelos(vuelos) {
   const acc = {
     tiempo_total: 0, total_dia: 0, total_noche: 0, total_pic: 0, total_copiloto: 0, total_travesia: 0,
     travesia_pic: 0,
-    aterrizajes_dia: 0, aterrizajes_noche: 0,
+    aterrizajes_dia: 0, aterrizajes_noche: 0, remolques: 0,
     instruccion_vuelo: 0, multimotor: 0, reactor: 0, turbohelice: 0, aeroaplicador: 0,
     instrumentos_real: 0, instrumentos_capota: 0, adiestrador_simulador: 0,
     costo_total: 0,
@@ -144,6 +217,7 @@ function agregarVuelos(vuelos) {
     acc.travesia_pic += Calc.n(v.trav_dia_piloto) + Calc.n(v.trav_noche_piloto);
     acc.aterrizajes_dia += Calc.n(v.aterrizajes_dia);
     acc.aterrizajes_noche += Calc.n(v.aterrizajes_noche);
+    acc.remolques += Calc.n(v.remolques);
     for (const c of Calc.CAMPOS_DISCRIMINACION) acc[c] += Calc.n(v[c]);
     acc.costo_total += Calc.calcularCosto(v, v.aeronaves);
   }
@@ -160,10 +234,12 @@ function valorRequisito(nombre, agg) {
     case 'nocturnas': return agg.total_noche;
     case 'instrumentos': return Calc.round2(agg.instrumentos_real + agg.instrumentos_capota);
     case 'aterrizajes_noche': return agg.aterrizajes_noche;
+    case 'remolques': return agg.remolques;
     default: return 0;
   }
 }
 
+window.CURSOS = CURSOS;
 window.Repo = Repo;
 window.agregarVuelos = agregarVuelos;
 window.valorRequisito = valorRequisito;

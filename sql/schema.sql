@@ -197,29 +197,97 @@ create policy "vencimientos_insert_own" on vencimientos for insert with check (a
 create policy "vencimientos_update_own" on vencimientos for update using (auth.uid() = user_id);
 create policy "vencimientos_delete_own" on vencimientos for delete using (auth.uid() = user_id);
 
+-- El seed de mínimos por curso (APPL / PPA / PCA / TLA) lo hace la app desde
+-- el cliente (js/db.js), un curso a la vez, la primera vez que se abre
+-- Perfil o el Dashboard con ese curso seleccionado como "curso activo".
+
+-- Fin del esquema base.
+
+
 -- ============================================================================
--- SEED: mínimos referenciales de CPL Avión (RAAC 61.129) para usuarios nuevos.
--- Se dispara solo la primera vez que el usuario abre "Perfil / Licencias"
--- (la app hace el insert desde el cliente); dejamos acá una función helper
--- opcional por si preferís poblarlo por trigger en vez de desde el front.
+-- ACTUALIZACIÓN — carreras del piloto, aeronaves simplificadas y vuelos
+-- programados. Es seguro volver a correr todo el archivo de nuevo (es
+-- idempotente); si ya tenías el esquema base corrido, con pegar y correr
+-- este bloque de acá para abajo alcanza.
 -- ============================================================================
-create or replace function seed_config_licencia_default(p_user_id uuid)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  insert into config_licencia (user_id, licencia_objetivo, nombre_requisito, minimo_horas, orden)
-  values
-    (p_user_id, 'CPL Avión', 'total', 200, 1),
-    (p_user_id, 'CPL Avión', 'pic', 100, 2),
-    (p_user_id, 'CPL Avión', 'travesia_pic', 20, 3),
-    (p_user_id, 'CPL Avión', 'nocturnas', 10, 4),
-    (p_user_id, 'CPL Avión', 'instrumentos', 10, 5),
-    (p_user_id, 'CPL Avión', 'aterrizajes_noche', 5, 6)
-  on conflict (user_id, nombre_requisito) do nothing;
-end;
-$$;
+
+-- ----------------------------------------------------------------------------
+-- AERONAVES: "clase" pasa a ser el tipo de aeronave en una sola opción
+-- (monomotor / multimotor / reactor / turbohélice / aeroaplicador),
+-- reemplazando los campos separados tipo_motor + reactor + turbohelice.
+-- ----------------------------------------------------------------------------
+alter table aeronaves drop column if exists tipo_motor;
+alter table aeronaves drop column if exists reactor;
+alter table aeronaves drop column if exists turbohelice;
+alter table aeronaves drop constraint if exists aeronaves_clase_check;
+update aeronaves set clase = 'monomotor'
+  where clase is null or clase not in ('monomotor', 'multimotor', 'reactor', 'turbohelice', 'aeroaplicador');
+alter table aeronaves alter column clase set default 'monomotor';
+alter table aeronaves alter column clase set not null;
+alter table aeronaves add constraint aeronaves_clase_check
+  check (clase in ('monomotor', 'multimotor', 'reactor', 'turbohelice', 'aeroaplicador'));
+
+-- ----------------------------------------------------------------------------
+-- VUELOS: sumamos "remolques" (lanzamientos a remolque, para el curso de
+-- piloto de planeador — APPL). No es parte de las 8 columnas de tiempo del
+-- formato 290/2012, es un contador aparte, igual que los aterrizajes.
+-- ----------------------------------------------------------------------------
+alter table vuelos add column if not exists remolques integer not null default 0;
+
+-- ----------------------------------------------------------------------------
+-- CONFIG_LICENCIA: ahora conviven varios cursos a la vez para el mismo
+-- usuario (APPL, PPA, PCA, TLA), cada uno con sus propios requisitos.
+-- El nombre de requisito (ej. "total") se puede repetir entre cursos
+-- distintos, así que el unique pasa a ser por (usuario, curso, requisito).
+-- ----------------------------------------------------------------------------
+alter table config_licencia drop constraint if exists config_licencia_user_id_nombre_requisito_key;
+alter table config_licencia drop constraint if exists config_licencia_user_licencia_requisito_key;
+alter table config_licencia add constraint config_licencia_user_licencia_requisito_key
+  unique (user_id, licencia_objetivo, nombre_requisito);
+
+-- ----------------------------------------------------------------------------
+-- PERFIL_PILOTO: qué curso está "activo" ahora mismo (el que se muestra
+-- primero en el Dashboard). Una fila por usuario.
+-- ----------------------------------------------------------------------------
+create table if not exists perfil_piloto (
+  user_id      uuid primary key references auth.users(id) on delete cascade,
+  curso_activo text not null default 'PPA' check (curso_activo in ('APPL', 'PPA', 'PCA', 'TLA')),
+  updated_at   timestamptz not null default now()
+);
+alter table perfil_piloto enable row level security;
+drop policy if exists "perfil_piloto_select_own" on perfil_piloto;
+drop policy if exists "perfil_piloto_insert_own" on perfil_piloto;
+drop policy if exists "perfil_piloto_update_own" on perfil_piloto;
+create policy "perfil_piloto_select_own" on perfil_piloto for select using (auth.uid() = user_id);
+create policy "perfil_piloto_insert_own" on perfil_piloto for insert with check (auth.uid() = user_id);
+create policy "perfil_piloto_update_own" on perfil_piloto for update using (auth.uid() = user_id);
+
+-- ----------------------------------------------------------------------------
+-- VUELOS_PROGRAMADOS: vuelos que todavía no volaste, para que el Dashboard
+-- te muestre "tu próximo vuelo". Cuando lo volás de verdad, se borra esta
+-- fila y queda cargado como vuelo real en la tabla `vuelos`.
+-- ----------------------------------------------------------------------------
+create table if not exists vuelos_programados (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null references auth.users(id) on delete cascade,
+  fecha              date not null,
+  hora_prevista      time,
+  aeronave_id        uuid references aeronaves(id) on delete set null,
+  desde              text,
+  hasta              text,
+  instructor_nombre  text,
+  notas              text,
+  created_at         timestamptz not null default now()
+);
+create index if not exists idx_vuelos_programados_user on vuelos_programados(user_id, fecha);
+alter table vuelos_programados enable row level security;
+drop policy if exists "vuelos_programados_select_own" on vuelos_programados;
+drop policy if exists "vuelos_programados_insert_own" on vuelos_programados;
+drop policy if exists "vuelos_programados_update_own" on vuelos_programados;
+drop policy if exists "vuelos_programados_delete_own" on vuelos_programados;
+create policy "vuelos_programados_select_own" on vuelos_programados for select using (auth.uid() = user_id);
+create policy "vuelos_programados_insert_own" on vuelos_programados for insert with check (auth.uid() = user_id);
+create policy "vuelos_programados_update_own" on vuelos_programados for update using (auth.uid() = user_id);
+create policy "vuelos_programados_delete_own" on vuelos_programados for delete using (auth.uid() = user_id);
 
 -- Fin del esquema.

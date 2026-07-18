@@ -2,9 +2,10 @@
 
 Libro de vuelo personal para un solo piloto. Sigue el formato de la **Hoja de
 Libro de Vuelo de Pilotos** (Resolución ANAC 290/2012), calcula automático
-los totales/discriminaciones del libro, muestra el progreso hacia la CPL
-(RAAC 61.129, mínimos configurables y **referenciales**) y lleva el costo de
-la carrera por hora volada.
+los totales/discriminaciones del libro, muestra el progreso hacia distintas
+licencias/cursos (APPL, PPA, PCA, TLA — mínimos configurables y
+**referenciales**) y lleva el costo de la carrera por hora volada como dato
+secundario (lo primero que ves es tu total de horas).
 
 **Esto NO reemplaza al Registro Electrónico de Horas de Vuelo oficial**
 (declaración jurada vía Casillero Aeronáutico Digital). Es una herramienta
@@ -50,10 +51,15 @@ base de datos (Supabase) y el hosting (Vercel).
 2. Una vez creado, andá a **SQL Editor** (ícono de la izquierda) → **New
    query**.
 3. Abrí el archivo `sql/schema.sql` de este repo, copiá **todo** el
-   contenido, pegalo en el editor y apretá **Run**. Esto crea las 4 tablas
-   (`aeronaves`, `vuelos`, `config_licencia`, `vencimientos`), los cálculos
-   automáticos (columnas `generated always as`, que son las que hacen la
-   suma de horas sola) y las políticas de RLS.
+   contenido, pegalo en el editor y apretá **Run**. Esto crea las tablas
+   (`aeronaves`, `vuelos`, `vuelos_programados`, `config_licencia`,
+   `perfil_piloto`, `vencimientos`), los cálculos automáticos (columnas
+   `generated always as`, que son las que hacen la suma de horas sola) y
+   las políticas de RLS.
+   - Si ya habías corrido una versión vieja del schema antes, no pasa nada:
+     es seguro pegar el archivo entero de nuevo, el bloque de
+     "ACTUALIZACIÓN" al final aplica los cambios sin romper lo que ya
+     tenías cargado.
 4. Andá a **Authentication → Providers** y confirmá que **Email** esté
    habilitado (viene así por defecto). La app usa email + contraseña: te
    registrás una vez desde la pantalla de "Crear cuenta" y después entrás

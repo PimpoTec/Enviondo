@@ -7,10 +7,12 @@ const ViewNuevoVuelo = {
   modoDetallado: false,
   esTravesia: false,
   esPiloto: true,
+  progId: null,
 
-  async render() {
+  async render(params) {
     const main = document.getElementById('main-content');
     this.aeronaves = await Repo.listarAeronaves();
+    this.progId = params?.get('prog') || null;
 
     if (!this.aeronaves.length) {
       main.innerHTML = `<div class="card empty-state">
@@ -28,15 +30,17 @@ const ViewNuevoVuelo = {
           <button class="btn secondary" id="btn-toggle-modo">Modo detallado</button>
         </div>
 
+        ${this.progId ? '<p class="muted">✈️ Precargado desde tu vuelo agendado — revisá los datos y completá el resto.</p>' : ''}
+
         <div class="field-row">
           <div class="field">
             <label>Fecha</label>
-            <input type="date" id="f-fecha" value="${new Date().toISOString().slice(0, 10)}" />
+            <input type="date" id="f-fecha" value="${params?.get('fecha') || new Date().toISOString().slice(0, 10)}" />
           </div>
           <div class="field">
             <label>Aeronave</label>
             <select id="f-aeronave">
-              ${this.aeronaves.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
+              ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === params?.get('aeronave') ? 'selected' : ''}>${a.matricula} — ${a.marca_modelo}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -44,11 +48,11 @@ const ViewNuevoVuelo = {
         <div class="field-row">
           <div class="field">
             <label>Desde (OACI)</label>
-            <input type="text" id="f-desde" maxlength="4" placeholder="SABE" style="text-transform:uppercase" />
+            <input type="text" id="f-desde" maxlength="4" placeholder="SABE" style="text-transform:uppercase" value="${params?.get('desde') || ''}" />
           </div>
           <div class="field">
             <label>Hasta (OACI)</label>
-            <input type="text" id="f-hasta" maxlength="4" placeholder="SADF" style="text-transform:uppercase" />
+            <input type="text" id="f-hasta" maxlength="4" placeholder="SADF" style="text-transform:uppercase" value="${params?.get('hasta') || ''}" />
           </div>
         </div>
 
@@ -111,6 +115,10 @@ const ViewNuevoVuelo = {
               <label>Aterrizajes de noche</label>
               <input type="number" min="0" id="f-aterr-noche" value="0" />
             </div>
+            <div class="field">
+              <label>Remolques <span class="muted">(planeador)</span></label>
+              <input type="number" min="0" id="f-remolques" value="0" />
+            </div>
           </div>
         </div>
 
@@ -130,6 +138,7 @@ const ViewNuevoVuelo = {
           <div class="field-row">
             <div class="field"><label>Aterrizajes de día</label><input type="number" min="0" id="d-aterrizajes_dia" value="1"></div>
             <div class="field"><label>Aterrizajes de noche</label><input type="number" min="0" id="d-aterrizajes_noche" value="0"></div>
+            <div class="field"><label>Remolques <span class="muted">(planeador)</span></label><input type="number" min="0" id="d-remolques" value="0"></div>
           </div>
 
           <h3>Discriminación (informativa — no se suma al total)</h3>
@@ -285,6 +294,7 @@ const ViewNuevoVuelo = {
       ...Object.fromEntries(Calc.CAMPOS_TIEMPO.map((c) => [c, camposTiempo[c] || 0])),
       aterrizajes_dia: Calc.n(document.getElementById(this.modoDetallado ? 'd-aterrizajes_dia' : 'f-aterr-dia').value),
       aterrizajes_noche: Calc.n(document.getElementById(this.modoDetallado ? 'd-aterrizajes_noche' : 'f-aterr-noche').value),
+      remolques: Calc.n(document.getElementById(this.modoDetallado ? 'd-remolques' : 'f-remolques').value),
       instruccion_vuelo: 0, multimotor: 0, reactor: 0, turbohelice: 0, aeroaplicador: 0,
       instrumentos_real: 0, instrumentos_capota: 0, adiestrador_simulador: 0,
       instructor_nombre: null, instructor_matricula: null,
@@ -308,6 +318,9 @@ const ViewNuevoVuelo = {
     btn.textContent = 'Guardando…';
     try {
       const res = await Repo.crearVuelo(campos);
+      if (this.progId) {
+        Repo.borrarVueloProgramado(this.progId).catch(() => {});
+      }
       if (res.offline) {
         msg.textContent = '📴 Guardado localmente (sin conexión). Se va a sincronizar solo cuando vuelva la señal.';
       } else {

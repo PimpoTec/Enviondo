@@ -1,19 +1,36 @@
 // ============================================================================
 // VISTA: PERFIL / LICENCIAS / VENCIMIENTOS
-// Los mínimos son EDITABLES y referenciales — no reemplazan la RAAC 61.129.
+// Los mínimos son EDITABLES y referenciales — no reemplazan la normativa
+// vigente (RAAC 61.129 y las especificaciones puntuales de cada curso).
 // ============================================================================
 
 const ViewPerfil = {
+  cursoActivo: 'PPA',
+
   async render() {
     const main = document.getElementById('main-content');
-    const [config, vencimientos] = await Promise.all([Repo.listarConfigLicencia(), Repo.listarVencimientos()]);
+    this.cursoActivo = await Repo.getCursoActivo();
+    const [config, vencimientos] = await Promise.all([
+      Repo.listarConfigLicencia(this.cursoActivo), Repo.listarVencimientos(),
+    ]);
 
     main.innerHTML = `
       <div class="card">
-        <h2>🎓 Objetivo de licencia — mínimos (referencial)</h2>
-        <p class="muted">⚠️ Estos valores son configurables y orientativos. Confirmá siempre contra la RAAC 61.129 vigente antes de tomarlos como definitivos.</p>
+        <h2>🎓 Curso / carrera actual</h2>
+        <div class="field">
+          <label>¿Qué estás haciendo ahora?</label>
+          <select id="p-curso">
+            ${CURSOS.map((c) => `<option value="${c.id}" ${c.id === this.cursoActivo ? 'selected' : ''}>${c.label}</option>`).join('')}
+          </select>
+        </div>
+        <p class="muted">Esto define qué progreso te muestra el Dashboard. Podés cambiarlo cuando avances de curso — los mínimos de cada uno quedan guardados aparte.</p>
+      </div>
+
+      <div class="card">
+        <h2>Mínimos del curso seleccionado (referencial)</h2>
+        <p class="muted">⚠️ Estos valores son configurables y orientativos. Confirmá siempre contra la normativa vigente antes de tomarlos como definitivos.</p>
         <div class="table-wrap"><table>
-          <thead><tr><th>Requisito</th><th class="num">Mínimo (hs)</th><th></th></tr></thead>
+          <thead><tr><th>Requisito</th><th class="num">Mínimo</th><th></th></tr></thead>
           <tbody id="tbody-config">
             ${config.map((c) => `
               <tr>
@@ -61,7 +78,17 @@ const ViewPerfil = {
       </div>
     `;
 
+    document.getElementById('p-curso').onchange = (e) => this._cambiarCurso(e.target.value);
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
+  },
+
+  async _cambiarCurso(cursoId) {
+    try {
+      await Repo.setCursoActivo(cursoId);
+      this.render();
+    } catch (err) {
+      alert('Error al cambiar de curso: ' + (err.message || err));
+    }
   },
 
   async _guardarConfig(id) {

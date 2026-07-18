@@ -1,13 +1,13 @@
 // ============================================================================
 // VISTA: DASHBOARD
-// Orden de prioridad: 1) progreso CPL, 2) últimos vuelos, 3) vencimientos
-// y currency, 4) estadísticas por aeronave/ruta.
+// Orden de prioridad: 1) total de horas, 2) próximo vuelo, 3) progreso del
+// curso activo, 4) vencimientos y currency, 5) costos (secundario, al final).
 // ============================================================================
 
 const LABELS_REQUISITO = {
   total: 'Total', pic: 'Piloto al mando (PIC)', travesia_pic: 'Travesía como PIC',
   nocturnas: 'Nocturnas', instrumentos: 'Instrumentos (real + capota)',
-  aterrizajes_noche: 'Aterrizajes nocturnos',
+  aterrizajes_noche: 'Aterrizajes nocturnos', remolques: 'Remolques',
 };
 
 function estadoVencimiento(v) {
@@ -20,36 +20,45 @@ function estadoVencimiento(v) {
 }
 
 const ViewDashboard = {
+  aeronaves: [],
+
   async render() {
     const main = document.getElementById('main-content');
-    const [vuelos, config, vencimientos] = await Promise.all([
-      Repo.listarVuelos(), Repo.listarConfigLicencia(), Repo.listarVencimientos(),
+    const [vuelos, cursoActivo, vencimientos, programados, aeronaves] = await Promise.all([
+      Repo.listarVuelos(), Repo.getCursoActivo(), Repo.listarVencimientos(),
+      Repo.listarVuelosProgramados(), Repo.listarAeronaves(),
     ]);
+    this.aeronaves = aeronaves;
+    const config = await Repo.listarConfigLicencia(cursoActivo);
     const agg = agregarVuelos(vuelos);
+    const curso = CURSOS.find((c) => c.id === cursoActivo) || CURSOS[1];
 
     main.innerHTML = `
-      <div class="costos-sticky">
-        <div class="mini-card">
-          <div class="label">Gastado total</div>
-          <div class="value">${fmtMoneda(agg.costo_total)}</div>
-        </div>
-        <div class="mini-card">
-          <div class="label">Gasto del mes</div>
-          <div class="value">${fmtMoneda(gastoDelMes(vuelos))}</div>
-        </div>
-      </div>
-
       <div class="card">
-        <h2>🎓 Progreso hacia ${config[0]?.licencia_objetivo || 'CPL Avión'}</h2>
-        <div id="barras-progreso"></div>
+        <h2 style="margin-bottom:14px">🕐 Total de horas</h2>
+        <div class="grid cols-4">
+          <div class="stat"><div class="num">${agg.tiempo_total}</div><div class="lbl">Total</div></div>
+          <div class="stat"><div class="num">${agg.total_pic}</div><div class="lbl">PIC</div></div>
+          <div class="stat"><div class="num">${agg.total_dia}</div><div class="lbl">Día</div></div>
+          <div class="stat"><div class="num">${agg.total_noche}</div><div class="lbl">Noche</div></div>
+        </div>
       </div>
 
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">📒 Últimos vuelos</h2>
-          <button class="btn ghost" onclick="Router.irA('bitacora')">Ver todos →</button>
+          <h2 style="margin:0">✈️ Próximo vuelo</h2>
+          <button class="btn ghost" id="btn-mostrar-form-programado">+ Agendar</button>
         </div>
-        <div id="ultimos-vuelos"></div>
+        <div id="form-programado" style="display:none;margin-bottom:14px"></div>
+        <div id="proximo-vuelo"></div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h2 style="margin:0">🎓 Progreso — ${curso.label}</h2>
+          <button class="btn ghost" onclick="Router.irA('perfil')">Cambiar curso →</button>
+        </div>
+        <div id="barras-progreso"></div>
       </div>
 
       <div class="card">
@@ -60,8 +69,21 @@ const ViewDashboard = {
       </div>
 
       <div class="card">
-        <h2>🗺️ Estadísticas por aeronave y ruta</h2>
-        <div id="stats-rutas"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h2 style="margin:0">📒 Últimos vuelos</h2>
+          <button class="btn ghost" onclick="Router.irA('bitacora')">Ver todos →</button>
+        </div>
+        <div id="ultimos-vuelos"></div>
+      </div>
+
+      <div class="card" style="opacity:.85">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h3 style="margin:0 0 2px">💰 Costos</h3>
+            <span class="muted">Gastado hasta ahora: ${fmtMoneda(agg.costo_total)}</span>
+          </div>
+          <button class="btn ghost" onclick="Router.irA('costos')">Ver detalle →</button>
+        </div>
       </div>
     `;
 
@@ -69,19 +91,103 @@ const ViewDashboard = {
     renderUltimosVuelos(vuelos.slice(0, 6));
     renderVencimientos(vencimientos);
     renderCurrency(vuelos);
-    renderStatsRutas(vuelos);
+    this._renderProximoVuelo(programados);
+
+    document.getElementById('btn-mostrar-form-programado').onclick = () => this._toggleFormProgramado();
+  },
+
+  _renderProximoVuelo(programados) {
+    const cont = document.getElementById('proximo-vuelo');
+    if (!programados.length) {
+      cont.innerHTML = `<p class="muted">No tenés vuelos agendados. Usá "+ Agendar" para cargar el próximo.</p>`;
+      return;
+    }
+    cont.innerHTML = programados.slice(0, 3).map((p) => {
+      const dias = Math.round((new Date(p.fecha + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000);
+      const cuando = dias === 0 ? 'Hoy' : dias === 1 ? 'Mañana' : `En ${dias} días`;
+      return `
+        <div class="progreso-item" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+          <div class="pi-head">
+            <span class="nombre">${fmtFecha(p.fecha)} ${p.hora_prevista ? '· ' + p.hora_prevista.slice(0, 5) : ''} — <span class="badge ok">${cuando}</span></span>
+          </div>
+          <div class="muted" style="margin:4px 0 8px">
+            ${p.aeronaves?.matricula ? p.aeronaves.matricula + ' — ' + p.aeronaves.marca_modelo : 'Aeronave sin definir'}
+            ${p.desde && p.hasta ? ` · ${p.desde} → ${p.hasta}` : ''}
+            ${p.instructor_nombre ? ` · Instructor: ${p.instructor_nombre}` : ''}
+            ${p.notas ? ` · ${p.notas}` : ''}
+          </div>
+          <div class="btn-row">
+            <button class="btn secondary" onclick="ViewDashboard._marcarComoVolado('${p.id}', '${p.aeronave_id || ''}', '${p.fecha}', '${p.desde || ''}', '${p.hasta || ''}')">Marcar como volado</button>
+            <button class="btn ghost" onclick="ViewDashboard._borrarProgramado('${p.id}')">Borrar</button>
+          </div>
+        </div>`;
+    }).join('');
+  },
+
+  _toggleFormProgramado() {
+    const cont = document.getElementById('form-programado');
+    const visible = cont.style.display !== 'none';
+    if (visible) { cont.style.display = 'none'; return; }
+    cont.innerHTML = `
+      <div class="grid cols-2">
+        <div class="field"><label>Fecha</label><input type="date" id="pv-fecha" value="${new Date().toISOString().slice(0, 10)}"></div>
+        <div class="field"><label>Hora prevista</label><input type="time" id="pv-hora"></div>
+        <div class="field"><label>Aeronave</label>
+          <select id="pv-aeronave"><option value="">Sin definir</option>
+            ${this.aeronaves.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Instructor</label><input type="text" id="pv-instructor"></div>
+        <div class="field"><label>Desde (OACI)</label><input type="text" id="pv-desde" maxlength="4" style="text-transform:uppercase"></div>
+        <div class="field"><label>Hasta (OACI)</label><input type="text" id="pv-hasta" maxlength="4" style="text-transform:uppercase"></div>
+      </div>
+      <div class="field"><label>Notas</label><input type="text" id="pv-notas"></div>
+      <div class="btn-row"><button class="btn" id="btn-guardar-programado">Agendar</button></div>
+    `;
+    cont.style.display = 'block';
+    document.getElementById('btn-guardar-programado').onclick = () => this._guardarProgramado();
+  },
+
+  async _guardarProgramado() {
+    const fecha = document.getElementById('pv-fecha').value;
+    if (!fecha) { alert('Elegí una fecha.'); return; }
+    try {
+      await Repo.crearVueloProgramado({
+        fecha,
+        hora_prevista: document.getElementById('pv-hora').value || null,
+        aeronave_id: document.getElementById('pv-aeronave').value || null,
+        desde: document.getElementById('pv-desde').value.trim().toUpperCase() || null,
+        hasta: document.getElementById('pv-hasta').value.trim().toUpperCase() || null,
+        instructor_nombre: document.getElementById('pv-instructor').value || null,
+        notas: document.getElementById('pv-notas').value || null,
+      });
+      this.render();
+    } catch (err) {
+      alert('Error al agendar: ' + (err.message || err));
+    }
+  },
+
+  _marcarComoVolado(id, aeronaveId, fecha, desde, hasta) {
+    const params = new URLSearchParams({ prog: id, aeronave: aeronaveId || '', fecha, desde: desde || '', hasta: hasta || '' });
+    Router.irA('nuevo-vuelo?' + params.toString());
+  },
+
+  async _borrarProgramado(id) {
+    if (!confirm('¿Borrar este vuelo agendado?')) return;
+    await Repo.borrarVueloProgramado(id);
+    this.render();
   },
 };
 
 function renderBarrasProgreso(config, agg) {
   const cont = document.getElementById('barras-progreso');
-  if (!config.length) { cont.innerHTML = '<p class="muted">Configurá tus mínimos en Perfil / Licencias.</p>'; return; }
+  if (!config.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para este curso todavía.</p>'; return; }
   cont.innerHTML = config.map((req) => {
     const actual = valorRequisito(req.nombre_requisito, agg);
     const minimo = Calc.n(req.minimo_horas);
     const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
     const faltan = Math.max(0, Calc.round2(minimo - actual));
-    const esUnidad = req.nombre_requisito === 'aterrizajes_noche';
+    const esUnidad = req.nombre_requisito === 'aterrizajes_noche' || req.nombre_requisito === 'remolques';
     return `
       <div class="progreso-item">
         <div class="pi-head">
@@ -97,7 +203,7 @@ function renderUltimosVuelos(vuelos) {
   const cont = document.getElementById('ultimos-vuelos');
   if (!vuelos.length) { cont.innerHTML = '<div class="empty-state">Todavía no cargaste ningún vuelo. <br><button class="btn" style="margin-top:10px" onclick="Router.irA(\'nuevo-vuelo\')">Cargar el primero</button></div>'; return; }
   cont.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Fecha</th><th>Ruta</th><th>Aeronave</th><th class="num">Tiempo</th><th class="num">Costo</th><th></th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Ruta</th><th>Aeronave</th><th class="num">Tiempo</th><th></th></tr></thead>
     <tbody>
       ${vuelos.map((v) => `
         <tr>
@@ -105,7 +211,6 @@ function renderUltimosVuelos(vuelos) {
           <td>${v.desde} → ${v.hasta}</td>
           <td>${v.aeronaves?.matricula || '—'}</td>
           <td class="num">${v.tiempo_total} hs</td>
-          <td class="num">${fmtMoneda(Calc.calcularCosto(v, v.aeronaves), v.aeronaves?.moneda)}</td>
           <td><button class="btn ghost" onclick="Router.irA('bitacora')">Editar</button></td>
         </tr>`).join('')}
     </tbody>
@@ -132,43 +237,6 @@ function renderCurrency(vuelos) {
     <div class="chip"><span class="badge ${okDia ? 'ok' : 'warn'}">${okDia ? '✅' : '⚠️'} ${aterrDia}/3</span> Despegues y aterrizajes (día, 90 días)</div>
     <div class="chip"><span class="badge ${okNoche ? 'ok' : 'warn'}">${okNoche ? '✅' : '⚠️'} ${aterrNoche}/3</span> Ídem nocturno (90 días)</div>
   `;
-}
-
-function renderStatsRutas(vuelos) {
-  const cont = document.getElementById('stats-rutas');
-  if (!vuelos.length) { cont.innerHTML = '<p class="muted">Sin datos todavía.</p>'; return; }
-  const porAeronave = {};
-  const porRuta = {};
-  for (const v of vuelos) {
-    const mat = v.aeronaves?.matricula || '—';
-    porAeronave[mat] = Calc.round2((porAeronave[mat] || 0) + Calc.n(v.tiempo_total));
-    const ruta = `${v.desde}–${v.hasta}`;
-    porRuta[ruta] = (porRuta[ruta] || 0) + 1;
-  }
-  const maxAer = Math.max(...Object.values(porAeronave), 1);
-  const filasAer = Object.entries(porAeronave).sort((a, b) => b[1] - a[1]).map(([mat, hs]) => `
-    <div class="progreso-item">
-      <div class="pi-head"><span class="nombre">${mat}</span><span class="faltan">${hs} hs</span></div>
-      <div class="progreso-bar"><span style="width:${Math.round((hs / maxAer) * 100)}%"></span></div>
-    </div>`).join('');
-  const rutasTop = Object.entries(porRuta).sort((a, b) => b[1] - a[1]).slice(0, 8)
-    .map(([r, c]) => `<span class="chip">${r} · ${c}v</span>`).join('');
-  cont.innerHTML = `
-    <h3>Horas por aeronave</h3>
-    ${filasAer}
-    <h3 style="margin-top:14px">Rutas más voladas</h3>
-    <div>${rutasTop}</div>
-    <p class="muted" style="margin-top:8px">Mapa geográfico de rutas: mejora futura (requiere geocodificar OACI → lat/lon).</p>
-  `;
-}
-
-function gastoDelMes(vuelos) {
-  const hoy = new Date();
-  const delMes = vuelos.filter((v) => {
-    const f = new Date(v.fecha + 'T00:00:00');
-    return f.getFullYear() === hoy.getFullYear() && f.getMonth() === hoy.getMonth();
-  });
-  return Calc.round2(delMes.reduce((s, v) => s + Calc.calcularCosto(v, v.aeronaves), 0));
 }
 
 function fmtMoneda(x, moneda = 'ARS') {
