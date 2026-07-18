@@ -2,9 +2,16 @@
 // SERVICE WORKER — cachea el "app shell" para que la app abra offline.
 // Los datos (vuelos, aeronaves) los maneja js/offline.js con IndexedDB,
 // no este service worker.
+//
+// Estrategia: "red primero, cache como respaldo" para los archivos propios
+// (HTML/CSS/JS) — así, si hay señal, siempre usás la última versión
+// deployada, y el cache solo entra a jugar cuando estás offline. Antes esto
+// era cache-primero, lo que hacía que una config vieja (ej. la URL de
+// Supabase) quedara pegada en el navegador aunque el deploy ya la hubiera
+// corregido.
 // ============================================================================
 
-const CACHE = 'libro-vuelo-v1';
+const CACHE = 'libro-vuelo-v2';
 const ARCHIVOS_SHELL = [
   './', './index.html', './manifest.webmanifest',
   './css/styles.css',
@@ -30,22 +37,25 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  const req = event.request;
+  const url = new URL(req.url);
 
-  // Nunca cachear llamadas a Supabase: siempre red (los datos deben ser frescos;
-  // si no hay red, la app ya maneja el guardado offline por su cuenta).
-  if (url.hostname.includes('supabase.co')) return;
+  // Solo interceptamos pedidos propios (mismo origen, http/https, GET).
+  // Nunca cacheamos Supabase (datos siempre frescos) ni esquemas raros
+  // como chrome-extension:// (no se pueden guardar en Cache Storage).
+  if (req.method !== 'GET') return;
+  if (url.origin !== self.location.origin) return;
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   event.respondWith(
-    caches.match(event.request).then((cacheado) => {
-      const red = fetch(event.request).then((resp) => {
-        if (resp && resp.status === 200 && event.request.method === 'GET') {
+    fetch(req)
+      .then((resp) => {
+        if (resp && resp.status === 200) {
           const copia = resp.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copia));
+          caches.open(CACHE).then((cache) => cache.put(req, copia));
         }
         return resp;
-      }).catch(() => cacheado);
-      return cacheado || red;
-    })
+      })
+      .catch(() => caches.match(req))
   );
 });
