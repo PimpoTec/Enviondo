@@ -55,10 +55,12 @@ create table if not exists vuelos (
   hasta                 text not null,   -- OACI, 4 letras
   hora_llegada_utc      time,
 
-  finalidad_vuelo       text not null default 'local'
-                          check (finalidad_vuelo in
-                            ('instruccion', 'travesia', 'local', 'trabajo_aereo',
-                             'verificacion', 'adiestramiento')),
+  -- Códigos tal cual se usan en la escuela/libro en papel:
+  -- INST=Instrucción · ADAP=Adaptación · REDAP=Readaptación · EXA=Examen
+  -- ENTT=Entrenamiento (en escuela) · VP=Vuelo Privado (mismo entrenamiento,
+  -- pero en aeronave privada, fuera de la escuela).
+  finalidad_vuelo       text not null default 'INST'
+                          check (finalidad_vuelo in ('INST', 'ADAP', 'REDAP', 'EXA', 'ENTT', 'VP')),
 
   aeronave_id           uuid not null references aeronaves(id) on delete restrict,
 
@@ -289,5 +291,33 @@ create policy "vuelos_programados_select_own" on vuelos_programados for select u
 create policy "vuelos_programados_insert_own" on vuelos_programados for insert with check (auth.uid() = user_id);
 create policy "vuelos_programados_update_own" on vuelos_programados for update using (auth.uid() = user_id);
 create policy "vuelos_programados_delete_own" on vuelos_programados for delete using (auth.uid() = user_id);
+
+-- ============================================================================
+-- ACTUALIZACIÓN — códigos de finalidad del vuelo tal cual los usa la
+-- escuela/libro en papel (INST, ADAP, REDAP, EXA, ENTT, VP) en vez de las
+-- categorías genéricas que había antes.
+-- ============================================================================
+alter table vuelos drop constraint if exists vuelos_finalidad_vuelo_check;
+
+-- A los vuelos importados del libro en papel les habíamos guardado el
+-- código original dentro de "observaciones" (ej. "...finalidad original: ENTT").
+-- Lo recuperamos de ahí para no perder la distinción real.
+update vuelos
+set finalidad_vuelo = upper(trim(substring(observaciones from 'finalidad original:\s*([A-Za-z]*)')))
+where observaciones ~ 'finalidad original:\s*[A-Za-z]+';
+
+-- Mapeo de las categorías genéricas viejas (para vuelos que no tenían el
+-- código original guardado) a los códigos nuevos más parecidos.
+update vuelos set finalidad_vuelo = 'INST' where finalidad_vuelo = 'instruccion';
+update vuelos set finalidad_vuelo = 'EXA'  where finalidad_vuelo = 'verificacion';
+update vuelos set finalidad_vuelo = 'ENTT' where finalidad_vuelo in ('local', 'travesia', 'trabajo_aereo', 'adiestramiento');
+
+-- Cualquier valor que haya quedado fuera del set nuevo (por las dudas) cae
+-- en ENTT, el más frecuente, para no dejar filas inconsistentes.
+update vuelos set finalidad_vuelo = 'ENTT' where finalidad_vuelo not in ('INST', 'ADAP', 'REDAP', 'EXA', 'ENTT', 'VP');
+
+alter table vuelos alter column finalidad_vuelo set default 'INST';
+alter table vuelos add constraint vuelos_finalidad_vuelo_check
+  check (finalidad_vuelo in ('INST', 'ADAP', 'REDAP', 'EXA', 'ENTT', 'VP'));
 
 -- Fin del esquema.

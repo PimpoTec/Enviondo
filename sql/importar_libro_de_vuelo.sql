@@ -8,6 +8,14 @@
 -- por matrícula) pero SÍ duplicaría los vuelos si lo corrés dos veces —
 -- correlo una sola vez.
 --
+-- ⚠️ NOTA (posterior a la importación): los códigos de finalidad de acá
+-- abajo quedaron mapeados a categorías genéricas (instruccion/verificacion/
+-- adiestramiento). Eso se corrigió después con el bloque de "ACTUALIZACIÓN"
+-- al final de sql/schema.sql, que restaura los códigos originales (INST,
+-- ADAP, ENTT, VP, EXA) leyéndolos del campo "observaciones" de cada fila.
+-- Si ya corriste este archivo una vez, NO hace falta volver a correrlo —
+-- solo corré esa actualización de schema.sql.
+--
 -- Decisiones tomadas al convertir el excel (confirmadas con el piloto):
 --   - Todos los aterrizajes se cargaron como "de día" (el excel no separaba
 --     aterrizajes día/noche en columnas propias, y no hubo vuelos nocturnos

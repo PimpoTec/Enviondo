@@ -70,12 +70,12 @@ const ViewNuevoVuelo = {
         <div class="field">
           <label>Finalidad del vuelo</label>
           <select id="f-finalidad">
-            <option value="local">Local</option>
-            <option value="instruccion">Instrucción</option>
-            <option value="travesia">Travesía</option>
-            <option value="trabajo_aereo">Trabajo aéreo</option>
-            <option value="verificacion">Verificación</option>
-            <option value="adiestramiento">Adiestramiento</option>
+            <option value="INST">INST — Instrucción</option>
+            <option value="ADAP">ADAP — Adaptación</option>
+            <option value="REDAP">REDAP — Readaptación</option>
+            <option value="EXA">EXA — Examen</option>
+            <option value="ENTT">ENTT — Entrenamiento (escuela)</option>
+            <option value="VP">VP — Vuelo privado</option>
           </select>
         </div>
 

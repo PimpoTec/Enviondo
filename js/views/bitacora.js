@@ -25,12 +25,12 @@ const ViewBitacora = {
           <div class="field"><label>Finalidad</label>
             <select id="fx-finalidad">
               <option value="">Todas</option>
-              <option value="local">Local</option>
-              <option value="instruccion">Instrucción</option>
-              <option value="travesia">Travesía</option>
-              <option value="trabajo_aereo">Trabajo aéreo</option>
-              <option value="verificacion">Verificación</option>
-              <option value="adiestramiento">Adiestramiento</option>
+              <option value="INST">INST — Instrucción</option>
+              <option value="ADAP">ADAP — Adaptación</option>
+              <option value="REDAP">REDAP — Readaptación</option>
+              <option value="EXA">EXA — Examen</option>
+              <option value="ENTT">ENTT — Entrenamiento</option>
+              <option value="VP">VP — Vuelo privado</option>
             </select>
           </div>
         </div>
