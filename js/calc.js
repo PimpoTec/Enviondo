@@ -41,9 +41,14 @@ function calcularTotales(vuelo) {
 }
 
 // Costo = horas de día * tarifa diurna + horas de noche * tarifa nocturna.
-// El usuario nunca carga plata a mano.
+// Para simuladores (turnos de adiestrador terrestre) no hay buckets de
+// tiempo de vuelo, así que el costo sale de las horas de adiestrador por
+// la tarifa del simulador. El usuario nunca carga plata a mano.
 function calcularCosto(vuelo, aeronave) {
   if (!aeronave) return 0;
+  if (aeronave.es_simulador) {
+    return round2(n(vuelo.adiestrador_simulador) * n(aeronave.tarifa_hora_diurna));
+  }
   const { total_dia, total_noche } = calcularTotales(vuelo);
   return round2(
     total_dia * n(aeronave.tarifa_hora_diurna) +

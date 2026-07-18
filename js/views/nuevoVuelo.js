@@ -11,6 +11,8 @@ const ViewNuevoVuelo = {
   esPiloto: true,
   discriminarRapido: false,
   progId: null,
+  editId: null,
+  editVuelo: null,
   params: null,
 
   async render(params) {
@@ -22,6 +24,24 @@ const ViewNuevoVuelo = {
     const hastaParam = this.params?.get('hasta');
     if (desdeParam && hastaParam && desdeParam !== hastaParam) {
       this.esTravesia = true;
+    }
+
+    const nuevoEditId = this.params?.get('editar') || null;
+    if (nuevoEditId && nuevoEditId !== this.editId) {
+      this.editId = nuevoEditId;
+      try {
+        this.editVuelo = await Repo.obtenerVuelo(this.editId);
+        this.tipo = (this.editVuelo.desde === 'TERR' && this.editVuelo.hasta === 'TERR') ? 'adiestrador' : 'vuelo';
+        this.esTravesia = this.editVuelo.desde !== this.editVuelo.hasta;
+        this.modoDetallado = this.tipo === 'vuelo';
+      } catch (err) {
+        this.editId = null;
+        this.editVuelo = null;
+        alert('No se pudo cargar el vuelo a editar: ' + (err.message || err));
+      }
+    } else if (!nuevoEditId) {
+      this.editId = null;
+      this.editVuelo = null;
     }
 
     if (!this.aeronaves.length) {
@@ -36,18 +56,19 @@ const ViewNuevoVuelo = {
     main.innerHTML = `
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <h2 style="margin:0">➕ Nuevo registro</h2>
+          <h2 style="margin:0">${this.editId ? '✏️ Editar registro' : '➕ Nuevo registro'}</h2>
           ${this.tipo === 'vuelo' ? '<button class="btn secondary" id="btn-toggle-modo">Modo detallado</button>' : ''}
         </div>
 
         <div class="field" style="margin-bottom:16px">
           <div class="toggle-group">
-            <button type="button" id="tg-tipo-vuelo" class="${this.tipo === 'vuelo' ? 'active' : ''}">✈️ Vuelo</button>
-            <button type="button" id="tg-tipo-adiestrador" class="${this.tipo === 'adiestrador' ? 'active' : ''}">🖥️ Adiestrador terrestre</button>
+            <button type="button" id="tg-tipo-vuelo" class="${this.tipo === 'vuelo' ? 'active' : ''}" ${this.editId ? 'disabled' : ''}>✈️ Vuelo</button>
+            <button type="button" id="tg-tipo-adiestrador" class="${this.tipo === 'adiestrador' ? 'active' : ''}" ${this.editId ? 'disabled' : ''}>🖥️ Adiestrador terrestre</button>
           </div>
         </div>
 
         ${this.progId && this.tipo === 'vuelo' ? '<p class="muted">✈️ Precargado desde tu vuelo agendado — revisá los datos y completá el resto.</p>' : ''}
+        ${this.editId ? '<p class="muted">✏️ Editando un registro existente.</p>' : ''}
 
         <div id="form-registro"></div>
       </div>
@@ -75,6 +96,15 @@ const ViewNuevoVuelo = {
   _renderFormVuelo() {
     const cont = document.getElementById('form-registro');
     const params = this.params;
+    const aeronavesVuelo = this.aeronaves.filter((a) => !a.es_simulador);
+
+    if (!aeronavesVuelo.length) {
+      cont.innerHTML = `<div class="empty-state">
+        Todavía no cargaste ninguna aeronave (los simuladores no cuentan para vuelos reales).
+        <br><button class="btn" style="margin-top:12px" onclick="Router.irA('aeronaves')">Cargar aeronave</button>
+      </div>`;
+      return;
+    }
 
     cont.innerHTML = `
       <div class="field-row">
@@ -85,7 +115,7 @@ const ViewNuevoVuelo = {
         <div class="field">
           <label>Aeronave</label>
           <select id="f-aeronave">
-            ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === params?.get('aeronave') ? 'selected' : ''}>${a.matricula} — ${a.marca_modelo}</option>`).join('')}
+            ${aeronavesVuelo.map((a) => `<option value="${a.id}" ${a.id === params?.get('aeronave') ? 'selected' : ''}>${a.matricula} — ${a.marca_modelo}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -238,13 +268,41 @@ const ViewNuevoVuelo = {
 
       <p id="mensaje-validacion" class="muted"></p>
       <div class="btn-row">
-        <button class="btn" id="btn-guardar-vuelo">Guardar vuelo</button>
-        <button class="btn secondary" id="btn-limpiar">Limpiar</button>
+        <button class="btn" id="btn-guardar-vuelo">${this.editId ? 'Guardar cambios' : 'Guardar vuelo'}</button>
+        <button class="btn secondary" id="btn-limpiar">${this.editId ? 'Cancelar' : 'Limpiar'}</button>
       </div>
     `;
 
     this._bindVuelo();
+    if (this.editVuelo) this._prefillEdicionVuelo();
     this._actualizarPreview();
+  },
+
+  _prefillEdicionVuelo() {
+    const v = this.editVuelo;
+    document.getElementById('f-fecha').value = v.fecha;
+    document.getElementById('f-aeronave').value = v.aeronave_id;
+    document.getElementById('f-desde').value = v.desde;
+    if (this.esTravesia) document.getElementById('f-hasta').value = v.hasta;
+    document.getElementById('f-hora-salida').value = (v.hora_salida_utc || '').slice(0, 5);
+    document.getElementById('f-hora-llegada').value = (v.hora_llegada_utc || '').slice(0, 5);
+    document.getElementById('f-finalidad').value = v.finalidad_vuelo;
+    document.getElementById('f-observaciones').value = v.observaciones || '';
+    Calc.CAMPOS_TIEMPO.forEach((c) => { document.getElementById('d-' + c).value = Calc.n(v[c]); });
+    document.getElementById('d-aterrizajes_dia').value = Calc.n(v.aterrizajes_dia);
+    document.getElementById('d-aterrizajes_noche').value = Calc.n(v.aterrizajes_noche);
+    document.getElementById('d-remolques').value = Calc.n(v.remolques);
+    document.getElementById('d-instruccion_vuelo').value = Calc.n(v.instruccion_vuelo);
+    document.getElementById('d-multimotor').value = Calc.n(v.multimotor);
+    document.getElementById('d-reactor').value = Calc.n(v.reactor);
+    document.getElementById('d-turbohelice').value = Calc.n(v.turbohelice);
+    document.getElementById('d-aeroaplicador').value = Calc.n(v.aeroaplicador);
+    document.getElementById('d-instrumentos_real_piloto').value = Calc.n(v.instrumentos_real);
+    document.getElementById('d-instrumentos_real_copiloto').value = 0;
+    document.getElementById('d-instrumentos_capota').value = Calc.n(v.instrumentos_capota);
+    document.getElementById('d-adiestrador_simulador').value = Calc.n(v.adiestrador_simulador);
+    document.getElementById('d-instructor_nombre').value = v.instructor_nombre || '';
+    document.getElementById('d-instructor_matricula').value = v.instructor_matricula || '';
   },
 
   _bindVuelo() {
@@ -272,7 +330,10 @@ const ViewNuevoVuelo = {
     });
 
     document.getElementById('btn-guardar-vuelo').onclick = () => this._guardar();
-    document.getElementById('btn-limpiar').onclick = () => this.render();
+    document.getElementById('btn-limpiar').onclick = () => {
+      if (this.editId) { Router.irA('bitacora'); return; }
+      this.render();
+    };
   },
 
   _sincronizarHasta() {
@@ -403,6 +464,15 @@ const ViewNuevoVuelo = {
     btn.disabled = true;
     btn.textContent = 'Guardando…';
     try {
+      if (this.editId) {
+        await Repo.actualizarVuelo(this.editId, campos);
+        msg.textContent = '✅ Cambios guardados.';
+        msg.className = 'muted';
+        this.editId = null;
+        this.editVuelo = null;
+        setTimeout(() => Router.irA('bitacora'), 700);
+        return;
+      }
       const res = await Repo.crearVuelo(campos);
       if (this.progId) {
         Repo.borrarVueloProgramado(this.progId).catch(() => {});
@@ -418,7 +488,7 @@ const ViewNuevoVuelo = {
       msg.textContent = '❌ Error al guardar: ' + (err.message || err);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Guardar vuelo';
+      btn.textContent = this.editId ? 'Guardar cambios' : 'Guardar vuelo';
     }
   },
 
@@ -428,6 +498,17 @@ const ViewNuevoVuelo = {
   // ==========================================================================
   _renderFormAdiestrador() {
     const cont = document.getElementById('form-registro');
+    const simuladores = this.aeronaves.filter((a) => a.es_simulador);
+
+    if (!simuladores.length) {
+      cont.innerHTML = `<div class="empty-state">
+        Todavía no cargaste ningún simulador. Andá a Aeronaves → "🖥️ Simulador" para cargar uno
+        (nombre, modelo y tarifa por hora nomás).
+        <br><button class="btn" style="margin-top:12px" onclick="Router.irA('aeronaves')">Cargar simulador</button>
+      </div>`;
+      return;
+    }
+
     cont.innerHTML = `
       <div class="field-row">
         <div class="field">
@@ -435,9 +516,9 @@ const ViewNuevoVuelo = {
           <input type="date" id="at-fecha" value="${new Date().toISOString().slice(0, 10)}" />
         </div>
         <div class="field">
-          <label>Aeronave / simulador</label>
+          <label>Simulador</label>
           <select id="at-aeronave">
-            ${this.aeronaves.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
+            ${simuladores.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -460,12 +541,24 @@ const ViewNuevoVuelo = {
         <label>Observaciones</label>
         <textarea id="at-observaciones" rows="2"></textarea>
       </div>
+
+      <div class="card" style="background:var(--bg-subtle);border:none;box-shadow:none;margin-bottom:12px">
+        <div class="stat"><div class="num" id="at-prev-costo">$0</div><div class="lbl">Costo estimado</div></div>
+      </div>
+
       <p id="mensaje-validacion" class="muted"></p>
       <div class="btn-row">
-        <button class="btn" id="btn-guardar-adiestrador">Guardar turno</button>
-        <button class="btn secondary" id="btn-limpiar">Limpiar</button>
+        <button class="btn" id="btn-guardar-adiestrador">${this.editId ? 'Guardar cambios' : 'Guardar turno'}</button>
+        <button class="btn secondary" id="btn-limpiar">${this.editId ? 'Cancelar' : 'Limpiar'}</button>
       </div>
     `;
+
+    const actualizarCostoAdiestrador = () => {
+      const aeronave = simuladores.find((a) => a.id === document.getElementById('at-aeronave').value);
+      const tiempo = Calc.n(document.getElementById('at-tiempo').value);
+      const costo = Calc.calcularCosto({ adiestrador_simulador: tiempo }, aeronave);
+      document.getElementById('at-prev-costo').textContent = fmtMoneda(costo, aeronave?.moneda);
+    };
 
     ['at-hora-inicio', 'at-hora-fin'].forEach((id) => {
       document.getElementById(id).addEventListener('change', () => {
@@ -476,11 +569,28 @@ const ViewNuevoVuelo = {
           document.getElementById('at-tiempo').value = total;
           document.getElementById('at-tiempo-calculado').textContent = `Calculado del horario: ${total} hs`;
         }
+        actualizarCostoAdiestrador();
       });
     });
+    document.getElementById('at-aeronave').addEventListener('change', actualizarCostoAdiestrador);
+    document.getElementById('at-tiempo').addEventListener('input', actualizarCostoAdiestrador);
 
     document.getElementById('btn-guardar-adiestrador').onclick = () => this._guardarAdiestrador();
-    document.getElementById('btn-limpiar').onclick = () => this.render();
+    document.getElementById('btn-limpiar').onclick = () => {
+      if (this.editId) { Router.irA('bitacora'); return; }
+      this.render();
+    };
+
+    if (this.editVuelo) {
+      const v = this.editVuelo;
+      document.getElementById('at-fecha').value = v.fecha;
+      document.getElementById('at-aeronave').value = v.aeronave_id;
+      document.getElementById('at-hora-inicio').value = (v.hora_salida_utc || '').slice(0, 5);
+      document.getElementById('at-hora-fin').value = (v.hora_llegada_utc || '').slice(0, 5);
+      document.getElementById('at-tiempo').value = Calc.n(v.adiestrador_simulador);
+      document.getElementById('at-observaciones').value = (v.observaciones || '').replace(/^Turno de adiestrador terrestre( — )?/, '');
+    }
+    actualizarCostoAdiestrador();
   },
 
   async _guardarAdiestrador() {
@@ -513,6 +623,15 @@ const ViewNuevoVuelo = {
     btn.disabled = true;
     btn.textContent = 'Guardando…';
     try {
+      if (this.editId) {
+        await Repo.actualizarVuelo(this.editId, campos);
+        msg.textContent = '✅ Cambios guardados.';
+        msg.className = 'muted';
+        this.editId = null;
+        this.editVuelo = null;
+        setTimeout(() => Router.irA('bitacora'), 700);
+        return;
+      }
       const res = await Repo.crearVuelo(campos);
       msg.textContent = res.offline ? '📴 Guardado localmente. Se sincroniza solo al volver la señal.' : '✅ Turno guardado.';
       msg.className = 'muted';
@@ -521,7 +640,7 @@ const ViewNuevoVuelo = {
       msg.textContent = '❌ Error al guardar: ' + (err.message || err);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Guardar turno';
+      btn.textContent = this.editId ? 'Guardar cambios' : 'Guardar turno';
     }
   },
 };

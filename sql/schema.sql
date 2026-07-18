@@ -320,4 +320,13 @@ alter table vuelos alter column finalidad_vuelo set default 'INST';
 alter table vuelos add constraint vuelos_finalidad_vuelo_check
   check (finalidad_vuelo in ('INST', 'ADAP', 'REDAP', 'EXA', 'ENTT', 'VP'));
 
+-- ============================================================================
+-- ACTUALIZACIÓN — simuladores (adiestrador terrestre) como un tipo de
+-- aeronave aparte, con ficha simplificada (nombre, modelo y tarifa nomás).
+-- ============================================================================
+alter table aeronaves add column if not exists es_simulador boolean not null default false;
+alter table aeronaves drop constraint if exists aeronaves_clase_check;
+alter table aeronaves add constraint aeronaves_clase_check
+  check (clase in ('monomotor', 'multimotor', 'reactor', 'turbohelice', 'aeroaplicador', 'simulador'));
+
 -- Fin del esquema.

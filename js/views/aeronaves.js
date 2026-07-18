@@ -1,5 +1,7 @@
 // ============================================================================
 // VISTA: AERONAVES — ABM de fichas con tarifas diurna/nocturna.
+// También viven acá los "simuladores" (adiestrador terrestre), con una
+// ficha simplificada: nombre, modelo y tarifa por hora nomás.
 // ============================================================================
 
 const CLASES_AERONAVE = [
@@ -12,6 +14,7 @@ const CLASES_AERONAVE = [
 
 const ViewAeronaves = {
   editandoId: null,
+  tipo: 'aeronave', // 'aeronave' | 'simulador'
 
   async render() {
     const main = document.getElementById('main-content');
@@ -19,7 +22,53 @@ const ViewAeronaves = {
 
     main.innerHTML = `
       <div class="card">
-        <h2 id="titulo-form-aeronave">🛩️ Nueva aeronave</h2>
+        <h2 id="titulo-form-aeronave">🛩️ Nueva ficha</h2>
+
+        <div class="field" style="margin-bottom:16px">
+          <div class="toggle-group">
+            <button type="button" id="tg-tipo-aeronave" class="${this.tipo === 'aeronave' ? 'active' : ''}">✈️ Aeronave</button>
+            <button type="button" id="tg-tipo-simulador" class="${this.tipo === 'simulador' ? 'active' : ''}">🖥️ Simulador</button>
+          </div>
+        </div>
+
+        <div id="form-aeronave"></div>
+      </div>
+
+      <div class="card">
+        <h2>Tus aeronaves y simuladores</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Matrícula / Nombre</th><th>Modelo</th><th>Clase</th><th class="num">Tarifa día</th><th class="num">Tarifa noche</th><th>Habitual</th><th></th></tr></thead>
+          <tbody id="tbody-aeronaves"></tbody>
+        </table></div>
+      </div>
+    `;
+
+    document.getElementById('tg-tipo-aeronave').onclick = () => { this.tipo = 'aeronave'; this.editandoId = null; this._renderForm(); };
+    document.getElementById('tg-tipo-simulador').onclick = () => { this.tipo = 'simulador'; this.editandoId = null; this._renderForm(); };
+
+    this._renderForm();
+    this._renderTabla(aeronaves);
+  },
+
+  _renderForm() {
+    const cont = document.getElementById('form-aeronave');
+    document.getElementById('titulo-form-aeronave').textContent = this.tipo === 'simulador' ? '🖥️ Nuevo simulador' : '✈️ Nueva aeronave';
+
+    if (this.tipo === 'simulador') {
+      cont.innerHTML = `
+        <div class="grid cols-2">
+          <div class="field"><label>Nombre del simulador</label><input id="a-matricula" placeholder="SIM-01"></div>
+          <div class="field"><label>Modelo</label><input id="a-marca" placeholder="Redbird FMX"></div>
+          <div class="field"><label>Tarifa por hora</label><input type="number" step="0.01" min="0" id="a-tarifa-dia" value="0"></div>
+          <div class="field"><label>Moneda</label><input id="a-moneda" value="ARS"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btn-guardar-aeronave">Guardar</button>
+          <button class="btn secondary" id="btn-cancelar-aeronave" style="display:${this.editandoId ? 'inline-flex' : 'none'}">Cancelar edición</button>
+        </div>
+      `;
+    } else {
+      cont.innerHTML = `
         <div class="grid cols-2">
           <div class="field"><label>Matrícula</label><input id="a-matricula" placeholder="LV-ABC"></div>
           <div class="field"><label>Modelo</label><input id="a-marca" placeholder="Cessna 152"></div>
@@ -45,27 +94,18 @@ const ViewAeronaves = {
         <div class="field"><label>Notas</label><textarea id="a-notas" rows="2"></textarea></div>
         <div class="btn-row">
           <button class="btn" id="btn-guardar-aeronave">Guardar</button>
-          <button class="btn secondary" id="btn-cancelar-aeronave" style="display:none">Cancelar edición</button>
+          <button class="btn secondary" id="btn-cancelar-aeronave" style="display:${this.editandoId ? 'inline-flex' : 'none'}">Cancelar edición</button>
         </div>
-      </div>
-
-      <div class="card">
-        <h2>Tus aeronaves</h2>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Matrícula</th><th>Modelo</th><th>Clase</th><th class="num">Tarifa día</th><th class="num">Tarifa noche</th><th>Habitual</th><th></th></tr></thead>
-          <tbody id="tbody-aeronaves"></tbody>
-        </table></div>
-      </div>
-    `;
+      `;
+    }
 
     document.getElementById('btn-guardar-aeronave').onclick = () => this._guardar();
-    document.getElementById('btn-cancelar-aeronave').onclick = () => this.render();
-
-    this._renderTabla(aeronaves);
+    document.getElementById('btn-cancelar-aeronave').onclick = () => { this.editandoId = null; this.render(); };
   },
 
-  _labelClase(valor) {
-    return CLASES_AERONAVE.find((c) => c.valor === valor)?.label || valor;
+  _labelClase(a) {
+    if (a.es_simulador) return 'Simulador';
+    return CLASES_AERONAVE.find((c) => c.valor === a.clase)?.label || a.clase;
   },
 
   _renderTabla(aeronaves) {
@@ -76,11 +116,11 @@ const ViewAeronaves = {
     }
     tbody.innerHTML = aeronaves.map((a) => `
       <tr>
-        <td>${a.matricula}</td>
+        <td>${a.es_simulador ? '🖥️ ' : ''}${a.matricula}</td>
         <td>${a.marca_modelo}</td>
-        <td>${this._labelClase(a.clase)}</td>
+        <td>${this._labelClase(a)}</td>
         <td class="num">${fmtMoneda(a.tarifa_hora_diurna, a.moneda)}</td>
-        <td class="num">${fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</td>
+        <td class="num">${a.es_simulador ? '—' : fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</td>
         <td>${a.es_habitual ? '⭐' : ''}</td>
         <td>
           <button class="btn ghost" onclick='ViewAeronaves._editar(${JSON.stringify(a).replace(/'/g, "&apos;")})'>✏️</button>
@@ -92,38 +132,61 @@ const ViewAeronaves = {
 
   _editar(a) {
     this.editandoId = a.id;
+    this.tipo = a.es_simulador ? 'simulador' : 'aeronave';
+    document.getElementById('tg-tipo-aeronave').classList.toggle('active', this.tipo === 'aeronave');
+    document.getElementById('tg-tipo-simulador').classList.toggle('active', this.tipo === 'simulador');
+    this._renderForm();
+
     document.getElementById('titulo-form-aeronave').textContent = `✏️ Editando ${a.matricula}`;
     document.getElementById('a-matricula').value = a.matricula;
     document.getElementById('a-marca').value = a.marca_modelo;
-    document.getElementById('a-potencia').value = a.potencia || '';
-    document.getElementById('a-clase').value = a.clase || 'monomotor';
-    document.getElementById('a-medio').value = a.medio;
     document.getElementById('a-tarifa-dia').value = a.tarifa_hora_diurna;
-    document.getElementById('a-tarifa-noche').value = a.tarifa_hora_nocturna;
     document.getElementById('a-moneda').value = a.moneda;
-    document.getElementById('a-habitual').checked = a.es_habitual;
-    document.getElementById('a-notas').value = a.notas || '';
-    document.getElementById('btn-cancelar-aeronave').style.display = 'inline-flex';
+    if (this.tipo === 'aeronave') {
+      document.getElementById('a-potencia').value = a.potencia || '';
+      document.getElementById('a-clase').value = a.clase || 'monomotor';
+      document.getElementById('a-medio').value = a.medio;
+      document.getElementById('a-tarifa-noche').value = a.tarifa_hora_nocturna;
+      document.getElementById('a-habitual').checked = a.es_habitual;
+      document.getElementById('a-notas').value = a.notas || '';
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
   async _guardar() {
     const matricula = document.getElementById('a-matricula').value.trim().toUpperCase();
     const marca_modelo = document.getElementById('a-marca').value.trim();
-    if (!matricula || !marca_modelo) { alert('Matrícula y modelo son obligatorios.'); return; }
+    if (!matricula || !marca_modelo) {
+      alert(this.tipo === 'simulador' ? 'Nombre y modelo son obligatorios.' : 'Matrícula y modelo son obligatorios.');
+      return;
+    }
 
-    const aeronave = {
-      id: this.editandoId || undefined,
-      matricula, marca_modelo,
-      potencia: document.getElementById('a-potencia').value || null,
-      clase: document.getElementById('a-clase').value,
-      medio: document.getElementById('a-medio').value,
-      tarifa_hora_diurna: Calc.n(document.getElementById('a-tarifa-dia').value),
-      tarifa_hora_nocturna: Calc.n(document.getElementById('a-tarifa-noche').value),
-      moneda: document.getElementById('a-moneda').value || 'ARS',
-      es_habitual: document.getElementById('a-habitual').checked,
-      notas: document.getElementById('a-notas').value || null,
-    };
+    let aeronave;
+    if (this.tipo === 'simulador') {
+      const tarifa = Calc.n(document.getElementById('a-tarifa-dia').value);
+      aeronave = {
+        id: this.editandoId || undefined,
+        matricula, marca_modelo,
+        potencia: null, clase: 'simulador', medio: 'terrestre',
+        tarifa_hora_diurna: tarifa, tarifa_hora_nocturna: tarifa,
+        moneda: document.getElementById('a-moneda').value || 'ARS',
+        es_habitual: false, es_simulador: true, notas: null,
+      };
+    } else {
+      aeronave = {
+        id: this.editandoId || undefined,
+        matricula, marca_modelo,
+        potencia: document.getElementById('a-potencia').value || null,
+        clase: document.getElementById('a-clase').value,
+        medio: document.getElementById('a-medio').value,
+        tarifa_hora_diurna: Calc.n(document.getElementById('a-tarifa-dia').value),
+        tarifa_hora_nocturna: Calc.n(document.getElementById('a-tarifa-noche').value),
+        moneda: document.getElementById('a-moneda').value || 'ARS',
+        es_habitual: document.getElementById('a-habitual').checked,
+        es_simulador: false,
+        notas: document.getElementById('a-notas').value || null,
+      };
+    }
 
     try {
       await Repo.guardarAeronave(aeronave);
@@ -135,7 +198,7 @@ const ViewAeronaves = {
   },
 
   async _borrar(id) {
-    if (!confirm('¿Borrar esta aeronave? Si tiene vuelos cargados, no se va a poder borrar.')) return;
+    if (!confirm('¿Borrar esta ficha? Si tiene vuelos cargados, no se va a poder borrar.')) return;
     try {
       await Repo.borrarAeronave(id);
       this.render();

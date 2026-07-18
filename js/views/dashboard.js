@@ -211,7 +211,7 @@ function renderUltimosVuelos(vuelos) {
           <td>${v.desde} → ${v.hasta}</td>
           <td>${v.aeronaves?.matricula || '—'}</td>
           <td class="num">${v.tiempo_total} hs</td>
-          <td><button class="btn ghost" onclick="Router.irA('bitacora')">Editar</button></td>
+          <td><button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar</button></td>
         </tr>`).join('')}
     </tbody>
   </table></div>`;

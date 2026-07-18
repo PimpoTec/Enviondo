@@ -72,6 +72,11 @@ const Repo = {
     if (error) throw error;
     return data;
   },
+  async obtenerVuelo(id) {
+    const { data, error } = await window.db.from('vuelos').select('*').eq('id', id).single();
+    if (error) throw error;
+    return data;
+  },
   async crearVuelo(vuelo) {
     const user = await usuarioActual();
     const payload = { ...vuelo, user_id: user.id };

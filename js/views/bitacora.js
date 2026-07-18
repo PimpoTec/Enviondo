@@ -99,6 +99,7 @@ const ViewBitacora = {
         <td class="num">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</td>
         <td class="num">${fmtMoneda(Calc.calcularCosto(v, v.aeronaves), v.aeronaves?.moneda)}</td>
         <td>
+          <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">✏️</button>
           <button class="btn ghost" onclick="ViewBitacora._borrar('${v.id}')">🗑️</button>
         </td>
       </tr>
