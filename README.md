@@ -55,9 +55,15 @@ base de datos (Supabase) y el hosting (Vercel).
    automáticos (columnas `generated always as`, que son las que hacen la
    suma de horas sola) y las políticas de RLS.
 4. Andá a **Authentication → Providers** y confirmá que **Email** esté
-   habilitado (viene así por defecto). La app usa "magic link" (te mandan un
-   link por mail, sin contraseña) para simplificar, ya que es para un solo
-   usuario.
+   habilitado (viene así por defecto). La app usa email + contraseña: te
+   registrás una vez desde la pantalla de "Crear cuenta" y después entrás
+   con esas credenciales. También hay recuperación de contraseña por mail
+   ("¿Olvidaste tu contraseña?").
+   - Si querés evitar el paso de "confirmá tu email" al crear la cuenta
+     (para una app de un solo usuario no suma mucho), podés desactivar
+     **Confirm email** en **Authentication → Providers → Email**. Si lo
+     dejás activado, después de crear la cuenta te va a llegar un mail de
+     confirmación antes de poder iniciar sesión.
 5. Andá a **Authentication → URL Configuration** y agregá la URL donde vas a
    tener la app corriendo (por ejemplo `https://tu-app.vercel.app` y también
    `http://localhost:3000` si la vas a probar local) en **Redirect URLs**.
@@ -96,8 +102,9 @@ python3 -m http.server 3000
 npx serve -l 3000
 ```
 
-Y abrís `http://localhost:3000`. Te va a pedir un email — te va a mandar un
-link mágico, entrás con eso y ya estás dentro.
+Y abrís `http://localhost:3000`. La primera vez, andá a la pestaña **Crear
+cuenta**, poné tu email y una contraseña; las siguientes veces entrás con
+**Iniciar sesión**.
 
 ---
 

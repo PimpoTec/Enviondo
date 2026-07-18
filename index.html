@@ -22,12 +22,64 @@
   <div id="vista-login" class="login-wrap" style="display:none">
     <div class="card login-card">
       <h2>✈️ Libro de Vuelo</h2>
-      <p class="muted">Ingresá tu email y te mandamos un link de acceso (sin contraseña).</p>
-      <div class="field">
-        <label>Email</label>
-        <input id="login-email" type="email" placeholder="vos@ejemplo.com" />
+
+      <div class="toggle-group" style="margin-bottom:14px">
+        <button type="button" id="tab-login" class="active">Iniciar sesión</button>
+        <button type="button" id="tab-signup">Crear cuenta</button>
       </div>
-      <button class="btn" id="btn-enviar-link" style="width:100%">Enviarme el link</button>
+
+      <!-- Iniciar sesión -->
+      <div id="panel-login">
+        <div class="field">
+          <label>Email</label>
+          <input id="login-email" type="email" placeholder="vos@ejemplo.com" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label>Contraseña</label>
+          <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button class="btn" id="btn-login" style="width:100%">Entrar</button>
+        <p style="margin-top:10px"><a href="#" id="link-olvide" class="muted">¿Olvidaste tu contraseña?</a></p>
+      </div>
+
+      <!-- Crear cuenta -->
+      <div id="panel-signup" style="display:none">
+        <div class="field">
+          <label>Email</label>
+          <input id="signup-email" type="email" placeholder="vos@ejemplo.com" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label>Contraseña</label>
+          <input id="signup-password" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+        </div>
+        <div class="field">
+          <label>Repetir contraseña</label>
+          <input id="signup-password2" type="password" placeholder="••••••••" autocomplete="new-password" />
+        </div>
+        <button class="btn" id="btn-signup" style="width:100%">Crear cuenta</button>
+      </div>
+
+      <!-- Recuperar contraseña -->
+      <div id="panel-olvide" style="display:none">
+        <p class="muted">Te mandamos un link para elegir una contraseña nueva.</p>
+        <div class="field">
+          <label>Email</label>
+          <input id="olvide-email" type="email" placeholder="vos@ejemplo.com" autocomplete="username" />
+        </div>
+        <button class="btn" id="btn-olvide" style="width:100%">Mandarme el link</button>
+        <p style="margin-top:10px"><a href="#" id="link-volver-login" class="muted">← Volver</a></p>
+      </div>
+
+      <!-- Elegir nueva contraseña (llegás acá desde el link del mail) -->
+      <div id="panel-nueva-clave" style="display:none">
+        <p class="muted">Elegí tu nueva contraseña.</p>
+        <div class="field">
+          <label>Contraseña nueva</label>
+          <input id="nueva-clave" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+        </div>
+        <button class="btn" id="btn-nueva-clave" style="width:100%">Guardar contraseña</button>
+      </div>
+
       <p id="login-msg" class="muted" style="margin-top:10px"></p>
     </div>
   </div>
