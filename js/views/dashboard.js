@@ -55,7 +55,7 @@ const ViewDashboard = {
     const ultimo = vuelos[0];
 
     main.innerHTML = `
-      <section class="grid" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px">
+      <section class="hero-hours-wrap">
         <div class="card">
           <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
           <div class="hero-hours">
