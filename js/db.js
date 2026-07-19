@@ -12,6 +12,7 @@ const CURSOS = [
   { id: 'PCA', label: 'PCA — Piloto Comercial de Avión' },
   { id: 'PCA_HVI', label: 'PCA + HVI — Piloto Comercial con Habilitación de Vuelo por Instrumentos' },
   { id: 'TLA', label: 'TLA — Piloto de Transporte de Línea Aérea' },
+  { id: 'HAB_NOC', label: 'Habilitación de Vuelo Nocturno (RAAC vigente)' },
 ];
 
 async function usuarioActual() {
@@ -100,22 +101,24 @@ const Repo = {
     if (error) throw error;
   },
 
-  // ---- Perfil del piloto (curso activo) ----
-  async getCursoActivo() {
+  // ---- Perfil del piloto (cursos activos — puede ser más de uno a la vez,
+  // ej. PCA + Habilitación de Vuelo Nocturno en paralelo) ----
+  async getCursosActivos() {
     const user = await usuarioActual();
-    const { data, error } = await window.db.from('perfil_piloto').select('curso_activo').eq('user_id', user.id).maybeSingle();
+    const { data, error } = await window.db.from('perfil_piloto').select('cursos_activos, curso_activo').eq('user_id', user.id).maybeSingle();
     if (error) throw error;
     if (!data) {
-      const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA' });
+      const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA', cursos_activos: ['PPA'] });
       if (e2) throw e2;
-      return 'PPA';
+      return ['PPA'];
     }
-    return data.curso_activo;
+    if (data.cursos_activos && data.cursos_activos.length) return data.cursos_activos;
+    return data.curso_activo ? [data.curso_activo] : ['PPA'];
   },
-  async setCursoActivo(cursoId) {
+  async setCursosActivos(cursoIds) {
     const user = await usuarioActual();
     const { error } = await window.db.from('perfil_piloto')
-      .upsert({ user_id: user.id, curso_activo: cursoId, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      .upsert({ user_id: user.id, cursos_activos: cursoIds, curso_activo: cursoIds[0] || 'PPA', updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
   },
   // Reparto elegido por el piloto entre instrumentos reales y en simulador

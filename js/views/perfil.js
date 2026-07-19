@@ -14,31 +14,35 @@
 const CLAVES_REQUISITO_DISPONIBLES = ['total', 'pic', 'travesia_pic', 'nocturnas', 'instrumentos', 'instrumentos_sim', 'aterrizajes_noche', 'remolques'];
 
 const ViewPerfil = {
-  cursoActivo: 'PPA',
+  cursosActivos: ['PPA'],
   esAdmin: false,
   hviSimHoras: null,
 
   async render() {
     const main = document.getElementById('main-content');
-    [this.cursoActivo, this.esAdmin] = await Promise.all([Repo.getCursoActivo(), Repo.esAdminApp()]);
+    [this.cursosActivos, this.esAdmin] = await Promise.all([Repo.getCursosActivos(), Repo.esAdminApp()]);
     const [vencimientos] = await Promise.all([Repo.listarVencimientos()]);
-    if (this.cursoActivo === 'PCA_HVI') {
+    if (this.cursosActivos.includes('PCA_HVI')) {
       this.hviSimHoras = await Repo.getHviSimHoras();
     }
 
     main.innerHTML = `
       <div class="card">
-        <h2>${Icons.award(18)} Curso / carrera actual</h2>
+        <h2>${Icons.award(18)} Cursos / carreras activas</h2>
         <div class="field">
-          <label>¿Qué estás haciendo ahora?</label>
-          <select id="p-curso">
-            ${CURSOS.map((c) => `<option value="${c.id}" ${c.id === this.cursoActivo ? 'selected' : ''}>${c.label}</option>`).join('')}
-          </select>
+          <label>¿Qué estás haciendo ahora? (podés tildar más de uno, ej. un curso + una habilitación en paralelo)</label>
+          <div id="p-cursos-lista" style="display:flex;flex-direction:column;gap:4px">
+            ${CURSOS.map((c) => `
+              <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text)">
+                <input type="checkbox" class="p-curso-check" value="${c.id}" style="width:auto" ${this.cursosActivos.includes(c.id) ? 'checked' : ''}>
+                ${c.label}
+              </label>`).join('')}
+          </div>
         </div>
-        <p class="muted">Esto define qué progreso te muestra el Dashboard. Podés cambiarlo cuando avances de curso.</p>
+        <p class="muted">Esto define qué progreso te muestra el Dashboard. Podés cambiarlo cuando avances de curso o sumar una habilitación.</p>
       </div>
 
-      ${this.cursoActivo === 'PCA_HVI' ? this._htmlRepartoHvi() : ''}
+      ${this.cursosActivos.includes('PCA_HVI') ? this._htmlRepartoHvi() : ''}
 
       <div id="bloque-licencias"></div>
 
@@ -77,9 +81,11 @@ const ViewPerfil = {
       </div>
     `;
 
-    document.getElementById('p-curso').onchange = (e) => this._cambiarCurso(e.target.value);
+    document.querySelectorAll('.p-curso-check').forEach((chk) => {
+      chk.onchange = () => this._cambiarCursos();
+    });
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
-    if (this.cursoActivo === 'PCA_HVI') {
+    if (this.cursosActivos.includes('PCA_HVI')) {
       document.getElementById('btn-guardar-hvi').onclick = () => this._guardarReparto();
       document.getElementById('hvi-sim').addEventListener('input', (e) => {
         const sim = Math.min(20, Math.max(0, Calc.n(e.target.value)));
@@ -129,20 +135,25 @@ const ViewPerfil = {
     }
   },
 
-  // ---- Vista normal: solo los mínimos del curso activo, de solo lectura ----
+  // ---- Vista normal: mínimos de TODOS los cursos activos, de solo lectura ----
   async _renderSoloLectura() {
     const cont = document.getElementById('bloque-licencias');
-    const config = await Repo.listarConfigLicencia(this.cursoActivo);
+    const configsPorCurso = await Promise.all(
+      this.cursosActivos.map(async (cursoId) => ({ cursoId, config: await Repo.listarConfigLicencia(cursoId) }))
+    );
     cont.innerHTML = `
       <div class="card">
-        <h2>Mínimos del curso seleccionado (referencial)</h2>
+        <h2>Mínimos de los cursos activos (referencial)</h2>
         <p class="muted">${Icons.tag('alertTriangle', 'Estos valores son los mismos para todos y se actualizan cuando cambia la normativa. Confirmá siempre contra la RAAC vigente.')}</p>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Requisito</th><th class="num">Mínimo</th></tr></thead>
-          <tbody>
-            ${config.map((c) => `<tr><td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td><td class="num">${c.minimo_horas}</td></tr>`).join('') || '<tr><td colspan="2" class="empty-state">Sin requisitos cargados para este curso.</td></tr>'}
-          </tbody>
-        </table></div>
+        ${configsPorCurso.map(({ cursoId, config }) => `
+          <h3 style="margin-top:14px">${CURSOS.find((c) => c.id === cursoId)?.label || cursoId}</h3>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Requisito</th><th class="num">Mínimo</th></tr></thead>
+            <tbody>
+              ${config.map((c) => `<tr><td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td><td class="num">${c.minimo_horas}</td></tr>`).join('') || '<tr><td colspan="2" class="empty-state">Sin requisitos cargados para este curso.</td></tr>'}
+            </tbody>
+          </table></div>
+        `).join('')}
       </div>
     `;
   },
@@ -199,9 +210,11 @@ const ViewPerfil = {
     `;
   },
 
-  async _cambiarCurso(cursoId) {
+  async _cambiarCursos() {
+    const seleccionados = [...document.querySelectorAll('.p-curso-check:checked')].map((chk) => chk.value);
+    if (!seleccionados.length) { alert('Tildá al menos un curso.'); this.render(); return; }
     try {
-      await Repo.setCursoActivo(cursoId);
+      await Repo.setCursosActivos(seleccionados);
       this.render();
     } catch (err) {
       alert('Error al cambiar de curso: ' + (err.message || err));

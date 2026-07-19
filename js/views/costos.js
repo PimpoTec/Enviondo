@@ -6,13 +6,17 @@ const ViewCostos = {
   async render() {
     const main = document.getElementById('main-content');
     const vuelos = await Repo.listarVuelos();
-    const cursoActivo = await Repo.getCursoActivo();
-    const config = await Repo.listarConfigLicencia(cursoActivo);
-    const curso = CURSOS.find((c) => c.id === cursoActivo) || CURSOS[1];
+    const cursosActivos = await Repo.getCursosActivos();
+    const configsPorCurso = await Promise.all(cursosActivos.map((id) => Repo.listarConfigLicencia(id)));
     const agg = agregarVuelos(vuelos);
     const costoPromedioHora = agg.tiempo_total > 0 ? Calc.round2(agg.costo_total / agg.tiempo_total) : 0;
 
-    const reqTotal = config.find((c) => c.nombre_requisito === 'total');
+    // Con más de un curso activo, la proyección se calcula contra el que
+    // pida más horas totales (el objetivo "grande", ej. PCA por sobre una
+    // habilitación puntual como HAB_NOC que no tiene requisito "total").
+    const reqsTotal = configsPorCurso.flat().filter((c) => c.nombre_requisito === 'total');
+    const reqTotal = reqsTotal.length ? reqsTotal.reduce((a, b) => (Calc.n(b.minimo_horas) > Calc.n(a.minimo_horas) ? b : a)) : null;
+    const curso = CURSOS.find((c) => c.id === reqTotal?.curso_id) || CURSOS.find((c) => c.id === cursosActivos[0]) || CURSOS[1];
     const horasFaltantes = reqTotal ? Math.max(0, Calc.round2(Calc.n(reqTotal.minimo_horas) - agg.tiempo_total)) : 0;
     const proyeccion = Calc.round2(horasFaltantes * costoPromedioHora);
 

@@ -27,30 +27,32 @@ const ViewDashboard = {
 
   async render() {
     const main = document.getElementById('main-content');
-    const [vuelos, cursoActivo, vencimientos, programados, aeronaves] = await Promise.all([
-      Repo.listarVuelos(), Repo.getCursoActivo(), Repo.listarVencimientos(),
+    const [vuelos, cursosActivos, vencimientos, programados, aeronaves] = await Promise.all([
+      Repo.listarVuelos(), Repo.getCursosActivos(), Repo.listarVencimientos(),
       Repo.listarVuelosProgramados(), Repo.listarAeronaves(),
     ]);
     this.aeronaves = aeronaves;
-    let config = await Repo.listarConfigLicencia(cursoActivo);
     const agg = agregarVuelos(vuelos);
-    const curso = CURSOS.find((c) => c.id === cursoActivo) || CURSOS[1];
 
     // El PCA+HVI reparte sus 40 hs de instrumentos entre real y simulador
     // según lo que el piloto haya elegido en Perfil (no es un mínimo fijo
     // igual para todos, así que no vive en la tabla global de requisitos).
     let avisoHvi = '';
-    if (cursoActivo === 'PCA_HVI') {
-      const simHoras = await Repo.getHviSimHoras();
-      if (simHoras !== null && simHoras !== undefined) {
-        config = config.filter((c) => c.nombre_requisito !== 'instrumentos').concat([
-          { nombre_requisito: 'instrumentos', minimo_horas: Calc.round2(40 - simHoras) },
-          { nombre_requisito: 'instrumentos_sim', minimo_horas: simHoras },
-        ]);
-      } else {
-        avisoHvi = `<p class="muted">${Icons.tag('alertTriangle', 'Todavía no elegiste cómo repartir tus 40 hs de instrumentos entre real y simulador — <a href="#perfil">andá a Perfil</a> para configurarlo.')}</p>`;
+    const configsPorCurso = await Promise.all(cursosActivos.map(async (cursoId) => {
+      let config = await Repo.listarConfigLicencia(cursoId);
+      if (cursoId === 'PCA_HVI') {
+        const simHoras = await Repo.getHviSimHoras();
+        if (simHoras !== null && simHoras !== undefined) {
+          config = config.filter((c) => c.nombre_requisito !== 'instrumentos').concat([
+            { nombre_requisito: 'instrumentos', minimo_horas: Calc.round2(40 - simHoras) },
+            { nombre_requisito: 'instrumentos_sim', minimo_horas: simHoras },
+          ]);
+        } else {
+          avisoHvi = `<p class="muted">${Icons.tag('alertTriangle', 'Todavía no elegiste cómo repartir tus 40 hs de instrumentos entre real y simulador — <a href="#perfil">andá a Perfil</a> para configurarlo.')}</p>`;
+        }
       }
-    }
+      return { cursoId, curso: CURSOS.find((c) => c.id === cursoId), config };
+    }));
 
     const ultimo = vuelos[0];
 
@@ -71,17 +73,8 @@ const ViewDashboard = {
           </div>
           <div style="flex:1;min-width:220px">
             <p class="muted" style="margin:0 0 2px">Progreso licencia</p>
-            <p style="margin:0 0 12px;font-size:18px;font-weight:600">${curso.id.replace('_', ' ')}</p>
-            <div class="grid cols-2" style="margin-bottom:10px">
-              <div class="doc-card">
-                <p class="muted" style="margin:0">Objetivo</p>
-                <p id="hero-objetivo" style="margin:2px 0 0;font-family:var(--font-mono);font-variant-numeric:tabular-nums"></p>
-              </div>
-              <div class="doc-card">
-                <p class="muted" style="margin:0">Resta</p>
-                <p id="hero-resta" style="margin:2px 0 0;font-family:var(--font-mono);color:var(--brand);font-variant-numeric:tabular-nums"></p>
-              </div>
-            </div>
+            <p style="margin:0 0 12px;font-size:18px;font-weight:600">${cursosActivos.map((id) => id.replace('_', ' ')).join(' + ')}</p>
+            <div id="hero-cursos-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
             <div class="progreso-bar"><span id="hero-bar" style="width:0%"></span></div>
             <div style="display:flex;justify-content:space-between;margin-top:6px">
               <span class="muted" id="hero-pct"></span>
@@ -153,8 +146,8 @@ const ViewDashboard = {
     // esta cuenta puntual, no debe tirar abajo los botones ni el resto de
     // las secciones (ya conectados arriba).
     const pasos = [
-      () => renderHeroProgreso(config, agg),
-      () => renderBarrasProgreso(config, agg),
+      () => renderHeroProgreso(configsPorCurso, agg),
+      () => renderBarrasProgreso(configsPorCurso, agg),
       () => renderUltimosVuelos(vuelos.slice(0, 6)),
       () => renderVencimientos(vencimientos),
       () => renderCurrency(vuelos),
@@ -248,50 +241,72 @@ const ViewDashboard = {
   },
 };
 
-function renderHeroProgreso(config, agg) {
-  const objetivo = document.getElementById('hero-objetivo');
-  const resta = document.getElementById('hero-resta');
+// Promedia el progreso entre todos los cursos activos: cada curso aporta
+// el % de su requisito "principal" (total, o el primero si no tiene "total"
+// — ej. HAB_NOC solo pide nocturnas), y el anillo muestra el promedio simple.
+function renderHeroProgreso(configsPorCurso, agg) {
+  const lista = document.getElementById('hero-cursos-lista');
   const bar = document.getElementById('hero-bar');
   const pctLabel = document.getElementById('hero-pct');
   const ring = document.getElementById('ring-fill');
   const CIRC = 402; // 2 * PI * r(64)
 
-  if (!config.length) {
-    objetivo.textContent = '—'; resta.textContent = '—'; pctLabel.textContent = 'Sin requisitos configurados';
+  const conRequisitos = configsPorCurso.filter(({ config }) => config.length);
+  if (!conRequisitos.length) {
+    lista.innerHTML = '<p class="muted" style="margin:0">Sin requisitos configurados todavía.</p>';
+    pctLabel.textContent = 'Sin requisitos configurados';
+    bar.style.width = '0%';
+    ring.style.strokeDashoffset = CIRC;
     return;
   }
-  const principal = config.find((r) => r.nombre_requisito === 'total') || config[0];
-  const actual = valorRequisito(principal.nombre_requisito, agg);
-  const minimo = Calc.n(principal.minimo_horas);
-  const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
-  const faltan = Math.max(0, Calc.round2(minimo - actual));
-  const esUnidad = principal.nombre_requisito === 'aterrizajes_noche' || principal.nombre_requisito === 'remolques';
 
-  objetivo.textContent = `${minimo}${esUnidad ? '' : ' hs'}`;
-  resta.textContent = faltan <= 0 ? '¡Completo!' : `${faltan}${esUnidad ? '' : ' hs'}`;
-  bar.style.width = pct + '%';
-  pctLabel.textContent = `${pct}% completado`;
-  ring.style.strokeDashoffset = CIRC - (CIRC * pct) / 100;
-}
-
-function renderBarrasProgreso(config, agg) {
-  const cont = document.getElementById('barras-progreso');
-  if (!config.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para este curso todavía.</p>'; return; }
-  cont.innerHTML = config.map((req) => {
-    const actual = valorRequisito(req.nombre_requisito, agg);
-    const minimo = Calc.n(req.minimo_horas);
+  const porCurso = conRequisitos.map(({ cursoId, curso, config }) => {
+    const principal = config.find((r) => r.nombre_requisito === 'total') || config[0];
+    const actual = valorRequisito(principal.nombre_requisito, agg);
+    const minimo = Calc.n(principal.minimo_horas);
     const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
     const faltan = Math.max(0, Calc.round2(minimo - actual));
-    const esUnidad = req.nombre_requisito === 'aterrizajes_noche' || req.nombre_requisito === 'remolques';
-    return `
-      <div class="progreso-item">
-        <div class="pi-head">
-          <span class="nombre">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
-          <span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — ${faltan <= 0 ? 'completo' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
-        </div>
-        <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
-      </div>`;
-  }).join('');
+    const esUnidad = principal.nombre_requisito === 'aterrizajes_noche' || principal.nombre_requisito === 'remolques';
+    return { cursoId, curso, principal, pct, faltan, esUnidad };
+  });
+
+  lista.innerHTML = porCurso.map(({ cursoId, curso, principal, pct, faltan, esUnidad }) => `
+    <div class="doc-card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <span class="muted">${curso?.label || cursoId} — ${LABELS_REQUISITO[principal.nombre_requisito] || principal.nombre_requisito}</span>
+        <span style="font-family:var(--font-mono);flex-shrink:0">${pct}%</span>
+      </div>
+      <p class="muted" style="margin:2px 0 0">${faltan <= 0 ? '¡Completo!' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</p>
+    </div>`).join('');
+
+  const promedio = Calc.round2(porCurso.reduce((s, c) => s + c.pct, 0) / porCurso.length);
+  bar.style.width = promedio + '%';
+  pctLabel.textContent = porCurso.length > 1 ? `Promedio: ${promedio}% completado` : `${promedio}% completado`;
+  ring.style.strokeDashoffset = CIRC - (CIRC * promedio) / 100;
+}
+
+function renderBarrasProgreso(configsPorCurso, agg) {
+  const cont = document.getElementById('barras-progreso');
+  const conRequisitos = configsPorCurso.filter(({ config }) => config.length);
+  if (!conRequisitos.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para los cursos activos todavía.</p>'; return; }
+  cont.innerHTML = conRequisitos.map(({ cursoId, curso, config }) => `
+    ${conRequisitos.length > 1 ? `<h3 style="margin-top:14px">${curso?.label || cursoId}</h3>` : ''}
+    ${config.map((req) => {
+      const actual = valorRequisito(req.nombre_requisito, agg);
+      const minimo = Calc.n(req.minimo_horas);
+      const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
+      const faltan = Math.max(0, Calc.round2(minimo - actual));
+      const esUnidad = req.nombre_requisito === 'aterrizajes_noche' || req.nombre_requisito === 'remolques';
+      return `
+        <div class="progreso-item">
+          <div class="pi-head">
+            <span class="nombre">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
+            <span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — ${faltan <= 0 ? 'completo' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
+          </div>
+          <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
+        </div>`;
+    }).join('')}
+  `).join('');
 }
 
 function renderUltimosVuelos(vuelos) {
