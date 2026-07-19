@@ -7,26 +7,46 @@
 // perfil_piloto.curso_activo.
 const CURSOS = [
   { id: 'APPL', label: 'APPL — Piloto de Planeador (en curso)', licencia_objetivo: 'APPL — Piloto de Planeador' },
-  { id: 'PPA', label: 'PPA — Piloto Privado de Avión', licencia_objetivo: 'PPA — Piloto Privado de Avión' },
+  { id: 'PPA', label: 'PPA — Piloto Privado de Avión (APPA mientras estás en curso)', licencia_objetivo: 'PPA — Piloto Privado de Avión' },
   { id: 'PCA', label: 'PCA — Piloto Comercial de Avión', licencia_objetivo: 'PCA — Piloto Comercial de Avión' },
   { id: 'TLA', label: 'TLA — Piloto de Transporte de Línea Aérea', licencia_objetivo: 'TLA — Transporte de Línea Aérea' },
 ];
 
-// Mínimos de referencia por curso. Son EDITABLES desde Perfil y quedan
-// marcados como referenciales — confirmar contra la normativa vigente
-// (RAAC 61.129 y las especificaciones puntuales de cada curso).
+// Mínimos de referencia por curso, tomados de la RAAC Parte 61 (Edición VI,
+// enero 2026) para la categoría Avión, vía sin curso aprobado/reconocido en
+// CIAC (los cursos aprobados tienen mínimos de horas totales más bajos).
+// Son EDITABLES desde Perfil (modo administrador) y quedan marcados como
+// referenciales — confirmar siempre contra la normativa vigente.
 const REQUISITOS_DEFAULT_POR_CURSO = {
+  // 61.920 — Piloto de Planeador: no fija horas totales, sino 6 hs de
+  // instrucción + remolques/lanzamientos (mínimo 20, acá referenciamos 40
+  // por el criterio de la escuela).
   APPL: [
     { nombre_requisito: 'remolques', label: 'Remolques', minimo_horas: 40, orden: 1 },
   ],
+  // 61.520(a) — Piloto Privado de Avión.
   PPA: [
     { nombre_requisito: 'total', label: 'Total', minimo_horas: 40, orden: 1 },
+    { nombre_requisito: 'travesia_pic', label: 'Travesía (solo, incl. en el total)', minimo_horas: 5, orden: 2 },
+    { nombre_requisito: 'nocturnas', label: 'Nocturnas', minimo_horas: 3, orden: 3 },
+    { nombre_requisito: 'aterrizajes_noche', label: 'Aterrizajes nocturnos', minimo_horas: 10, orden: 4 },
   ],
+  // 61.620(a) — Piloto Comercial de Avión.
   PCA: [
     { nombre_requisito: 'total', label: 'Total', minimo_horas: 200, orden: 1 },
+    { nombre_requisito: 'pic', label: 'Piloto al mando (PIC)', minimo_horas: 100, orden: 2 },
+    { nombre_requisito: 'travesia_pic', label: 'Travesía como PIC', minimo_horas: 20, orden: 3 },
+    { nombre_requisito: 'instrumentos', label: 'Instrumentos (real + capota)', minimo_horas: 10, orden: 4 },
+    { nombre_requisito: 'nocturnas', label: 'Nocturnas', minimo_horas: 5, orden: 5 },
+    { nombre_requisito: 'aterrizajes_noche', label: 'Aterrizajes nocturnos', minimo_horas: 5, orden: 6 },
   ],
+  // 61.820(a) — Piloto de Transporte de Línea Aérea.
   TLA: [
-    { nombre_requisito: 'total', label: 'Total', minimo_horas: 1000, orden: 1 },
+    { nombre_requisito: 'total', label: 'Total', minimo_horas: 1500, orden: 1 },
+    { nombre_requisito: 'pic', label: 'Piloto al mando (PIC)', minimo_horas: 250, orden: 2 },
+    { nombre_requisito: 'travesia_pic', label: 'Travesía (PIC o PICUS)', minimo_horas: 100, orden: 3 },
+    { nombre_requisito: 'nocturnas', label: 'Nocturnas (PIC o copiloto)', minimo_horas: 100, orden: 4 },
+    { nombre_requisito: 'instrumentos', label: 'Instrumentos (real + capota)', minimo_horas: 75, orden: 5 },
   ],
 };
 
@@ -120,22 +140,32 @@ const Repo = {
     if (error) throw error;
   },
 
-  // ---- Perfil del piloto (curso activo) ----
-  async getCursoActivo() {
+  // ---- Perfil del piloto (curso activo + modo administrador) ----
+  async getPerfilPiloto() {
     const user = await usuarioActual();
     const { data, error } = await window.db.from('perfil_piloto').select('*').eq('user_id', user.id).maybeSingle();
     if (error) throw error;
     if (!data) {
-      const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA' });
+      const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA', es_admin: false });
       if (e2) throw e2;
-      return 'PPA';
+      return { curso_activo: 'PPA', es_admin: false };
     }
-    return data.curso_activo;
+    return data;
+  },
+  async getCursoActivo() {
+    const perfil = await this.getPerfilPiloto();
+    return perfil.curso_activo;
   },
   async setCursoActivo(cursoId) {
     const user = await usuarioActual();
     const { error } = await window.db.from('perfil_piloto')
       .upsert({ user_id: user.id, curso_activo: cursoId, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error) throw error;
+  },
+  async setEsAdmin(esAdmin) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('perfil_piloto')
+      .upsert({ user_id: user.id, es_admin: esAdmin, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
   },
 
@@ -171,6 +201,24 @@ const Repo = {
   },
   async guardarConfigLicencia(row) {
     const { error } = await window.db.from('config_licencia').update({ minimo_horas: row.minimo_horas }).eq('id', row.id);
+    if (error) throw error;
+  },
+  // Solo para modo administrador: agregar un requisito custom (ej. HVI) o
+  // borrar uno existente de un curso.
+  async agregarConfigLicencia(cursoId, nombreRequisito, minimoHoras) {
+    const user = await usuarioActual();
+    const curso = cursoPorId(cursoId);
+    const { data: existentes } = await window.db.from('config_licencia')
+      .select('orden').eq('licencia_objetivo', curso.licencia_objetivo).order('orden', { ascending: false }).limit(1);
+    const siguienteOrden = (existentes?.[0]?.orden || 0) + 1;
+    const { error } = await window.db.from('config_licencia').insert({
+      user_id: user.id, licencia_objetivo: curso.licencia_objetivo,
+      nombre_requisito: nombreRequisito, minimo_horas: minimoHoras, orden: siguienteOrden,
+    });
+    if (error) throw error;
+  },
+  async borrarConfigLicencia(id) {
+    const { error } = await window.db.from('config_licencia').delete().eq('id', id);
     if (error) throw error;
   },
   // Todos los requisitos de todos los cursos (para el backup completo).

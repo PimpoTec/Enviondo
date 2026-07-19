@@ -329,4 +329,11 @@ alter table aeronaves drop constraint if exists aeronaves_clase_check;
 alter table aeronaves add constraint aeronaves_clase_check
   check (clase in ('monomotor', 'multimotor', 'reactor', 'turbohelice', 'aeroaplicador', 'simulador'));
 
+-- ============================================================================
+-- ACTUALIZACIÓN — modo administrador en Perfil, para poder agregar/sacar
+-- requisitos de licencia (ej. sumar la habilitación HVI a un curso) sin
+-- que sea tan fácil tocarlo por accidente en el uso diario.
+-- ============================================================================
+alter table perfil_piloto add column if not exists es_admin boolean not null default false;
+
 -- Fin del esquema.

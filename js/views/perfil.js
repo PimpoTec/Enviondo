@@ -4,12 +4,20 @@
 // vigente (RAAC 61.129 y las especificaciones puntuales de cada curso).
 // ============================================================================
 
+// Claves de requisito que la app efectivamente sabe calcular con tus
+// vuelos. Si agregás un requisito con otra clave, va a quedar guardado
+// pero el progreso te va a mostrar 0 — no hay una fórmula para inventarlo.
+const CLAVES_REQUISITO_DISPONIBLES = ['total', 'pic', 'travesia_pic', 'nocturnas', 'instrumentos', 'aterrizajes_noche', 'remolques'];
+
 const ViewPerfil = {
   cursoActivo: 'PPA',
+  esAdmin: false,
 
   async render() {
     const main = document.getElementById('main-content');
-    this.cursoActivo = await Repo.getCursoActivo();
+    const perfil = await Repo.getPerfilPiloto();
+    this.cursoActivo = perfil.curso_activo;
+    this.esAdmin = perfil.es_admin;
     const [config, vencimientos] = await Promise.all([
       Repo.listarConfigLicencia(this.cursoActivo), Repo.listarVencimientos(),
     ]);
@@ -27,20 +35,43 @@ const ViewPerfil = {
       </div>
 
       <div class="card">
-        <h2>Mínimos del curso seleccionado (referencial)</h2>
-        <p class="muted">⚠️ Estos valores son configurables y orientativos. Confirmá siempre contra la normativa vigente antes de tomarlos como definitivos.</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h2 style="margin:0">Mínimos del curso seleccionado (referencial)</h2>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);font-size:13px">
+            <input type="checkbox" id="p-admin" style="width:auto" ${this.esAdmin ? 'checked' : ''}> 🔓 Modo administrador
+          </label>
+        </div>
+        <p class="muted">⚠️ Estos valores son configurables y orientativos. Confirmá siempre contra la normativa vigente antes de tomarlos como definitivos. Activá "Modo administrador" para poder editar, agregar o sacar requisitos (por ejemplo, para sumar la habilitación HVI a un curso).</p>
         <div class="table-wrap"><table>
-          <thead><tr><th>Requisito</th><th class="num">Mínimo</th><th></th></tr></thead>
+          <thead><tr><th>Requisito</th><th class="num">Mínimo</th>${this.esAdmin ? '<th></th>' : ''}</tr></thead>
           <tbody id="tbody-config">
             ${config.map((c) => `
               <tr>
                 <td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td>
-                <td class="num"><input type="number" step="0.5" min="0" style="width:100px;text-align:right" data-id="${c.id}" value="${c.minimo_horas}"></td>
-                <td><button class="btn ghost" onclick="ViewPerfil._guardarConfig('${c.id}')">💾</button></td>
+                <td class="num">${this.esAdmin
+                  ? `<input type="number" step="0.5" min="0" style="width:100px;text-align:right" data-id="${c.id}" value="${c.minimo_horas}">`
+                  : `${c.minimo_horas}`}</td>
+                ${this.esAdmin ? `<td>
+                  <button class="btn ghost" onclick="ViewPerfil._guardarConfig('${c.id}')">💾</button>
+                  <button class="btn ghost" onclick="ViewPerfil._borrarConfig('${c.id}')">🗑️</button>
+                </td>` : ''}
               </tr>
             `).join('')}
           </tbody>
         </table></div>
+
+        ${this.esAdmin ? `
+          <h3 style="margin-top:14px">Agregar requisito</h3>
+          <div class="field-row">
+            <div class="field"><label>Requisito</label>
+              <select id="p-nuevo-requisito">
+                ${CLAVES_REQUISITO_DISPONIBLES.map((k) => `<option value="${k}">${LABELS_REQUISITO[k] || k}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>Mínimo</label><input type="number" step="0.5" min="0" id="p-nuevo-minimo" value="0"></div>
+          </div>
+          <button class="btn secondary" id="btn-agregar-requisito">+ Agregar</button>
+        ` : ''}
       </div>
 
       <div class="card">
@@ -79,7 +110,11 @@ const ViewPerfil = {
     `;
 
     document.getElementById('p-curso').onchange = (e) => this._cambiarCurso(e.target.value);
+    document.getElementById('p-admin').onchange = (e) => this._setAdmin(e.target.checked);
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
+    if (this.esAdmin) {
+      document.getElementById('btn-agregar-requisito').onclick = () => this._agregarRequisito();
+    }
   },
 
   async _cambiarCurso(cursoId) {
@@ -88,6 +123,36 @@ const ViewPerfil = {
       this.render();
     } catch (err) {
       alert('Error al cambiar de curso: ' + (err.message || err));
+    }
+  },
+
+  async _setAdmin(valor) {
+    try {
+      await Repo.setEsAdmin(valor);
+      this.render();
+    } catch (err) {
+      alert('Error al cambiar el modo administrador: ' + (err.message || err));
+    }
+  },
+
+  async _agregarRequisito() {
+    const nombre = document.getElementById('p-nuevo-requisito').value;
+    const minimo = Calc.n(document.getElementById('p-nuevo-minimo').value);
+    try {
+      await Repo.agregarConfigLicencia(this.cursoActivo, nombre, minimo);
+      this.render();
+    } catch (err) {
+      alert('Error al agregar: ' + (err.message || err));
+    }
+  },
+
+  async _borrarConfig(id) {
+    if (!confirm('¿Sacar este requisito del curso?')) return;
+    try {
+      await Repo.borrarConfigLicencia(id);
+      this.render();
+    } catch (err) {
+      alert('Error al borrar: ' + (err.message || err));
     }
   },
 
