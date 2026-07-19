@@ -609,7 +609,7 @@ const ViewNuevoVuelo = {
 
     const campos = {
       fecha, hora_salida_utc, hora_llegada_utc, desde: 'TERR', hasta: 'TERR',
-      finalidad_vuelo: 'ENTT', aeronave_id,
+      finalidad_vuelo: 'INST', aeronave_id,
       ...Object.fromEntries(Calc.CAMPOS_TIEMPO.map((c) => [c, 0])),
       aterrizajes_dia: 0, aterrizajes_noche: 0, remolques: 0,
       instruccion_vuelo: 0, multimotor: 0, reactor: 0, turbohelice: 0, aeroaplicador: 0,
