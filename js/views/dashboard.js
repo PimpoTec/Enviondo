@@ -53,11 +53,8 @@ const ViewDashboard = {
     main.innerHTML = `
       <div class="card">
         <h2 style="margin-bottom:14px">🕐 Total de horas</h2>
-        <div class="grid cols-4">
-          <div class="stat"><div class="num">${agg.tiempo_total}</div><div class="lbl">Total</div></div>
-          <div class="stat"><div class="num">${agg.total_pic}</div><div class="lbl">PIC</div></div>
-          <div class="stat"><div class="num">${agg.total_dia}</div><div class="lbl">Día</div></div>
-          <div class="stat"><div class="num">${agg.total_noche}</div><div class="lbl">Noche</div></div>
+        <div class="grid cols-2">
+          <div class="stat"><div class="num">${agg.tiempo_total}</div><div class="lbl">Vuelo</div></div>
           <div class="stat"><div class="num">${agg.adiestrador_simulador}</div><div class="lbl">Simulador</div></div>
         </div>
       </div>
