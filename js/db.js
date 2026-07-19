@@ -2,61 +2,20 @@
 // CAPA DE DATOS — wrappers finos sobre Supabase para cada tabla.
 // ============================================================================
 
-// Cursos/carreras soportados. "licencia_objetivo" es la etiqueta larga que
-// se guarda en config_licencia; "id" es el valor corto que se guarda en
-// perfil_piloto.curso_activo.
+// Cursos/carreras soportados. "id" es el valor corto que se guarda en
+// perfil_piloto.curso_activo y en licencias_requisitos.curso_id. Los
+// mínimos de cada uno viven en la base (tabla global licencias_requisitos,
+// sembrada en sql/schema.sql con los valores de la RAAC Parte 61 Ed. VI).
 const CURSOS = [
-  { id: 'APPL', label: 'APPL — Piloto de Planeador (en curso)', licencia_objetivo: 'APPL — Piloto de Planeador' },
-  { id: 'PPA', label: 'PPA — Piloto Privado de Avión (APPA mientras estás en curso)', licencia_objetivo: 'PPA — Piloto Privado de Avión' },
-  { id: 'PCA', label: 'PCA — Piloto Comercial de Avión', licencia_objetivo: 'PCA — Piloto Comercial de Avión' },
-  { id: 'TLA', label: 'TLA — Piloto de Transporte de Línea Aérea', licencia_objetivo: 'TLA — Transporte de Línea Aérea' },
+  { id: 'APPL', label: 'APPL — Piloto de Planeador (en curso)' },
+  { id: 'PPA', label: 'PPA — Piloto Privado de Avión (APPA mientras estás en curso)' },
+  { id: 'PCA', label: 'PCA — Piloto Comercial de Avión' },
+  { id: 'TLA', label: 'TLA — Piloto de Transporte de Línea Aérea' },
 ];
-
-// Mínimos de referencia por curso, tomados de la RAAC Parte 61 (Edición VI,
-// enero 2026) para la categoría Avión, vía sin curso aprobado/reconocido en
-// CIAC (los cursos aprobados tienen mínimos de horas totales más bajos).
-// Son EDITABLES desde Perfil (modo administrador) y quedan marcados como
-// referenciales — confirmar siempre contra la normativa vigente.
-const REQUISITOS_DEFAULT_POR_CURSO = {
-  // 61.920 — Piloto de Planeador: no fija horas totales, sino 6 hs de
-  // instrucción + remolques/lanzamientos (mínimo 20, acá referenciamos 40
-  // por el criterio de la escuela).
-  APPL: [
-    { nombre_requisito: 'remolques', label: 'Remolques', minimo_horas: 40, orden: 1 },
-  ],
-  // 61.520(a) — Piloto Privado de Avión.
-  PPA: [
-    { nombre_requisito: 'total', label: 'Total', minimo_horas: 40, orden: 1 },
-    { nombre_requisito: 'travesia_pic', label: 'Travesía (solo, incl. en el total)', minimo_horas: 5, orden: 2 },
-    { nombre_requisito: 'nocturnas', label: 'Nocturnas', minimo_horas: 3, orden: 3 },
-    { nombre_requisito: 'aterrizajes_noche', label: 'Aterrizajes nocturnos', minimo_horas: 10, orden: 4 },
-  ],
-  // 61.620(a) — Piloto Comercial de Avión.
-  PCA: [
-    { nombre_requisito: 'total', label: 'Total', minimo_horas: 200, orden: 1 },
-    { nombre_requisito: 'pic', label: 'Piloto al mando (PIC)', minimo_horas: 100, orden: 2 },
-    { nombre_requisito: 'travesia_pic', label: 'Travesía como PIC', minimo_horas: 20, orden: 3 },
-    { nombre_requisito: 'instrumentos', label: 'Instrumentos (real + capota)', minimo_horas: 10, orden: 4 },
-    { nombre_requisito: 'nocturnas', label: 'Nocturnas', minimo_horas: 5, orden: 5 },
-    { nombre_requisito: 'aterrizajes_noche', label: 'Aterrizajes nocturnos', minimo_horas: 5, orden: 6 },
-  ],
-  // 61.820(a) — Piloto de Transporte de Línea Aérea.
-  TLA: [
-    { nombre_requisito: 'total', label: 'Total', minimo_horas: 1500, orden: 1 },
-    { nombre_requisito: 'pic', label: 'Piloto al mando (PIC)', minimo_horas: 250, orden: 2 },
-    { nombre_requisito: 'travesia_pic', label: 'Travesía (PIC o PICUS)', minimo_horas: 100, orden: 3 },
-    { nombre_requisito: 'nocturnas', label: 'Nocturnas (PIC o copiloto)', minimo_horas: 100, orden: 4 },
-    { nombre_requisito: 'instrumentos', label: 'Instrumentos (real + capota)', minimo_horas: 75, orden: 5 },
-  ],
-};
 
 async function usuarioActual() {
   const { data } = await window.db.auth.getUser();
   return data.user;
-}
-
-function cursoPorId(id) {
-  return CURSOS.find((c) => c.id === id) || CURSOS[1];
 }
 
 const Repo = {
@@ -140,21 +99,17 @@ const Repo = {
     if (error) throw error;
   },
 
-  // ---- Perfil del piloto (curso activo + modo administrador) ----
-  async getPerfilPiloto() {
+  // ---- Perfil del piloto (curso activo) ----
+  async getCursoActivo() {
     const user = await usuarioActual();
-    const { data, error } = await window.db.from('perfil_piloto').select('*').eq('user_id', user.id).maybeSingle();
+    const { data, error } = await window.db.from('perfil_piloto').select('curso_activo').eq('user_id', user.id).maybeSingle();
     if (error) throw error;
     if (!data) {
-      const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA', es_admin: false });
+      const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA' });
       if (e2) throw e2;
-      return { curso_activo: 'PPA', es_admin: false };
+      return 'PPA';
     }
-    return data;
-  },
-  async getCursoActivo() {
-    const perfil = await this.getPerfilPiloto();
-    return perfil.curso_activo;
+    return data.curso_activo;
   },
   async setCursoActivo(cursoId) {
     const user = await usuarioActual();
@@ -162,70 +117,45 @@ const Repo = {
       .upsert({ user_id: user.id, curso_activo: cursoId, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
   },
-  async setEsAdmin(esAdmin) {
-    const user = await usuarioActual();
-    const { error } = await window.db.from('perfil_piloto')
-      .upsert({ user_id: user.id, es_admin: esAdmin, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
-    if (error) throw error;
-  },
 
-  // ---- Config licencia (mínimos por curso) ----
+  // ---- Licencias/requisitos: tabla GLOBAL, compartida por todos los
+  // usuarios. Cualquiera la puede leer; solo la cuenta admin (ver
+  // js/config.js ADMIN_EMAIL) la puede editar — eso lo hace cumplir
+  // Supabase con RLS, no esta capa de JS. ----
+  async esAdminApp() {
+    const user = await usuarioActual();
+    return !!user?.email && user.email.toLowerCase() === window.ADMIN_EMAIL.toLowerCase();
+  },
   async listarConfigLicencia(cursoId) {
-    const curso = cursoPorId(cursoId);
-    const { data, error } = await window.db.from('config_licencia')
-      .select('*').eq('licencia_objetivo', curso.licencia_objetivo).order('orden');
+    const { data, error } = await window.db.from('licencias_requisitos')
+      .select('*').eq('curso_id', cursoId).order('orden');
     if (error) throw error;
-    if (!data || data.length === 0) {
-      await this.sembrarConfigLicenciaDefault(cursoId);
-      const { data: d2, error: e2 } = await window.db.from('config_licencia')
-        .select('*').eq('licencia_objetivo', curso.licencia_objetivo).order('orden');
-      if (e2) throw e2;
-      return d2;
-    }
     return data;
   },
-  async sembrarConfigLicenciaDefault(cursoId) {
-    const user = await usuarioActual();
-    const curso = cursoPorId(cursoId);
-    const requisitos = REQUISITOS_DEFAULT_POR_CURSO[curso.id] || [];
-    const rows = requisitos.map((r) => ({
-      user_id: user.id,
-      licencia_objetivo: curso.licencia_objetivo,
-      nombre_requisito: r.nombre_requisito,
-      minimo_horas: r.minimo_horas,
-      orden: r.orden,
-    }));
-    if (!rows.length) return;
-    const { error } = await window.db.from('config_licencia').insert(rows);
+  // Todos los requisitos de todos los cursos juntos (panel de admin y backup).
+  async listarConfigLicenciaTodos() {
+    const { data, error } = await window.db.from('licencias_requisitos').select('*').order('curso_id').order('orden');
     if (error) throw error;
+    return data;
   },
   async guardarConfigLicencia(row) {
-    const { error } = await window.db.from('config_licencia').update({ minimo_horas: row.minimo_horas }).eq('id', row.id);
+    const { error } = await window.db.from('licencias_requisitos').update({ minimo_horas: row.minimo_horas, updated_at: new Date().toISOString() }).eq('id', row.id);
     if (error) throw error;
   },
-  // Solo para modo administrador: agregar un requisito custom (ej. HVI) o
-  // borrar uno existente de un curso.
+  // Solo la cuenta admin: agregar un requisito nuevo a un curso (ej. HVI)
+  // o borrar uno existente. Si no sos admin, Supabase rechaza el pedido.
   async agregarConfigLicencia(cursoId, nombreRequisito, minimoHoras) {
-    const user = await usuarioActual();
-    const curso = cursoPorId(cursoId);
-    const { data: existentes } = await window.db.from('config_licencia')
-      .select('orden').eq('licencia_objetivo', curso.licencia_objetivo).order('orden', { ascending: false }).limit(1);
+    const { data: existentes } = await window.db.from('licencias_requisitos')
+      .select('orden').eq('curso_id', cursoId).order('orden', { ascending: false }).limit(1);
     const siguienteOrden = (existentes?.[0]?.orden || 0) + 1;
-    const { error } = await window.db.from('config_licencia').insert({
-      user_id: user.id, licencia_objetivo: curso.licencia_objetivo,
-      nombre_requisito: nombreRequisito, minimo_horas: minimoHoras, orden: siguienteOrden,
+    const { error } = await window.db.from('licencias_requisitos').insert({
+      curso_id: cursoId, nombre_requisito: nombreRequisito, minimo_horas: minimoHoras, orden: siguienteOrden,
     });
     if (error) throw error;
   },
   async borrarConfigLicencia(id) {
-    const { error } = await window.db.from('config_licencia').delete().eq('id', id);
+    const { error } = await window.db.from('licencias_requisitos').delete().eq('id', id);
     if (error) throw error;
-  },
-  // Todos los requisitos de todos los cursos (para el backup completo).
-  async listarConfigLicenciaTodos() {
-    const { data, error } = await window.db.from('config_licencia').select('*').order('licencia_objetivo').order('orden');
-    if (error) throw error;
-    return data;
   },
 
   // ---- Vencimientos ----

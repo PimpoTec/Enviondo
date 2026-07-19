@@ -1,12 +1,16 @@
 // ============================================================================
 // VISTA: PERFIL / LICENCIAS / VENCIMIENTOS
-// Los mínimos son EDITABLES y referenciales — no reemplazan la normativa
-// vigente (RAAC 61.129 y las especificaciones puntuales de cada curso).
+// Los mínimos son GLOBALES (los mismos para todos los pilotos que usen la
+// app) y referenciales — no reemplazan la normativa vigente. Solo la
+// cuenta admin (ver js/config.js ADMIN_EMAIL) puede editarlos; el resto
+// los ve de solo lectura. RLS en Supabase hace cumplir esto del lado del
+// servidor, no solo acá en la interfaz.
 // ============================================================================
 
 // Claves de requisito que la app efectivamente sabe calcular con tus
-// vuelos. Si agregás un requisito con otra clave, va a quedar guardado
-// pero el progreso te va a mostrar 0 — no hay una fórmula para inventarlo.
+// vuelos. Si el admin agrega un requisito con otra clave, va a quedar
+// guardado pero el progreso va a mostrar 0 — no hay una fórmula para
+// inventarlo.
 const CLAVES_REQUISITO_DISPONIBLES = ['total', 'pic', 'travesia_pic', 'nocturnas', 'instrumentos', 'aterrizajes_noche', 'remolques'];
 
 const ViewPerfil = {
@@ -15,12 +19,8 @@ const ViewPerfil = {
 
   async render() {
     const main = document.getElementById('main-content');
-    const perfil = await Repo.getPerfilPiloto();
-    this.cursoActivo = perfil.curso_activo;
-    this.esAdmin = perfil.es_admin;
-    const [config, vencimientos] = await Promise.all([
-      Repo.listarConfigLicencia(this.cursoActivo), Repo.listarVencimientos(),
-    ]);
+    [this.cursoActivo, this.esAdmin] = await Promise.all([Repo.getCursoActivo(), Repo.esAdminApp()]);
+    const [vencimientos] = await Promise.all([Repo.listarVencimientos()]);
 
     main.innerHTML = `
       <div class="card">
@@ -31,48 +31,10 @@ const ViewPerfil = {
             ${CURSOS.map((c) => `<option value="${c.id}" ${c.id === this.cursoActivo ? 'selected' : ''}>${c.label}</option>`).join('')}
           </select>
         </div>
-        <p class="muted">Esto define qué progreso te muestra el Dashboard. Podés cambiarlo cuando avances de curso — los mínimos de cada uno quedan guardados aparte.</p>
+        <p class="muted">Esto define qué progreso te muestra el Dashboard. Podés cambiarlo cuando avances de curso.</p>
       </div>
 
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">Mínimos del curso seleccionado (referencial)</h2>
-          <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);font-size:13px">
-            <input type="checkbox" id="p-admin" style="width:auto" ${this.esAdmin ? 'checked' : ''}> 🔓 Modo administrador
-          </label>
-        </div>
-        <p class="muted">⚠️ Estos valores son configurables y orientativos. Confirmá siempre contra la normativa vigente antes de tomarlos como definitivos. Activá "Modo administrador" para poder editar, agregar o sacar requisitos (por ejemplo, para sumar la habilitación HVI a un curso).</p>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Requisito</th><th class="num">Mínimo</th>${this.esAdmin ? '<th></th>' : ''}</tr></thead>
-          <tbody id="tbody-config">
-            ${config.map((c) => `
-              <tr>
-                <td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td>
-                <td class="num">${this.esAdmin
-                  ? `<input type="number" step="0.5" min="0" style="width:100px;text-align:right" data-id="${c.id}" value="${c.minimo_horas}">`
-                  : `${c.minimo_horas}`}</td>
-                ${this.esAdmin ? `<td>
-                  <button class="btn ghost" onclick="ViewPerfil._guardarConfig('${c.id}')">💾</button>
-                  <button class="btn ghost" onclick="ViewPerfil._borrarConfig('${c.id}')">🗑️</button>
-                </td>` : ''}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table></div>
-
-        ${this.esAdmin ? `
-          <h3 style="margin-top:14px">Agregar requisito</h3>
-          <div class="field-row">
-            <div class="field"><label>Requisito</label>
-              <select id="p-nuevo-requisito">
-                ${CLAVES_REQUISITO_DISPONIBLES.map((k) => `<option value="${k}">${LABELS_REQUISITO[k] || k}</option>`).join('')}
-              </select>
-            </div>
-            <div class="field"><label>Mínimo</label><input type="number" step="0.5" min="0" id="p-nuevo-minimo" value="0"></div>
-          </div>
-          <button class="btn secondary" id="btn-agregar-requisito">+ Agregar</button>
-        ` : ''}
-      </div>
+      <div id="bloque-licencias"></div>
 
       <div class="card">
         <h2>🪪 Vencimientos</h2>
@@ -110,11 +72,83 @@ const ViewPerfil = {
     `;
 
     document.getElementById('p-curso').onchange = (e) => this._cambiarCurso(e.target.value);
-    document.getElementById('p-admin').onchange = (e) => this._setAdmin(e.target.checked);
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
+
     if (this.esAdmin) {
-      document.getElementById('btn-agregar-requisito').onclick = () => this._agregarRequisito();
+      await this._renderPanelAdmin();
+    } else {
+      await this._renderSoloLectura();
     }
+  },
+
+  // ---- Vista normal: solo los mínimos del curso activo, de solo lectura ----
+  async _renderSoloLectura() {
+    const cont = document.getElementById('bloque-licencias');
+    const config = await Repo.listarConfigLicencia(this.cursoActivo);
+    cont.innerHTML = `
+      <div class="card">
+        <h2>Mínimos del curso seleccionado (referencial)</h2>
+        <p class="muted">⚠️ Estos valores son los mismos para todos y se actualizan cuando cambia la normativa. Confirmá siempre contra la RAAC vigente.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Requisito</th><th class="num">Mínimo</th></tr></thead>
+          <tbody>
+            ${config.map((c) => `<tr><td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td><td class="num">${c.minimo_horas}</td></tr>`).join('') || '<tr><td colspan="2" class="empty-state">Sin requisitos cargados para este curso.</td></tr>'}
+          </tbody>
+        </table></div>
+      </div>
+    `;
+  },
+
+  // ---- Vista admin: TODOS los cursos con sus requisitos, editables ----
+  async _renderPanelAdmin() {
+    const cont = document.getElementById('bloque-licencias');
+    const todos = await Repo.listarConfigLicenciaTodos();
+
+    cont.innerHTML = `
+      <div class="card" style="border:1px solid var(--brand)">
+        <h2>🔓 Panel de administración de licencias</h2>
+        <p class="muted">Estos mínimos son GLOBALES: los ve todo el que use la app. Cambiarlos acá actualiza el progreso de todos al instante. Usalo cuando cambie la normativa (RAAC) o quieras sumar una habilitación (ej. HVI).</p>
+        ${CURSOS.map((curso) => this._tablaCursoAdmin(curso, todos.filter((r) => r.curso_id === curso.id))).join('')}
+      </div>
+    `;
+
+    CURSOS.forEach((curso) => {
+      document.getElementById(`btn-agregar-${curso.id}`).onclick = () => this._agregarRequisito(curso.id);
+    });
+  },
+
+  _tablaCursoAdmin(curso, requisitos) {
+    return `
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+        <h3>${curso.label}</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Requisito</th><th class="num">Mínimo</th><th></th></tr></thead>
+          <tbody>
+            ${requisitos.map((c) => `
+              <tr>
+                <td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td>
+                <td class="num"><input type="number" step="0.5" min="0" style="width:100px;text-align:right" data-id="${c.id}" value="${c.minimo_horas}"></td>
+                <td>
+                  <button class="btn ghost" onclick="ViewPerfil._guardarConfig('${c.id}')">💾</button>
+                  <button class="btn ghost" onclick="ViewPerfil._borrarConfig('${c.id}')">🗑️</button>
+                </td>
+              </tr>
+            `).join('') || '<tr><td colspan="3" class="empty-state">Sin requisitos.</td></tr>'}
+          </tbody>
+        </table></div>
+        <div class="field-row" style="margin-top:8px">
+          <div class="field"><label>Agregar requisito</label>
+            <select id="p-nuevo-requisito-${curso.id}">
+              ${CLAVES_REQUISITO_DISPONIBLES.map((k) => `<option value="${k}">${LABELS_REQUISITO[k] || k}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Mínimo</label><input type="number" step="0.5" min="0" id="p-nuevo-minimo-${curso.id}" value="0"></div>
+          <div class="field" style="display:flex;align-items:flex-end">
+            <button class="btn secondary" id="btn-agregar-${curso.id}">+ Agregar</button>
+          </div>
+        </div>
+      </div>
+    `;
   },
 
   async _cambiarCurso(cursoId) {
@@ -126,28 +160,19 @@ const ViewPerfil = {
     }
   },
 
-  async _setAdmin(valor) {
+  async _agregarRequisito(cursoId) {
+    const nombre = document.getElementById(`p-nuevo-requisito-${cursoId}`).value;
+    const minimo = Calc.n(document.getElementById(`p-nuevo-minimo-${cursoId}`).value);
     try {
-      await Repo.setEsAdmin(valor);
+      await Repo.agregarConfigLicencia(cursoId, nombre, minimo);
       this.render();
     } catch (err) {
-      alert('Error al cambiar el modo administrador: ' + (err.message || err));
-    }
-  },
-
-  async _agregarRequisito() {
-    const nombre = document.getElementById('p-nuevo-requisito').value;
-    const minimo = Calc.n(document.getElementById('p-nuevo-minimo').value);
-    try {
-      await Repo.agregarConfigLicencia(this.cursoActivo, nombre, minimo);
-      this.render();
-    } catch (err) {
-      alert('Error al agregar: ' + (err.message || err));
+      alert('Error al agregar (¿tenés permiso de administrador?): ' + (err.message || err));
     }
   },
 
   async _borrarConfig(id) {
-    if (!confirm('¿Sacar este requisito del curso?')) return;
+    if (!confirm('¿Sacar este requisito? Se aplica para todos los usuarios.')) return;
     try {
       await Repo.borrarConfigLicencia(id);
       this.render();
