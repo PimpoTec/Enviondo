@@ -127,12 +127,14 @@ const ViewAeronaves = {
     }
     tbody.innerHTML = aeronaves.map((a) => `
       <tr>
-        <td>${a.es_simulador ? Icons.monitor(14) + ' ' : ''}${a.matricula}</td>
+        <td>${a.es_simulador
+          ? `<span style="display:inline-flex;align-items:center;gap:6px">${Icons.monitor(14)}${a.matricula}</span>`
+          : a.matricula}</td>
         <td>${a.marca_modelo}</td>
         <td>${this._labelClase(a)}</td>
         <td class="num">${fmtMoneda(a.tarifa_hora_diurna, a.moneda)}</td>
         <td class="num">${a.es_simulador ? '—' : fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</td>
-        <td>${a.es_habitual ? Icons.star(14) : ''}</td>
+        <td>${a.es_habitual ? `<span style="display:inline-flex">${Icons.star(14)}</span>` : ''}</td>
         <td>
           <button class="btn ghost" onclick='ViewAeronaves._editar(${JSON.stringify(a).replace(/'/g, "&apos;")})'>${Icons.edit(16)}</button>
           <button class="btn ghost" onclick="ViewAeronaves._borrar('${a.id}')">${Icons.trash(16)}</button>
