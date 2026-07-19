@@ -121,8 +121,7 @@ const ViewDashboard = {
           <button class="btn ghost" onclick="Router.irA('perfil')">Cambiar curso →</button>
         </div>
         ${avisoHvi}
-        <button class="btn secondary" id="btn-detalle-progreso" style="margin-bottom:10px">Ver detalle</button>
-        <div id="barras-progreso" style="display:none"></div>
+        <div id="barras-progreso"></div>
       </div>
 
       <div class="card">
@@ -152,7 +151,6 @@ const ViewDashboard = {
     `;
 
     document.getElementById('btn-mostrar-form-programado').onclick = () => this._toggleFormProgramado();
-    document.getElementById('btn-detalle-progreso').onclick = () => this._toggleDetalleProgreso();
 
     // Cada renderer corre aislado: si uno falla con un dato inesperado de
     // esta cuenta puntual, no debe tirar abajo los botones ni el resto de
@@ -168,14 +166,6 @@ const ViewDashboard = {
     for (const paso of pasos) {
       try { paso(); } catch (err) { console.error('Error renderizando sección del dashboard:', err); }
     }
-  },
-
-  _toggleDetalleProgreso() {
-    const bloque = document.getElementById('barras-progreso');
-    const btn = document.getElementById('btn-detalle-progreso');
-    const visible = bloque.style.display !== 'none';
-    bloque.style.display = visible ? 'none' : 'block';
-    btn.textContent = visible ? 'Ver detalle' : 'Ocultar detalle';
   },
 
   _renderProximoVuelo(programados) {
