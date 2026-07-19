@@ -5,9 +5,9 @@
 -- 3 turnos de simulador (INST) — se cargan contra el ÚNICO simulador que
 --   ya tenés en Aeronaves (si tenés más de uno, ajustá el subquery de
 --   "v_sim_id" antes de correr esto).
--- 5 vuelos LOCAL con 0.3 hs de instrumentos capota (INST) — esas 0.3 hs
---   ya están incluidas dentro del tiempo total del vuelo, no se suman
---   aparte (regla del formato 290/2012).
+-- 5 vuelos LOCAL con instrumentos capota (INST) — la capota es el total
+--   del vuelo MENOS 0.3 hs (ej. vuelo de 1.5 hs -> 1.2 hs de capota), ya
+--   incluida dentro del tiempo total, no se suma aparte (290/2012).
 -- 15 vuelos LOCAL/TRAVESIA restantes (ENTT).
 -- Todos cargados como de día (según lo que confirmaste), 1 aterrizaje
 -- cada uno, piloto al mando.
@@ -51,14 +51,15 @@ begin
     (v_user_id, '2026-06-12', '21:00', '23:00', 'TERR', 'TERR', 'INST', v_sim_id, 2.0, 'Importado (tabla de vuelos, turno de simulador)'),
     (v_user_id, '2026-06-05', '21:30', '23:00', 'TERR', 'TERR', 'INST', v_sim_id, 1.5, 'Importado (tabla de vuelos, turno de simulador)');
 
-  -- ---- LOCAL con 0.3 hs de instrumentos capota (INST) ----
+  -- ---- LOCAL con instrumentos capota (INST) — capota = total del vuelo
+  -- menos 0.3 hs (ej. vuelo de 1.5 hs -> 1.2 hs de capota).
   insert into vuelos (user_id, fecha, hora_salida_utc, hora_llegada_utc, desde, hasta, finalidad_vuelo, aeronave_id, saero_dia_piloto, aterrizajes_dia, instrumentos_capota, observaciones)
   values
-    (v_user_id, '2026-05-24', '16:00', '17:30', 'SADF', 'SADF', 'INST', v_s024, 1.5, 1, 0.3, 'Importado (tabla de vuelos)'),
-    (v_user_id, '2026-05-01', '11:30', '13:00', 'SADF', 'SADF', 'INST', v_s024, 1.5, 1, 0.3, 'Importado (tabla de vuelos)'),
-    (v_user_id, '2026-04-12', '19:25', '20:30', 'SADM', 'SADM', 'INST', v_gqh,  1.1, 1, 0.3, 'Importado (tabla de vuelos)'),
-    (v_user_id, '2026-04-02', '17:00', '18:15', 'SADM', 'SADM', 'INST', v_s048, 1.3, 1, 0.3, 'Importado (tabla de vuelos)'),
-    (v_user_id, '2026-03-15', '19:45', '21:00', 'SADF', 'SADF', 'INST', v_s114, 1.3, 1, 0.3, 'Importado (tabla de vuelos)');
+    (v_user_id, '2026-05-24', '16:00', '17:30', 'SADF', 'SADF', 'INST', v_s024, 1.5, 1, 1.2, 'Importado (tabla de vuelos)'),
+    (v_user_id, '2026-05-01', '11:30', '13:00', 'SADF', 'SADF', 'INST', v_s024, 1.5, 1, 1.2, 'Importado (tabla de vuelos)'),
+    (v_user_id, '2026-04-12', '19:25', '20:30', 'SADM', 'SADM', 'INST', v_gqh,  1.1, 1, 0.8, 'Importado (tabla de vuelos)'),
+    (v_user_id, '2026-04-02', '17:00', '18:15', 'SADM', 'SADM', 'INST', v_s048, 1.3, 1, 1.0, 'Importado (tabla de vuelos)'),
+    (v_user_id, '2026-03-15', '19:45', '21:00', 'SADF', 'SADF', 'INST', v_s114, 1.3, 1, 1.0, 'Importado (tabla de vuelos)');
 
   -- ---- LOCAL restantes (ENTT) ----
   insert into vuelos (user_id, fecha, hora_salida_utc, hora_llegada_utc, desde, hasta, finalidad_vuelo, aeronave_id, saero_dia_piloto, aterrizajes_dia, observaciones)
