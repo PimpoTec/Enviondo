@@ -55,61 +55,50 @@ const ViewDashboard = {
     const ultimo = vuelos[0];
 
     main.innerHTML = `
-      <section class="hero-hours-wrap">
-        <div class="card">
-          <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
-          <div class="hero-hours">
-            <div class="ring-wrap">
-              <svg width="168" height="168" viewBox="0 0 168 168">
-                <circle class="ring-track" cx="84" cy="84" r="64" fill="none" stroke-width="9"></circle>
-                <circle id="ring-fill" class="ring-fill" cx="84" cy="84" r="64" fill="none" stroke-width="9"
-                  stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="402"></circle>
-              </svg>
-              <div class="ring-label">
-                <span class="kpi">${agg.tiempo_total}</span>
-                <span class="kpi-unit">Horas</span>
+      <div class="card">
+        <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
+        <div class="hero-hours">
+          <div class="ring-wrap">
+            <svg width="168" height="168" viewBox="0 0 168 168">
+              <circle class="ring-track" cx="84" cy="84" r="64" fill="none" stroke-width="9"></circle>
+              <circle id="ring-fill" class="ring-fill" cx="84" cy="84" r="64" fill="none" stroke-width="9"
+                stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="402"></circle>
+            </svg>
+            <div class="ring-label">
+              <span class="kpi">${agg.tiempo_total}</span>
+              <span class="kpi-unit">Horas</span>
+            </div>
+          </div>
+          <div style="flex:1;min-width:220px">
+            <p class="muted" style="margin:0 0 2px">Progreso licencia</p>
+            <p style="margin:0 0 12px;font-size:18px;font-weight:600">${curso.id.replace('_', ' ')}</p>
+            <div class="grid cols-2" style="margin-bottom:10px">
+              <div class="doc-card">
+                <p class="muted" style="margin:0">Objetivo</p>
+                <p id="hero-objetivo" style="margin:2px 0 0;font-family:var(--font-mono);font-variant-numeric:tabular-nums"></p>
+              </div>
+              <div class="doc-card">
+                <p class="muted" style="margin:0">Resta</p>
+                <p id="hero-resta" style="margin:2px 0 0;font-family:var(--font-mono);color:var(--brand);font-variant-numeric:tabular-nums"></p>
               </div>
             </div>
-            <div style="flex:1;min-width:220px">
-              <p class="muted" style="margin:0 0 2px">Progreso licencia</p>
-              <p style="margin:0 0 12px;font-size:18px;font-weight:600">${curso.id.replace('_', ' ')}</p>
-              <div class="grid cols-2" style="margin-bottom:10px">
-                <div class="doc-card">
-                  <p class="muted" style="margin:0">Objetivo</p>
-                  <p id="hero-objetivo" style="margin:2px 0 0;font-family:var(--font-mono);font-variant-numeric:tabular-nums"></p>
-                </div>
-                <div class="doc-card">
-                  <p class="muted" style="margin:0">Resta</p>
-                  <p id="hero-resta" style="margin:2px 0 0;font-family:var(--font-mono);color:var(--brand);font-variant-numeric:tabular-nums"></p>
-                </div>
-              </div>
-              <div class="progreso-bar"><span id="hero-bar" style="width:0%"></span></div>
-              <div style="display:flex;justify-content:space-between;margin-top:6px">
-                <span class="muted" id="hero-pct"></span>
-                <span class="muted">Simulador: ${agg.adiestrador_simulador} hs</span>
-              </div>
+            <div class="progreso-bar"><span id="hero-bar" style="width:0%"></span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px">
+              <span class="muted" id="hero-pct"></span>
+              <span class="muted">Simulador: ${agg.adiestrador_simulador} hs</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:16px">
-          <div class="card" style="flex:1;margin-bottom:0">
-            <h3>${Icons.list(16)} Último registro</h3>
-            ${ultimo
-              ? `<p style="margin:0;font-family:var(--font-mono)">${ultimo.aeronaves?.matricula || '—'}</p>
-                 <p class="muted" style="margin:4px 0 0">${ultimo.desde} → ${ultimo.hasta} (${ultimo.tiempo_total} hs)</p>`
-              : `<p class="muted" style="margin:0">Todavía no cargaste ningún vuelo.</p>`}
-          </div>
-          <button class="btn" style="padding:16px;gap:10px" onclick="Router.irA('nuevo-vuelo')">
-            <span>Nuevo vuelo</span>${Icons.plusCircle(18)}
-          </button>
-        </div>
-      </section>
+      <button class="btn" style="width:100%;padding:16px;gap:10px;margin-bottom:16px" onclick="Router.irA('nuevo-vuelo')">
+        <span>Nuevo vuelo</span>${Icons.plusCircle(18)}
+      </button>
 
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <h2 style="margin:0">${Icons.calendar(18)} Próximo vuelo</h2>
-          <button class="btn ghost" id="btn-mostrar-form-programado">+ Agendar</button>
+          <button class="btn ghost" id="btn-mostrar-form-programado">Programar vuelo</button>
         </div>
         <div id="form-programado" style="display:none;margin-bottom:14px"></div>
         <div id="proximo-vuelo"></div>
@@ -124,22 +113,30 @@ const ViewDashboard = {
         <div id="barras-progreso"></div>
       </div>
 
-      <div class="card">
-        <h2>${Icons.idCard(18)} Vencimientos y experiencia reciente</h2>
+      <div class="card card-compact">
+        <h3>${Icons.list(16)} Último registro</h3>
+        ${ultimo
+          ? `<p style="margin:0;font-family:var(--font-mono)">${ultimo.aeronaves?.matricula || '—'}</p>
+             <p class="muted" style="margin:4px 0 0">${ultimo.desde} → ${ultimo.hasta} (${ultimo.tiempo_total} hs)</p>`
+          : `<p class="muted" style="margin:0">Todavía no cargaste ningún vuelo.</p>`}
+      </div>
+
+      <div class="card card-compact">
+        <h3>${Icons.idCard(16)} Vencimientos y experiencia reciente</h3>
         <div id="vencimientos-lista" class="grid cols-4"></div>
         <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
         <div id="currency-lista"></div>
       </div>
 
-      <div class="card">
+      <div class="card card-compact">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">${Icons.list(18)} Últimos vuelos</h2>
+          <h3 style="margin:0">${Icons.list(16)} Últimos vuelos</h3>
           <button class="btn ghost" onclick="Router.irA('bitacora')">Ver todos →</button>
         </div>
         <div id="ultimos-vuelos"></div>
       </div>
 
-      <div class="card" style="opacity:.85">
+      <div class="card card-compact" style="opacity:.85">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             <h3 style="margin:0 0 2px">${Icons.dollar(16)} Costos</h3>
