@@ -151,15 +151,23 @@ const ViewDashboard = {
       </div>
     `;
 
-    renderHeroProgreso(config, agg);
-    renderBarrasProgreso(config, agg);
-    renderUltimosVuelos(vuelos.slice(0, 6));
-    renderVencimientos(vencimientos);
-    renderCurrency(vuelos);
-    this._renderProximoVuelo(programados);
-
     document.getElementById('btn-mostrar-form-programado').onclick = () => this._toggleFormProgramado();
     document.getElementById('btn-detalle-progreso').onclick = () => this._toggleDetalleProgreso();
+
+    // Cada renderer corre aislado: si uno falla con un dato inesperado de
+    // esta cuenta puntual, no debe tirar abajo los botones ni el resto de
+    // las secciones (ya conectados arriba).
+    const pasos = [
+      () => renderHeroProgreso(config, agg),
+      () => renderBarrasProgreso(config, agg),
+      () => renderUltimosVuelos(vuelos.slice(0, 6)),
+      () => renderVencimientos(vencimientos),
+      () => renderCurrency(vuelos),
+      () => this._renderProximoVuelo(programados),
+    ];
+    for (const paso of pasos) {
+      try { paso(); } catch (err) { console.error('Error renderizando sección del dashboard:', err); }
+    }
   },
 
   _toggleDetalleProgreso() {
