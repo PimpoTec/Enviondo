@@ -14,23 +14,27 @@ const RUTAS = [
 ];
 
 function construirNav() {
-  const desktop = document.getElementById('tabs-desktop');
-  const mobile = document.getElementById('tabs-mobile');
-  desktop.innerHTML = '';
-  mobile.innerHTML = '';
+  const drawer = document.getElementById('drawer-menu');
+  drawer.innerHTML = '<div class="drawer-titulo">✈️ Libro de Vuelo</div>';
   for (const r of RUTAS) {
-    const bd = document.createElement('button');
-    bd.textContent = `${r.icon} ${r.label}`;
-    bd.dataset.ruta = r.id;
-    bd.onclick = () => { window.location.hash = '#' + r.id; };
-    desktop.appendChild(bd);
-
-    const bm = document.createElement('button');
-    bm.dataset.ruta = r.id;
-    bm.innerHTML = `<span class="ic">${r.icon}</span><span>${r.label}</span>`;
-    bm.onclick = () => { window.location.hash = '#' + r.id; };
-    mobile.appendChild(bm);
+    const b = document.createElement('button');
+    b.dataset.ruta = r.id;
+    b.innerHTML = `<span class="ic">${r.icon}</span><span>${r.label}</span>`;
+    b.onclick = () => { window.location.hash = '#' + r.id; cerrarMenu(); };
+    drawer.appendChild(b);
   }
+
+  document.getElementById('btn-menu').onclick = abrirMenu;
+  document.getElementById('drawer-overlay').onclick = cerrarMenu;
+}
+
+function abrirMenu() {
+  document.getElementById('drawer-menu').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('open');
+}
+function cerrarMenu() {
+  document.getElementById('drawer-menu').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
 }
 
 async function navegar() {
@@ -39,7 +43,7 @@ async function navegar() {
   const params = new URLSearchParams(queryStr || '');
   const ruta = RUTAS.find((r) => r.id === rutaId) || RUTAS[0];
 
-  document.querySelectorAll('nav.tabs button, nav.bottom-nav button').forEach((b) => {
+  document.querySelectorAll('#drawer-menu button[data-ruta]').forEach((b) => {
     b.classList.toggle('active', b.dataset.ruta === ruta.id);
   });
 

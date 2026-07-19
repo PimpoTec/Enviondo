@@ -15,6 +15,7 @@ const CLASES_AERONAVE = [
 const ViewAeronaves = {
   editandoId: null,
   tipo: 'aeronave', // 'aeronave' | 'simulador'
+  mostrandoForm: false,
 
   async render() {
     const main = document.getElementById('main-content');
@@ -22,6 +23,17 @@ const ViewAeronaves = {
 
     main.innerHTML = `
       <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h2 style="margin:0">Tus aeronaves y simuladores</h2>
+          <button class="btn" id="btn-mostrar-form">+ Agregar</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Matrícula / Nombre</th><th>Modelo</th><th>Clase</th><th class="num">Tarifa día</th><th class="num">Tarifa noche</th><th>Habitual</th><th></th></tr></thead>
+          <tbody id="tbody-aeronaves"></tbody>
+        </table></div>
+      </div>
+
+      <div class="card" id="card-form-aeronave" style="display:${this.mostrandoForm ? 'block' : 'none'}">
         <h2 id="titulo-form-aeronave">🛩️ Nueva ficha</h2>
 
         <div class="field" style="margin-bottom:16px">
@@ -33,20 +45,19 @@ const ViewAeronaves = {
 
         <div id="form-aeronave"></div>
       </div>
-
-      <div class="card">
-        <h2>Tus aeronaves y simuladores</h2>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Matrícula / Nombre</th><th>Modelo</th><th>Clase</th><th class="num">Tarifa día</th><th class="num">Tarifa noche</th><th>Habitual</th><th></th></tr></thead>
-          <tbody id="tbody-aeronaves"></tbody>
-        </table></div>
-      </div>
     `;
 
+    document.getElementById('btn-mostrar-form').onclick = () => {
+      this.editandoId = null;
+      this.mostrandoForm = true;
+      document.getElementById('card-form-aeronave').style.display = 'block';
+      this._renderForm();
+      document.getElementById('card-form-aeronave').scrollIntoView({ behavior: 'smooth' });
+    };
     document.getElementById('tg-tipo-aeronave').onclick = () => { this.tipo = 'aeronave'; this.editandoId = null; this._renderForm(); };
     document.getElementById('tg-tipo-simulador').onclick = () => { this.tipo = 'simulador'; this.editandoId = null; this._renderForm(); };
 
-    this._renderForm();
+    if (this.mostrandoForm) this._renderForm();
     this._renderTabla(aeronaves);
   },
 
@@ -64,7 +75,7 @@ const ViewAeronaves = {
         </div>
         <div class="btn-row">
           <button class="btn" id="btn-guardar-aeronave">Guardar</button>
-          <button class="btn secondary" id="btn-cancelar-aeronave" style="display:${this.editandoId ? 'inline-flex' : 'none'}">Cancelar edición</button>
+          <button class="btn secondary" id="btn-cancelar-aeronave">Cancelar</button>
         </div>
       `;
     } else {
@@ -94,13 +105,13 @@ const ViewAeronaves = {
         <div class="field"><label>Notas</label><textarea id="a-notas" rows="2"></textarea></div>
         <div class="btn-row">
           <button class="btn" id="btn-guardar-aeronave">Guardar</button>
-          <button class="btn secondary" id="btn-cancelar-aeronave" style="display:${this.editandoId ? 'inline-flex' : 'none'}">Cancelar edición</button>
+          <button class="btn secondary" id="btn-cancelar-aeronave">Cancelar</button>
         </div>
       `;
     }
 
     document.getElementById('btn-guardar-aeronave').onclick = () => this._guardar();
-    document.getElementById('btn-cancelar-aeronave').onclick = () => { this.editandoId = null; this.render(); };
+    document.getElementById('btn-cancelar-aeronave').onclick = () => { this.editandoId = null; this.mostrandoForm = false; this.render(); };
   },
 
   _labelClase(a) {
@@ -130,12 +141,11 @@ const ViewAeronaves = {
     `).join('');
   },
 
-  _editar(a) {
+  async _editar(a) {
     this.editandoId = a.id;
     this.tipo = a.es_simulador ? 'simulador' : 'aeronave';
-    document.getElementById('tg-tipo-aeronave').classList.toggle('active', this.tipo === 'aeronave');
-    document.getElementById('tg-tipo-simulador').classList.toggle('active', this.tipo === 'simulador');
-    this._renderForm();
+    this.mostrandoForm = true;
+    await this.render();
 
     document.getElementById('titulo-form-aeronave').textContent = `✏️ Editando ${a.matricula}`;
     document.getElementById('a-matricula').value = a.matricula;
@@ -150,7 +160,7 @@ const ViewAeronaves = {
       document.getElementById('a-habitual').checked = a.es_habitual;
       document.getElementById('a-notas').value = a.notas || '';
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('card-form-aeronave').scrollIntoView({ behavior: 'smooth' });
   },
 
   async _guardar() {
@@ -191,6 +201,7 @@ const ViewAeronaves = {
     try {
       await Repo.guardarAeronave(aeronave);
       this.editandoId = null;
+      this.mostrandoForm = false;
       this.render();
     } catch (err) {
       alert('Error al guardar: ' + (err.message || err));

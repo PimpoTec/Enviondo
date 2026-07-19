@@ -58,6 +58,7 @@ const ViewDashboard = {
           <div class="stat"><div class="num">${agg.total_pic}</div><div class="lbl">PIC</div></div>
           <div class="stat"><div class="num">${agg.total_dia}</div><div class="lbl">Día</div></div>
           <div class="stat"><div class="num">${agg.total_noche}</div><div class="lbl">Noche</div></div>
+          <div class="stat"><div class="num">${agg.adiestrador_simulador}</div><div class="lbl">Simulador</div></div>
         </div>
       </div>
 
@@ -72,11 +73,13 @@ const ViewDashboard = {
 
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">🎓 Progreso — ${curso.label}</h2>
+          <h2 style="margin:0">🎓 Progreso: ${curso.id.replace('_', ' ')}</h2>
           <button class="btn ghost" onclick="Router.irA('perfil')">Cambiar curso →</button>
         </div>
         ${avisoHvi}
-        <div id="barras-progreso"></div>
+        <div id="resumen-progreso"></div>
+        <button class="btn secondary" id="btn-detalle-progreso" style="margin-top:10px">Ver detalle</button>
+        <div id="barras-progreso" style="display:none;margin-top:14px"></div>
       </div>
 
       <div class="card">
@@ -105,6 +108,7 @@ const ViewDashboard = {
       </div>
     `;
 
+    renderResumenProgreso(config, agg);
     renderBarrasProgreso(config, agg);
     renderUltimosVuelos(vuelos.slice(0, 6));
     renderVencimientos(vencimientos);
@@ -112,6 +116,15 @@ const ViewDashboard = {
     this._renderProximoVuelo(programados);
 
     document.getElementById('btn-mostrar-form-programado').onclick = () => this._toggleFormProgramado();
+    document.getElementById('btn-detalle-progreso').onclick = () => this._toggleDetalleProgreso();
+  },
+
+  _toggleDetalleProgreso() {
+    const bloque = document.getElementById('barras-progreso');
+    const btn = document.getElementById('btn-detalle-progreso');
+    const visible = bloque.style.display !== 'none';
+    bloque.style.display = visible ? 'none' : 'block';
+    btn.textContent = visible ? 'Ver detalle' : 'Ocultar detalle';
   },
 
   _renderProximoVuelo(programados) {
@@ -196,6 +209,27 @@ const ViewDashboard = {
     this.render();
   },
 };
+
+function renderResumenProgreso(config, agg) {
+  const cont = document.getElementById('resumen-progreso');
+  if (!config.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para este curso todavía.</p>'; return; }
+  // El resumen usa el requisito "total" (horas totales) si existe; si no
+  // (ej. APPL, que solo pide remolques), toma el primero de la lista.
+  const principal = config.find((r) => r.nombre_requisito === 'total') || config[0];
+  const actual = valorRequisito(principal.nombre_requisito, agg);
+  const minimo = Calc.n(principal.minimo_horas);
+  const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
+  const faltan = Math.max(0, Calc.round2(minimo - actual));
+  const esUnidad = principal.nombre_requisito === 'aterrizajes_noche' || principal.nombre_requisito === 'remolques';
+  cont.innerHTML = `
+    <div class="progreso-item" style="margin-bottom:0">
+      <div class="pi-head">
+        <span class="nombre">${LABELS_REQUISITO[principal.nombre_requisito] || principal.nombre_requisito} — ${pct}%</span>
+        <span class="faltan">${faltan <= 0 ? '¡completo! 🎉' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
+      </div>
+      <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
+    </div>`;
+}
 
 function renderBarrasProgreso(config, agg) {
   const cont = document.getElementById('barras-progreso');
