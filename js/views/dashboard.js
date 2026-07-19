@@ -305,9 +305,9 @@ function renderBarrasProgreso(configsPorCurso, agg) {
   const cont = document.getElementById('barras-progreso');
   const conRequisitos = configsPorCurso.filter(({ config }) => config.length);
   if (!conRequisitos.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para los cursos activos todavía.</p>'; return; }
-  cont.innerHTML = conRequisitos.map(({ cursoId, curso, config }) => `
-    ${conRequisitos.length > 1 ? `<h3 style="margin-top:14px">${curso?.label || cursoId}</h3>` : ''}
-    ${config.map((req) => {
+
+  cont.innerHTML = conRequisitos.map(({ cursoId, curso, config }) => {
+    const items = config.map((req) => {
       const actual = req.nombre_requisito === 'nocturnas'
         ? valorNocturnasAjustado(cursoId, agg, configsPorCurso)
         : valorRequisito(req.nombre_requisito, agg);
@@ -315,16 +315,25 @@ function renderBarrasProgreso(configsPorCurso, agg) {
       const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
       const faltan = Math.max(0, Calc.round2(minimo - actual));
       const esUnidad = req.nombre_requisito === 'aterrizajes_noche' || req.nombre_requisito === 'remolques';
-      return `
+      return { req, actual, minimo, pct, faltan, esUnidad };
+    });
+
+    // Mayor % completado primero; entre los que ya están al 100%, el que
+    // tiene más horas/unidades voladas (cantidad) va primero.
+    items.sort((a, b) => b.pct - a.pct || (b.pct === 100 ? b.actual - a.actual : 0));
+
+    return `
+      ${conRequisitos.length > 1 ? `<h3 style="margin-top:14px">${curso?.label || cursoId}</h3>` : ''}
+      ${items.map(({ req, actual, minimo, pct, faltan, esUnidad }) => `
         <div class="progreso-item">
           <div class="pi-head">
             <span class="nombre">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
             <span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — ${faltan <= 0 ? 'completo' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
           </div>
           <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
-        </div>`;
-    }).join('')}
-  `).join('');
+        </div>`).join('')}
+    `;
+  }).join('');
 }
 
 function renderUltimosVuelos(vuelos) {
