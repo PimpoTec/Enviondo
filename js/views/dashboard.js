@@ -241,6 +241,20 @@ const ViewDashboard = {
   },
 };
 
+// Cuando "Habilitación de Vuelo Nocturno" (HAB_NOC) está activa junto a otro
+// curso que también pide horas nocturnas (ej. PCA pide 5), las horas
+// nocturnas voladas van primero a completar la habilitación (sus 3 hs) —
+// recién las que sobran después de eso cuentan para el otro curso. No es
+// que las mismas horas cuenten dos veces para dos requisitos distintos.
+function valorNocturnasAjustado(cursoId, agg, configsPorCurso) {
+  const habNoc = configsPorCurso.find((c) => c.cursoId === 'HAB_NOC');
+  if (!habNoc) return agg.total_noche;
+  const reqHabNoc = habNoc.config.find((r) => r.nombre_requisito === 'nocturnas');
+  const minimoHabNoc = Calc.n(reqHabNoc?.minimo_horas);
+  if (cursoId === 'HAB_NOC') return Math.min(agg.total_noche, minimoHabNoc);
+  return Math.max(0, Calc.round2(agg.total_noche - minimoHabNoc));
+}
+
 // Promedia el progreso entre todos los cursos activos: cada curso aporta
 // el % de su requisito "principal" (total, o el primero si no tiene "total"
 // — ej. HAB_NOC solo pide nocturnas), y el anillo muestra el promedio simple.
@@ -262,7 +276,9 @@ function renderHeroProgreso(configsPorCurso, agg) {
 
   const porCurso = conRequisitos.map(({ cursoId, curso, config }) => {
     const principal = config.find((r) => r.nombre_requisito === 'total') || config[0];
-    const actual = valorRequisito(principal.nombre_requisito, agg);
+    const actual = principal.nombre_requisito === 'nocturnas'
+      ? valorNocturnasAjustado(cursoId, agg, configsPorCurso)
+      : valorRequisito(principal.nombre_requisito, agg);
     const minimo = Calc.n(principal.minimo_horas);
     const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
     const faltan = Math.max(0, Calc.round2(minimo - actual));
@@ -292,7 +308,9 @@ function renderBarrasProgreso(configsPorCurso, agg) {
   cont.innerHTML = conRequisitos.map(({ cursoId, curso, config }) => `
     ${conRequisitos.length > 1 ? `<h3 style="margin-top:14px">${curso?.label || cursoId}</h3>` : ''}
     ${config.map((req) => {
-      const actual = valorRequisito(req.nombre_requisito, agg);
+      const actual = req.nombre_requisito === 'nocturnas'
+        ? valorNocturnasAjustado(cursoId, agg, configsPorCurso)
+        : valorRequisito(req.nombre_requisito, agg);
       const minimo = Calc.n(req.minimo_horas);
       const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
       const faltan = Math.max(0, Calc.round2(minimo - actual));
