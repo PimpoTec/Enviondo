@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#2454ff"/>
-  <text x="256" y="320" font-size="260" text-anchor="middle" font-family="Arial, sans-serif">✈️</text>
+  <rect width="512" height="512" rx="96" fill="#111317"/>
+  <path d="M462 84 232 284" fill="none" stroke="#ffb86b" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M462 84 322 464l-84-190-190-84 414-146Z" fill="none" stroke="#ffb86b" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

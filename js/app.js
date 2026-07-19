@@ -5,7 +5,8 @@
 function aplicarTemaGuardado() {
   const t = localStorage.getItem('tema');
   if (t) document.documentElement.setAttribute('data-theme', t);
-  document.getElementById('btn-theme').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+  const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.getElementById('btn-theme').innerHTML = esOscuro ? Icons.sun(18) : Icons.moon(18);
 }
 
 function toggleTema() {
@@ -14,11 +15,19 @@ function toggleTema() {
   const nuevo = actual === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', nuevo);
   localStorage.setItem('tema', nuevo);
-  document.getElementById('btn-theme').textContent = nuevo === 'dark' ? '☀️' : '🌙';
+  document.getElementById('btn-theme').innerHTML = nuevo === 'dark' ? Icons.sun(18) : Icons.moon(18);
 }
 
 function actualizarBannerOffline() {
   document.getElementById('offline-banner').style.display = navigator.onLine ? 'none' : 'block';
+}
+
+function inicializarIconosEstaticos() {
+  document.getElementById('offline-banner-icon').innerHTML = Icons.wifiOff(16);
+  document.getElementById('login-icon').innerHTML = Icons.plane(18);
+  document.getElementById('btn-menu').innerHTML = Icons.menu(20);
+  document.getElementById('brand-icon').innerHTML = Icons.plane(20);
+  document.getElementById('btn-logout').innerHTML = Icons.logOut(18);
 }
 
 function mostrarPanelLogin(panel) {
@@ -61,9 +70,9 @@ async function mostrarLogin(panelInicial) {
     msg.textContent = 'Creando cuenta…';
     const { data, error } = await Auth.registrarse(email, password);
     if (error) { msg.textContent = `Error: ${error.message}`; return; }
-    msg.textContent = data.session
-      ? '✅ Cuenta creada.'
-      : '✅ Cuenta creada. Revisá tu email para confirmarla y después iniciá sesión.';
+    msg.innerHTML = Icons.tag('checkCircle', data.session
+      ? 'Cuenta creada.'
+      : 'Cuenta creada. Revisá tu email para confirmarla y después iniciá sesión.');
   };
 
   document.getElementById('btn-olvide').onclick = async () => {
@@ -71,7 +80,7 @@ async function mostrarLogin(panelInicial) {
     if (!email) { msg.textContent = 'Ingresá tu email.'; return; }
     msg.textContent = 'Enviando…';
     const { error } = await Auth.enviarResetPassword(email);
-    msg.textContent = error ? `Error: ${error.message}` : '✅ Revisá tu correo y hacé click en el link para elegir una contraseña nueva.';
+    msg.innerHTML = error ? `Error: ${error.message}` : Icons.tag('checkCircle', 'Revisá tu correo y hacé click en el link para elegir una contraseña nueva.');
   };
 
   document.getElementById('btn-nueva-clave').onclick = async () => {
@@ -80,7 +89,7 @@ async function mostrarLogin(panelInicial) {
     msg.textContent = 'Guardando…';
     const { error } = await Auth.actualizarPassword(nueva);
     if (error) { msg.textContent = `Error: ${error.message}`; return; }
-    msg.textContent = '✅ Contraseña actualizada. Ya podés usar la app.';
+    msg.innerHTML = Icons.tag('checkCircle', 'Contraseña actualizada. Ya podés usar la app.');
     setTimeout(() => mostrarApp(), 800);
   };
 }
@@ -97,6 +106,7 @@ async function mostrarApp() {
 }
 
 async function init() {
+  inicializarIconosEstaticos();
   aplicarTemaGuardado();
   actualizarBannerOffline();
   window.addEventListener('online', actualizarBannerOffline);

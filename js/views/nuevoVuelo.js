@@ -56,19 +56,19 @@ const ViewNuevoVuelo = {
     main.innerHTML = `
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <h2 style="margin:0">${this.editId ? '✏️ Editar registro' : '➕ Nuevo registro'}</h2>
+          <h2 style="margin:0">${this.editId ? Icons.tag('edit', 'Editar registro') : Icons.tag('plusCircle', 'Nuevo registro')}</h2>
           ${this.tipo === 'vuelo' ? '<button class="btn secondary" id="btn-toggle-modo">Modo detallado</button>' : ''}
         </div>
 
         <div class="field" style="margin-bottom:16px">
           <div class="toggle-group">
-            <button type="button" id="tg-tipo-vuelo" class="${this.tipo === 'vuelo' ? 'active' : ''}" ${this.editId ? 'disabled' : ''}>✈️ Vuelo</button>
-            <button type="button" id="tg-tipo-adiestrador" class="${this.tipo === 'adiestrador' ? 'active' : ''}" ${this.editId ? 'disabled' : ''}>🖥️ Adiestrador terrestre</button>
+            <button type="button" id="tg-tipo-vuelo" class="${this.tipo === 'vuelo' ? 'active' : ''}" ${this.editId ? 'disabled' : ''}>${Icons.tag('plane', 'Vuelo')}</button>
+            <button type="button" id="tg-tipo-adiestrador" class="${this.tipo === 'adiestrador' ? 'active' : ''}" ${this.editId ? 'disabled' : ''}>${Icons.tag('monitor', 'Adiestrador terrestre')}</button>
           </div>
         </div>
 
-        ${this.progId && this.tipo === 'vuelo' ? '<p class="muted">✈️ Precargado desde tu vuelo agendado — revisá los datos y completá el resto.</p>' : ''}
-        ${this.editId ? '<p class="muted">✏️ Editando un registro existente.</p>' : ''}
+        ${this.progId && this.tipo === 'vuelo' ? `<p class="muted">${Icons.tag('plane', 'Precargado desde tu vuelo agendado — revisá los datos y completá el resto.')}</p>` : ''}
+        ${this.editId ? `<p class="muted">${Icons.tag('edit', 'Editando un registro existente.')}</p>` : ''}
 
         <div id="form-registro"></div>
       </div>
@@ -454,7 +454,7 @@ const ViewNuevoVuelo = {
     }
 
     if (avisos.length) {
-      msg.textContent = '⚠️ ' + avisos.join(' ');
+      msg.innerHTML = Icons.tag('alertTriangle', avisos.join(' '));
       msg.className = 'muted';
       const ok = confirm('Hay observaciones:\n\n' + avisos.join('\n') + '\n\n¿Guardar igual?');
       if (!ok) return;
@@ -466,7 +466,7 @@ const ViewNuevoVuelo = {
     try {
       if (this.editId) {
         await Repo.actualizarVuelo(this.editId, campos);
-        msg.textContent = '✅ Cambios guardados.';
+        msg.innerHTML = Icons.tag('checkCircle', 'Cambios guardados.');
         msg.className = 'muted';
         this.editId = null;
         this.editVuelo = null;
@@ -478,14 +478,14 @@ const ViewNuevoVuelo = {
         Repo.borrarVueloProgramado(this.progId).catch(() => {});
       }
       if (res.offline) {
-        msg.textContent = '📴 Guardado localmente (sin conexión). Se va a sincronizar solo cuando vuelva la señal.';
+        msg.innerHTML = Icons.tag('wifiOff', 'Guardado localmente (sin conexión). Se va a sincronizar solo cuando vuelva la señal.');
       } else {
-        msg.textContent = '✅ Vuelo guardado.';
+        msg.innerHTML = Icons.tag('checkCircle', 'Vuelo guardado.');
       }
       msg.className = 'muted';
       setTimeout(() => Router.irA('bitacora'), 700);
     } catch (err) {
-      msg.textContent = '❌ Error al guardar: ' + (err.message || err);
+      msg.innerHTML = Icons.tag('xCircle', 'Error al guardar: ' + (err.message || err));
     } finally {
       btn.disabled = false;
       btn.textContent = this.editId ? 'Guardar cambios' : 'Guardar vuelo';
@@ -502,7 +502,7 @@ const ViewNuevoVuelo = {
 
     if (!simuladores.length) {
       cont.innerHTML = `<div class="empty-state">
-        Todavía no cargaste ningún simulador. Andá a Aeronaves → "🖥️ Simulador" para cargar uno
+        Todavía no cargaste ningún simulador. Andá a Aeronaves → "Simulador" para cargar uno
         (nombre, modelo y tarifa por hora nomás).
         <br><button class="btn" style="margin-top:12px" onclick="Router.irA('aeronaves')">Cargar simulador</button>
       </div>`;
@@ -618,7 +618,7 @@ const ViewNuevoVuelo = {
     const notasUsuario = document.getElementById('at-observaciones').value;
 
     if (!fecha || !tiempo) {
-      msg.textContent = '⚠️ Falta la fecha o el tiempo de adiestrador.';
+      msg.innerHTML = Icons.tag('alertTriangle', 'Falta la fecha o el tiempo de adiestrador.');
       return;
     }
 
@@ -640,7 +640,7 @@ const ViewNuevoVuelo = {
     try {
       if (this.editId) {
         await Repo.actualizarVuelo(this.editId, campos);
-        msg.textContent = '✅ Cambios guardados.';
+        msg.innerHTML = Icons.tag('checkCircle', 'Cambios guardados.');
         msg.className = 'muted';
         this.editId = null;
         this.editVuelo = null;
@@ -648,11 +648,11 @@ const ViewNuevoVuelo = {
         return;
       }
       const res = await Repo.crearVuelo(campos);
-      msg.textContent = res.offline ? '📴 Guardado localmente. Se sincroniza solo al volver la señal.' : '✅ Turno guardado.';
+      msg.innerHTML = res.offline ? Icons.tag('wifiOff', 'Guardado localmente. Se sincroniza solo al volver la señal.') : Icons.tag('checkCircle', 'Turno guardado.');
       msg.className = 'muted';
       setTimeout(() => Router.irA('bitacora'), 700);
     } catch (err) {
-      msg.textContent = '❌ Error al guardar: ' + (err.message || err);
+      msg.innerHTML = Icons.tag('xCircle', 'Error al guardar: ' + (err.message || err));
     } finally {
       btn.disabled = false;
       btn.textContent = this.editId ? 'Guardar cambios' : 'Guardar turno';

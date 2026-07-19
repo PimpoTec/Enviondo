@@ -9,11 +9,15 @@ const ViewBitacora = {
 
   async render() {
     const main = document.getElementById('main-content');
-    [this.vuelos, this.aeronaves] = await Promise.all([Repo.listarVuelos(), Repo.listarAeronaves()]);
+    const [vuelos, aeronaves, vencimientos] = await Promise.all([
+      Repo.listarVuelos(), Repo.listarAeronaves(), Repo.listarVencimientos(),
+    ]);
+    this.vuelos = vuelos;
+    this.aeronaves = aeronaves;
 
     main.innerHTML = `
       <div class="card">
-        <h2>📒 Bitácora</h2>
+        <h2>${Icons.list(18)} Bitácora</h2>
         <div class="grid cols-4">
           <div class="field"><label>Desde</label><input type="date" id="fx-desde"></div>
           <div class="field"><label>Hasta</label><input type="date" id="fx-hasta"></div>
@@ -48,6 +52,15 @@ const ViewBitacora = {
           <tbody id="tbody-bitacora"></tbody>
         </table></div>
       </div>
+
+      <div class="grid cols-2">
+        <div class="card" id="tarjeta-estado-licencia"></div>
+        <div class="card seal-card">
+          ${Icons.shieldCheck(28)}
+          <p style="margin:4px 0 0;font-weight:600">Libro foliado y verificado</p>
+          <p class="muted" style="margin:0">Formato conforme a ANAC Res. 290/2012</p>
+        </div>
+      </div>
     `;
 
     document.getElementById('btn-filtrar').onclick = () => this._aplicarFiltro();
@@ -58,6 +71,7 @@ const ViewBitacora = {
     });
 
     this._renderFilas(this.vuelos);
+    this._renderEstadoLicencia(this.vuelos, vencimientos);
   },
 
   async _aplicarFiltro() {
@@ -99,11 +113,30 @@ const ViewBitacora = {
         <td class="num">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</td>
         <td class="num">${fmtMoneda(Calc.calcularCosto(v, v.aeronaves), v.aeronaves?.moneda)}</td>
         <td>
-          <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">✏️</button>
-          <button class="btn ghost" onclick="ViewBitacora._borrar('${v.id}')">🗑️</button>
+          <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">${Icons.edit(16)}</button>
+          <button class="btn ghost" onclick="ViewBitacora._borrar('${v.id}')">${Icons.trash(16)}</button>
         </td>
       </tr>
     `).join('');
+  },
+
+  _renderEstadoLicencia(vuelos, vencimientos) {
+    const cont = document.getElementById('tarjeta-estado-licencia');
+    const hace90 = new Date(); hace90.setDate(hace90.getDate() - 90);
+    const horas90 = vuelos
+      .filter((v) => new Date(v.fecha) >= hace90)
+      .reduce((s, v) => s + Calc.n(v.tiempo_total), 0);
+    const proximo = vencimientos
+      .filter((v) => new Date(v.fecha_vencimiento + 'T00:00:00') >= new Date(new Date().toDateString()))
+      .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento))[0];
+    const pct = Math.min(100, Calc.round2((horas90 / 40) * 100));
+
+    cont.innerHTML = `
+      <h3>${Icons.idCard(16)} Estado de licencia</h3>
+      <div class="license-stat-row"><span class="muted">Últimos 90 días</span><span class="value">${Calc.round2(horas90)} hs</span></div>
+      <div class="progreso-bar" style="margin-bottom:10px"><span style="width:${pct}%"></span></div>
+      <p class="muted" style="margin:0">${proximo ? `Próximo vencimiento: ${proximo.tipo} — ${fmtFecha(proximo.fecha_vencimiento)}` : 'Sin vencimientos próximos cargados.'}</p>
+    `;
   },
 
   async _borrar(id) {

@@ -5,23 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Libro de Vuelo</title>
 <meta name="description" content="Libro de vuelo personal — formato ANAC 290/2012, progreso hacia CPL y control de costos." />
-<meta name="theme-color" content="#2454ff" />
+<meta name="theme-color" content="#111317" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" href="icons/icon-192.png" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 <div id="app">
 
   <div id="offline-banner" class="offline-banner" style="display:none">
-    📴 Sin conexión — los vuelos que cargues se guardan localmente y se sincronizan solos al volver la señal.
+    <span id="offline-banner-icon"></span> Sin conexión — los vuelos que cargues se guardan localmente y se sincronizan solos al volver la señal.
   </div>
 
   <!-- ---------- LOGIN ---------- -->
   <div id="vista-login" class="login-wrap" style="display:none">
     <div class="card login-card">
-      <h2>✈️ Libro de Vuelo</h2>
+      <h2><span id="login-icon"></span> Libro de Vuelo</h2>
 
       <div class="toggle-group" style="margin-bottom:14px">
         <button type="button" id="tab-login" class="active">Iniciar sesión</button>
@@ -88,12 +91,12 @@
   <div id="vista-app" style="display:none">
     <header class="topbar">
       <div style="display:flex;align-items:center;gap:10px">
-        <button class="icon-btn" id="btn-menu" title="Menú">☰</button>
-        <div class="brand"><span class="icon">✈️</span> Libro de Vuelo</div>
+        <button class="icon-btn" id="btn-menu" title="Menú"></button>
+        <div class="brand"><span class="icon" id="brand-icon"></span> Libro de Vuelo</div>
       </div>
       <div class="topbar-actions">
-        <button class="icon-btn" id="btn-theme" title="Cambiar tema">🌙</button>
-        <button class="icon-btn" id="btn-logout" title="Cerrar sesión">⎋</button>
+        <button class="icon-btn" id="btn-theme" title="Cambiar tema"></button>
+        <button class="icon-btn" id="btn-logout" title="Cerrar sesión"></button>
       </div>
     </header>
 
@@ -110,6 +113,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <script src="js/config.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/supabaseClient.js"></script>
 <script src="js/calc.js"></script>
 <script src="js/offline.js"></script>

@@ -28,7 +28,7 @@ const ViewPerfil = {
 
     main.innerHTML = `
       <div class="card">
-        <h2>🎓 Curso / carrera actual</h2>
+        <h2>${Icons.award(18)} Curso / carrera actual</h2>
         <div class="field">
           <label>¿Qué estás haciendo ahora?</label>
           <select id="p-curso">
@@ -43,7 +43,7 @@ const ViewPerfil = {
       <div id="bloque-licencias"></div>
 
       <div class="card">
-        <h2>🪪 Vencimientos</h2>
+        <h2>${Icons.idCard(18)} Vencimientos</h2>
         <div class="grid cols-4">
           <div class="field"><label>Tipo</label>
             <select id="v-tipo">
@@ -67,9 +67,9 @@ const ViewPerfil = {
               const est = estadoVencimiento(v);
               return `<tr>
                 <td>${v.tipo}</td><td>${fmtFecha(v.fecha_vencimiento)}</td>
-                <td><span class="badge ${est.estado}">${est.texto}</span></td>
+                <td><span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span></td>
                 <td>${v.notas || ''}</td>
-                <td><button class="btn ghost" onclick="ViewPerfil._borrarVencimiento('${v.id}')">🗑️</button></td>
+                <td><button class="btn ghost" onclick="ViewPerfil._borrarVencimiento('${v.id}')">${Icons.trash(16)}</button></td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -101,9 +101,9 @@ const ViewPerfil = {
     const realActual = Calc.round2(40 - simActual);
     return `
       <div class="card" style="border:1px solid var(--brand)">
-        <h2>✈️🖥️ Reparto de instrumentos (HVI)</h2>
+        <h2>${Icons.award(18)} Reparto de instrumentos (HVI)</h2>
         <p class="muted">La RAAC (61.315.d) pide 40 hs de vuelo por instrumentos en total, de las cuales podés hacer <strong>hasta 20</strong> en simulador (FSTD) — el resto tiene que ser vuelo real. Elegís vos cómo repartirlas.</p>
-        ${!yaElegido ? '<p class="muted">⚠️ Todavía no elegiste tu reparto — completalo para que el progreso te calcule bien.</p>' : ''}
+        ${!yaElegido ? `<p class="muted">${Icons.tag('alertTriangle', 'Todavía no elegiste tu reparto — completalo para que el progreso te calcule bien.')}</p>` : ''}
         <div class="field-row">
           <div class="field">
             <label>Horas en simulador (0 a 20)</label>
@@ -136,7 +136,7 @@ const ViewPerfil = {
     cont.innerHTML = `
       <div class="card">
         <h2>Mínimos del curso seleccionado (referencial)</h2>
-        <p class="muted">⚠️ Estos valores son los mismos para todos y se actualizan cuando cambia la normativa. Confirmá siempre contra la RAAC vigente.</p>
+        <p class="muted">${Icons.tag('alertTriangle', 'Estos valores son los mismos para todos y se actualizan cuando cambia la normativa. Confirmá siempre contra la RAAC vigente.')}</p>
         <div class="table-wrap"><table>
           <thead><tr><th>Requisito</th><th class="num">Mínimo</th></tr></thead>
           <tbody>
@@ -154,7 +154,7 @@ const ViewPerfil = {
 
     cont.innerHTML = `
       <div class="card" style="border:1px solid var(--brand)">
-        <h2>🔓 Panel de administración de licencias</h2>
+        <h2>${Icons.lock(18)} Panel de administración de licencias</h2>
         <p class="muted">Estos mínimos son GLOBALES: los ve todo el que use la app. Cambiarlos acá actualiza el progreso de todos al instante. Usalo cuando cambie la normativa (RAAC) o quieras sumar una habilitación (ej. HVI).</p>
         ${CURSOS.map((curso) => this._tablaCursoAdmin(curso, todos.filter((r) => r.curso_id === curso.id))).join('')}
       </div>
@@ -177,8 +177,8 @@ const ViewPerfil = {
                 <td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td>
                 <td class="num"><input type="number" step="0.5" min="0" style="width:100px;text-align:right" data-id="${c.id}" value="${c.minimo_horas}"></td>
                 <td>
-                  <button class="btn ghost" onclick="ViewPerfil._guardarConfig('${c.id}')">💾</button>
-                  <button class="btn ghost" onclick="ViewPerfil._borrarConfig('${c.id}')">🗑️</button>
+                  <button class="btn ghost" onclick="ViewPerfil._guardarConfig('${c.id}')">${Icons.save(16)}</button>
+                  <button class="btn ghost" onclick="ViewPerfil._borrarConfig('${c.id}')">${Icons.trash(16)}</button>
                 </td>
               </tr>
             `).join('') || '<tr><td colspan="3" class="empty-state">Sin requisitos.</td></tr>'}

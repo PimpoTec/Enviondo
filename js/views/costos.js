@@ -18,7 +18,7 @@ const ViewCostos = {
 
     main.innerHTML = `
       <div class="card">
-        <h2>💰 Resumen de costos</h2>
+        <h2>${Icons.dollar(18)} Resumen de costos</h2>
         <div class="grid cols-3">
           <div class="stat"><div class="num">${fmtMoneda(agg.costo_total)}</div><div class="lbl">Gastado total</div></div>
           <div class="stat"><div class="num">${fmtMoneda(costoPromedioHora)}</div><div class="lbl">Costo promedio / hora</div></div>

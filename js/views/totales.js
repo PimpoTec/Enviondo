@@ -11,7 +11,7 @@ const ViewTotales = {
 
     main.innerHTML = `
       <div class="card">
-        <h2>📊 Totales acumulados</h2>
+        <h2>${Icons.barChart(18)} Totales acumulados</h2>
         <div class="grid cols-4">
           ${stat('Total general', agg.tiempo_total)}
           ${stat('PIC', agg.total_pic)}
@@ -25,7 +25,7 @@ const ViewTotales = {
       </div>
 
       <div class="card">
-        <h2>🛬 Aterrizajes y remolques</h2>
+        <h2>${Icons.landing(18)} Aterrizajes y remolques</h2>
         <div class="grid cols-4">
           ${stat('Día', agg.aterrizajes_dia, '')}
           ${stat('Noche', agg.aterrizajes_noche, '')}
@@ -35,7 +35,7 @@ const ViewTotales = {
       </div>
 
       <div class="card">
-        <h2>🔎 Discriminaciones <span class="muted" style="font-weight:400">(informativo — ya están incluidas en los totales de arriba, no se suman aparte)</span></h2>
+        <h2>${Icons.search(18)} Discriminaciones <span class="muted" style="font-weight:400">(informativo — ya están incluidas en los totales de arriba, no se suman aparte)</span></h2>
         <div class="grid cols-4">
           ${stat('Instrucción', agg.instruccion_vuelo)}
           ${stat('Multimotor', agg.multimotor)}

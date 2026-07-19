@@ -34,12 +34,12 @@ const ViewAeronaves = {
       </div>
 
       <div class="card" id="card-form-aeronave" style="display:${this.mostrandoForm ? 'block' : 'none'}">
-        <h2 id="titulo-form-aeronave">🛩️ Nueva ficha</h2>
+        <h2 id="titulo-form-aeronave">${Icons.plane(18)} Nueva ficha</h2>
 
         <div class="field" style="margin-bottom:16px">
           <div class="toggle-group">
-            <button type="button" id="tg-tipo-aeronave" class="${this.tipo === 'aeronave' ? 'active' : ''}">✈️ Aeronave</button>
-            <button type="button" id="tg-tipo-simulador" class="${this.tipo === 'simulador' ? 'active' : ''}">🖥️ Simulador</button>
+            <button type="button" id="tg-tipo-aeronave" class="${this.tipo === 'aeronave' ? 'active' : ''}">${Icons.tag('plane', 'Aeronave')}</button>
+            <button type="button" id="tg-tipo-simulador" class="${this.tipo === 'simulador' ? 'active' : ''}">${Icons.tag('monitor', 'Simulador')}</button>
           </div>
         </div>
 
@@ -63,7 +63,7 @@ const ViewAeronaves = {
 
   _renderForm() {
     const cont = document.getElementById('form-aeronave');
-    document.getElementById('titulo-form-aeronave').textContent = this.tipo === 'simulador' ? '🖥️ Nuevo simulador' : '✈️ Nueva aeronave';
+    document.getElementById('titulo-form-aeronave').innerHTML = this.tipo === 'simulador' ? Icons.tag('monitor', 'Nuevo simulador') : Icons.tag('plane', 'Nueva aeronave');
 
     if (this.tipo === 'simulador') {
       cont.innerHTML = `
@@ -127,15 +127,15 @@ const ViewAeronaves = {
     }
     tbody.innerHTML = aeronaves.map((a) => `
       <tr>
-        <td>${a.es_simulador ? '🖥️ ' : ''}${a.matricula}</td>
+        <td>${a.es_simulador ? Icons.monitor(14) + ' ' : ''}${a.matricula}</td>
         <td>${a.marca_modelo}</td>
         <td>${this._labelClase(a)}</td>
         <td class="num">${fmtMoneda(a.tarifa_hora_diurna, a.moneda)}</td>
         <td class="num">${a.es_simulador ? '—' : fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</td>
-        <td>${a.es_habitual ? '⭐' : ''}</td>
+        <td>${a.es_habitual ? Icons.star(14) : ''}</td>
         <td>
-          <button class="btn ghost" onclick='ViewAeronaves._editar(${JSON.stringify(a).replace(/'/g, "&apos;")})'>✏️</button>
-          <button class="btn ghost" onclick="ViewAeronaves._borrar('${a.id}')">🗑️</button>
+          <button class="btn ghost" onclick='ViewAeronaves._editar(${JSON.stringify(a).replace(/'/g, "&apos;")})'>${Icons.edit(16)}</button>
+          <button class="btn ghost" onclick="ViewAeronaves._borrar('${a.id}')">${Icons.trash(16)}</button>
         </td>
       </tr>
     `).join('');
@@ -147,7 +147,7 @@ const ViewAeronaves = {
     this.mostrandoForm = true;
     await this.render();
 
-    document.getElementById('titulo-form-aeronave').textContent = `✏️ Editando ${a.matricula}`;
+    document.getElementById('titulo-form-aeronave').innerHTML = Icons.tag('edit', `Editando ${a.matricula}`);
     document.getElementById('a-matricula').value = a.matricula;
     document.getElementById('a-marca').value = a.marca_modelo;
     document.getElementById('a-tarifa-dia').value = a.tarifa_hora_diurna;

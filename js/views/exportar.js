@@ -26,7 +26,7 @@ const ViewExportar = {
 
     main.innerHTML = `
       <div class="card">
-        <h2>⬇️ Exportar</h2>
+        <h2>${Icons.download(18)} Exportar</h2>
         <div class="grid cols-4">
           <div class="field"><label>Desde</label><input type="date" id="ex-desde"></div>
           <div class="field"><label>Hasta</label><input type="date" id="ex-hasta"></div>
@@ -46,9 +46,9 @@ const ViewExportar = {
         </div>
 
         <div class="btn-row" style="margin-top:10px">
-          <button class="btn" id="btn-export-xlsx">📊 Excel (.xlsx)</button>
-          <button class="btn secondary" id="btn-export-pdf">🖨️ PDF (formato 290/2012)</button>
-          <button class="btn secondary" id="btn-export-json">🗄️ Backup JSON completo</button>
+          <button class="btn" id="btn-export-xlsx">${Icons.tag('barChart', 'Excel (.xlsx)')}</button>
+          <button class="btn secondary" id="btn-export-pdf">${Icons.tag('print', 'PDF (formato 290/2012)')}</button>
+          <button class="btn secondary" id="btn-export-json">${Icons.tag('archive', 'Backup JSON completo')}</button>
         </div>
         <p class="muted" style="margin-top:8px">El PDF pixel-perfect a la hoja de 35,5×16,5 cm queda como mejora futura; esta versión respeta el orden de columnas e imprime los totales acumulados al pie, lista para imprimir o guardar como PDF desde el navegador.</p>
       </div>

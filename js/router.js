@@ -3,23 +3,23 @@
 // ============================================================================
 
 const RUTAS = [
-  { id: 'dashboard', label: 'Inicio', icon: '🏠', render: () => ViewDashboard.render() },
-  { id: 'nuevo-vuelo', label: 'Nuevo vuelo', icon: '➕', render: (p) => ViewNuevoVuelo.render(p) },
-  { id: 'bitacora', label: 'Bitácora', icon: '📒', render: () => ViewBitacora.render() },
-  { id: 'aeronaves', label: 'Aeronaves', icon: '🛩️', render: () => ViewAeronaves.render() },
-  { id: 'totales', label: 'Totales', icon: '📊', render: () => ViewTotales.render() },
-  { id: 'costos', label: 'Costos', icon: '💰', render: () => ViewCostos.render() },
-  { id: 'perfil', label: 'Perfil', icon: '🎓', render: () => ViewPerfil.render() },
-  { id: 'exportar', label: 'Exportar', icon: '⬇️', render: () => ViewExportar.render() },
+  { id: 'dashboard', label: 'Inicio', icon: 'home', render: () => ViewDashboard.render() },
+  { id: 'nuevo-vuelo', label: 'Nuevo vuelo', icon: 'plusCircle', render: (p) => ViewNuevoVuelo.render(p) },
+  { id: 'bitacora', label: 'Bitácora', icon: 'list', render: () => ViewBitacora.render() },
+  { id: 'aeronaves', label: 'Aeronaves', icon: 'plane', render: () => ViewAeronaves.render() },
+  { id: 'totales', label: 'Totales', icon: 'barChart', render: () => ViewTotales.render() },
+  { id: 'costos', label: 'Costos', icon: 'dollar', render: () => ViewCostos.render() },
+  { id: 'perfil', label: 'Perfil', icon: 'award', render: () => ViewPerfil.render() },
+  { id: 'exportar', label: 'Exportar', icon: 'download', render: () => ViewExportar.render() },
 ];
 
 function construirNav() {
   const drawer = document.getElementById('drawer-menu');
-  drawer.innerHTML = '<div class="drawer-titulo">✈️ Libro de Vuelo</div>';
+  drawer.innerHTML = `<div class="drawer-titulo">${Icons.plane(18)} Libro de Vuelo</div>`;
   for (const r of RUTAS) {
     const b = document.createElement('button');
     b.dataset.ruta = r.id;
-    b.innerHTML = `<span class="ic">${r.icon}</span><span>${r.label}</span>`;
+    b.innerHTML = `<span class="ic">${Icons[r.icon](18)}</span><span>${r.label}</span>`;
     b.onclick = () => { window.location.hash = '#' + r.id; cerrarMenu(); };
     drawer.appendChild(b);
   }
@@ -53,7 +53,7 @@ async function navegar() {
     await ruta.render(params);
   } catch (err) {
     console.error(err);
-    main.innerHTML = `<div class="card"><p>⚠️ Ocurrió un error cargando esta pantalla.</p><p class="muted">${err.message || err}</p></div>`;
+    main.innerHTML = `<div class="card"><p>${Icons.tag('alertTriangle', 'Ocurrió un error cargando esta pantalla.')}</p><p class="muted">${err.message || err}</p></div>`;
   }
 }
 

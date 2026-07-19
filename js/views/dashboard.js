@@ -1,7 +1,9 @@
 // ============================================================================
 // VISTA: DASHBOARD
-// Orden de prioridad: 1) total de horas, 2) próximo vuelo, 3) progreso del
-// curso activo, 4) vencimientos y currency, 5) costos (secundario, al final).
+// Orden de prioridad: 1) total de horas + progreso del curso activo (hero),
+// 2) último registro + CTA nuevo vuelo, 3) próximo vuelo agendado,
+// 4) detalle de progreso por requisito, 5) vencimientos y currency,
+// 6) últimos vuelos, 7) costos (secundario, al final).
 // ============================================================================
 
 const LABELS_REQUISITO = {
@@ -15,9 +17,9 @@ function estadoVencimiento(v) {
   const hoy = new Date();
   const fv = new Date(v.fecha_vencimiento + 'T00:00:00');
   const dias = Math.round((fv - hoy) / 86400000);
-  if (dias < 0) return { estado: 'danger', texto: `❌ Vencido hace ${Math.abs(dias)} días` };
-  if (dias <= (v.umbral_alerta_dias || 30)) return { estado: 'warn', texto: `⚠️ Vence en ${dias} días` };
-  return { estado: 'ok', texto: `✅ Vigente (${dias} días)` };
+  if (dias < 0) return { estado: 'danger', icon: 'xCircle', texto: `Vencido hace ${Math.abs(dias)} días` };
+  if (dias <= (v.umbral_alerta_dias || 30)) return { estado: 'warn', icon: 'alertTriangle', texto: `Vence en ${dias} días` };
+  return { estado: 'ok', icon: 'checkCircle', texto: `Vigente (${dias} días)` };
 }
 
 const ViewDashboard = {
@@ -46,22 +48,67 @@ const ViewDashboard = {
           { nombre_requisito: 'instrumentos_sim', minimo_horas: simHoras },
         ]);
       } else {
-        avisoHvi = '<p class="muted">⚠️ Todavía no elegiste cómo repartir tus 40 hs de instrumentos entre real y simulador — <a href="#perfil">andá a Perfil</a> para configurarlo.</p>';
+        avisoHvi = `<p class="muted">${Icons.tag('alertTriangle', 'Todavía no elegiste cómo repartir tus 40 hs de instrumentos entre real y simulador — <a href="#perfil">andá a Perfil</a> para configurarlo.')}</p>`;
       }
     }
 
+    const ultimo = vuelos[0];
+
     main.innerHTML = `
-      <div class="card">
-        <h2 style="margin-bottom:14px">🕐 Total de horas</h2>
-        <div class="grid cols-2">
-          <div class="stat"><div class="num">${agg.tiempo_total}</div><div class="lbl">Vuelo</div></div>
-          <div class="stat"><div class="num">${agg.adiestrador_simulador}</div><div class="lbl">Simulador</div></div>
+      <section class="grid" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px">
+        <div class="card">
+          <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
+          <div class="hero-hours">
+            <div class="ring-wrap">
+              <svg width="148" height="148" viewBox="0 0 148 148">
+                <circle class="ring-track" cx="74" cy="74" r="64" fill="none" stroke-width="9"></circle>
+                <circle id="ring-fill" class="ring-fill" cx="74" cy="74" r="64" fill="none" stroke-width="9"
+                  stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="402"></circle>
+              </svg>
+              <div class="ring-label">
+                <span class="kpi">${agg.tiempo_total}</span>
+                <span class="kpi-unit">Horas</span>
+              </div>
+            </div>
+            <div style="flex:1;min-width:220px">
+              <p class="muted" style="margin:0 0 2px">Progreso licencia</p>
+              <p style="margin:0 0 12px;font-size:18px;font-weight:600">${curso.id.replace('_', ' ')}</p>
+              <div class="grid cols-2" style="margin-bottom:10px">
+                <div class="doc-card">
+                  <p class="muted" style="margin:0">Objetivo</p>
+                  <p id="hero-objetivo" style="margin:2px 0 0;font-family:var(--font-mono);font-variant-numeric:tabular-nums"></p>
+                </div>
+                <div class="doc-card">
+                  <p class="muted" style="margin:0">Resta</p>
+                  <p id="hero-resta" style="margin:2px 0 0;font-family:var(--font-mono);color:var(--brand);font-variant-numeric:tabular-nums"></p>
+                </div>
+              </div>
+              <div class="progreso-bar"><span id="hero-bar" style="width:0%"></span></div>
+              <div style="display:flex;justify-content:space-between;margin-top:6px">
+                <span class="muted" id="hero-pct"></span>
+                <span class="muted">Simulador: ${agg.adiestrador_simulador} hs</span>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card" style="flex:1;margin-bottom:0">
+            <h3>${Icons.list(16)} Último registro</h3>
+            ${ultimo
+              ? `<p style="margin:0;font-family:var(--font-mono)">${ultimo.aeronaves?.matricula || '—'}</p>
+                 <p class="muted" style="margin:4px 0 0">${ultimo.desde} → ${ultimo.hasta} (${ultimo.tiempo_total} hs)</p>`
+              : `<p class="muted" style="margin:0">Todavía no cargaste ningún vuelo.</p>`}
+          </div>
+          <button class="btn" style="justify-content:space-between;padding:16px" onclick="Router.irA('nuevo-vuelo')">
+            <span>Nuevo vuelo</span>${Icons.plusCircle(22)}
+          </button>
+        </div>
+      </section>
 
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">✈️ Próximo vuelo</h2>
+          <h2 style="margin:0">${Icons.calendar(18)} Próximo vuelo</h2>
           <button class="btn ghost" id="btn-mostrar-form-programado">+ Agendar</button>
         </div>
         <div id="form-programado" style="display:none;margin-bottom:14px"></div>
@@ -70,25 +117,24 @@ const ViewDashboard = {
 
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">🎓 Progreso: ${curso.id.replace('_', ' ')}</h2>
+          <h2 style="margin:0">${Icons.award(18)} Detalle de progreso</h2>
           <button class="btn ghost" onclick="Router.irA('perfil')">Cambiar curso →</button>
         </div>
         ${avisoHvi}
-        <div id="resumen-progreso"></div>
-        <button class="btn secondary" id="btn-detalle-progreso" style="margin-top:10px">Ver detalle</button>
-        <div id="barras-progreso" style="display:none;margin-top:14px"></div>
+        <button class="btn secondary" id="btn-detalle-progreso" style="margin-bottom:10px">Ver detalle</button>
+        <div id="barras-progreso" style="display:none"></div>
       </div>
 
       <div class="card">
-        <h2>🪪 Vencimientos y experiencia reciente</h2>
-        <div id="vencimientos-lista"></div>
+        <h2>${Icons.idCard(18)} Vencimientos y experiencia reciente</h2>
+        <div id="vencimientos-lista" class="grid cols-4"></div>
         <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
         <div id="currency-lista"></div>
       </div>
 
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">📒 Últimos vuelos</h2>
+          <h2 style="margin:0">${Icons.list(18)} Últimos vuelos</h2>
           <button class="btn ghost" onclick="Router.irA('bitacora')">Ver todos →</button>
         </div>
         <div id="ultimos-vuelos"></div>
@@ -97,7 +143,7 @@ const ViewDashboard = {
       <div class="card" style="opacity:.85">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
-            <h3 style="margin:0 0 2px">💰 Costos</h3>
+            <h3 style="margin:0 0 2px">${Icons.dollar(16)} Costos</h3>
             <span class="muted">Gastado hasta ahora: ${fmtMoneda(agg.costo_total)}</span>
           </div>
           <button class="btn ghost" onclick="Router.irA('costos')">Ver detalle →</button>
@@ -105,7 +151,7 @@ const ViewDashboard = {
       </div>
     `;
 
-    renderResumenProgreso(config, agg);
+    renderHeroProgreso(config, agg);
     renderBarrasProgreso(config, agg);
     renderUltimosVuelos(vuelos.slice(0, 6));
     renderVencimientos(vencimientos);
@@ -134,7 +180,7 @@ const ViewDashboard = {
       const dias = Math.round((new Date(p.fecha + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000);
       const cuando = dias === 0 ? 'Hoy' : dias === 1 ? 'Mañana' : `En ${dias} días`;
       return `
-        <div class="progreso-item" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+        <div class="progreso-item" style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
           <div class="pi-head">
             <span class="nombre">${fmtFecha(p.fecha)} ${p.hora_prevista ? '· ' + p.hora_prevista.slice(0, 5) : ''} — <span class="badge ok">${cuando}</span></span>
           </div>
@@ -207,25 +253,30 @@ const ViewDashboard = {
   },
 };
 
-function renderResumenProgreso(config, agg) {
-  const cont = document.getElementById('resumen-progreso');
-  if (!config.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para este curso todavía.</p>'; return; }
-  // El resumen usa el requisito "total" (horas totales) si existe; si no
-  // (ej. APPL, que solo pide remolques), toma el primero de la lista.
+function renderHeroProgreso(config, agg) {
+  const objetivo = document.getElementById('hero-objetivo');
+  const resta = document.getElementById('hero-resta');
+  const bar = document.getElementById('hero-bar');
+  const pctLabel = document.getElementById('hero-pct');
+  const ring = document.getElementById('ring-fill');
+  const CIRC = 402; // 2 * PI * r(64)
+
+  if (!config.length) {
+    objetivo.textContent = '—'; resta.textContent = '—'; pctLabel.textContent = 'Sin requisitos configurados';
+    return;
+  }
   const principal = config.find((r) => r.nombre_requisito === 'total') || config[0];
   const actual = valorRequisito(principal.nombre_requisito, agg);
   const minimo = Calc.n(principal.minimo_horas);
   const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
   const faltan = Math.max(0, Calc.round2(minimo - actual));
   const esUnidad = principal.nombre_requisito === 'aterrizajes_noche' || principal.nombre_requisito === 'remolques';
-  cont.innerHTML = `
-    <div class="progreso-item" style="margin-bottom:0">
-      <div class="pi-head">
-        <span class="nombre">${LABELS_REQUISITO[principal.nombre_requisito] || principal.nombre_requisito} — ${pct}%</span>
-        <span class="faltan">${faltan <= 0 ? '¡completo! 🎉' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
-      </div>
-      <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
-    </div>`;
+
+  objetivo.textContent = `${minimo}${esUnidad ? '' : ' hs'}`;
+  resta.textContent = faltan <= 0 ? '¡Completo!' : `${faltan}${esUnidad ? '' : ' hs'}`;
+  bar.style.width = pct + '%';
+  pctLabel.textContent = `${pct}% completado`;
+  ring.style.strokeDashoffset = CIRC - (CIRC * pct) / 100;
 }
 
 function renderBarrasProgreso(config, agg) {
@@ -241,7 +292,7 @@ function renderBarrasProgreso(config, agg) {
       <div class="progreso-item">
         <div class="pi-head">
           <span class="nombre">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
-          <span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — ${faltan <= 0 ? '¡completo! 🎉' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
+          <span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — ${faltan <= 0 ? 'completo' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
         </div>
         <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
       </div>`;
@@ -250,7 +301,7 @@ function renderBarrasProgreso(config, agg) {
 
 function renderUltimosVuelos(vuelos) {
   const cont = document.getElementById('ultimos-vuelos');
-  if (!vuelos.length) { cont.innerHTML = '<div class="empty-state">Todavía no cargaste ningún vuelo. <br><button class="btn" style="margin-top:10px" onclick="Router.irA(\'nuevo-vuelo\')">Cargar el primero</button></div>'; return; }
+  if (!vuelos.length) { cont.innerHTML = `<div class="empty-state">Todavía no cargaste ningún vuelo. <br><button class="btn" style="margin-top:10px" onclick="Router.irA('nuevo-vuelo')">Cargar el primero</button></div>`; return; }
   cont.innerHTML = `<div class="table-wrap"><table>
     <thead><tr><th>Fecha</th><th>Ruta</th><th>Aeronave</th><th class="num">Tiempo</th><th></th></tr></thead>
     <tbody>
@@ -260,7 +311,7 @@ function renderUltimosVuelos(vuelos) {
           <td>${v.desde} → ${v.hasta}</td>
           <td>${v.aeronaves?.matricula || '—'}</td>
           <td class="num">${v.tiempo_total} hs</td>
-          <td><button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar</button></td>
+          <td><button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">${Icons.edit(16)}</button></td>
         </tr>`).join('')}
     </tbody>
   </table></div>`;
@@ -271,7 +322,15 @@ function renderVencimientos(vencimientos) {
   if (!vencimientos.length) { cont.innerHTML = '<p class="muted">No cargaste vencimientos todavía. Andá a Perfil para agregar (CMA, habilitaciones, IFR…).</p>'; return; }
   cont.innerHTML = vencimientos.map((v) => {
     const est = estadoVencimiento(v);
-    return `<div class="chip"><span class="badge ${est.estado}">${est.texto}</span> ${v.tipo}</div>`;
+    return `
+      <div class="doc-card">
+        <div class="doc-head">
+          <span class="icon">${Icons.medical(18)}</span>
+          <span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span>
+        </div>
+        <p class="doc-tipo">${v.tipo}</p>
+        <p class="doc-fecha">${fmtFecha(v.fecha_vencimiento)}</p>
+      </div>`;
   }).join('');
 }
 
@@ -283,8 +342,8 @@ function renderCurrency(vuelos) {
   const aterrNoche = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_noche), 0);
   const okDia = aterrDia >= 3, okNoche = aterrNoche >= 3;
   cont.innerHTML = `
-    <div class="chip"><span class="badge ${okDia ? 'ok' : 'warn'}">${okDia ? '✅' : '⚠️'} ${aterrDia}/3</span> Despegues y aterrizajes (día, 90 días)</div>
-    <div class="chip"><span class="badge ${okNoche ? 'ok' : 'warn'}">${okNoche ? '✅' : '⚠️'} ${aterrNoche}/3</span> Ídem nocturno (90 días)</div>
+    <div class="chip"><span class="badge ${okDia ? 'ok' : 'warn'}">${Icons[okDia ? 'checkCircle' : 'alertTriangle'](12)} ${aterrDia}/3</span> Despegues y aterrizajes (día, 90 días)</div>
+    <div class="chip"><span class="badge ${okNoche ? 'ok' : 'warn'}">${Icons[okNoche ? 'checkCircle' : 'alertTriangle'](12)} ${aterrNoche}/3</span> Ídem nocturno (90 días)</div>
   `;
 }
 
