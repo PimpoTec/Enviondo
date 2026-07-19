@@ -92,7 +92,7 @@ const ViewDashboard = {
           </div>
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:16px">
           <div class="card" style="flex:1;margin-bottom:0">
             <h3>${Icons.list(16)} Último registro</h3>
             ${ultimo
@@ -100,8 +100,8 @@ const ViewDashboard = {
                  <p class="muted" style="margin:4px 0 0">${ultimo.desde} → ${ultimo.hasta} (${ultimo.tiempo_total} hs)</p>`
               : `<p class="muted" style="margin:0">Todavía no cargaste ningún vuelo.</p>`}
           </div>
-          <button class="btn" style="justify-content:space-between;padding:16px" onclick="Router.irA('nuevo-vuelo')">
-            <span>Nuevo vuelo</span>${Icons.plusCircle(22)}
+          <button class="btn" style="padding:16px;gap:10px" onclick="Router.irA('nuevo-vuelo')">
+            <span>Nuevo vuelo</span>${Icons.plusCircle(18)}
           </button>
         </div>
       </section>
