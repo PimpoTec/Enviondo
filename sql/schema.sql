@@ -407,4 +407,30 @@ insert into licencias_requisitos (curso_id, nombre_requisito, minimo_horas, orde
   ('TLA', 'instrumentos', 75, 5)
 on conflict (curso_id, nombre_requisito) do nothing;
 
+-- ============================================================================
+-- ACTUALIZACIÓN — PCA con habilitación de vuelo por instrumentos (HVI)
+-- como curso aparte (61.315 + 61.620). La RAAC pide 40 hs de instrumentos
+-- en total, de las cuales hasta 20 pueden ser en simulador (FSTD) — el
+-- resto tiene que ser vuelo real. Como esa repartición la elige cada
+-- piloto (no es un mínimo fijo igual para todos), se guarda como
+-- preferencia personal en perfil_piloto, no en la tabla global.
+-- ============================================================================
+alter table perfil_piloto drop constraint if exists perfil_piloto_curso_activo_check;
+alter table perfil_piloto add constraint perfil_piloto_curso_activo_check
+  check (curso_activo in ('APPL', 'PPA', 'PCA', 'PCA_HVI', 'TLA'));
+alter table perfil_piloto add column if not exists hvi_sim_horas numeric(5,2);
+
+alter table licencias_requisitos drop constraint if exists licencias_requisitos_curso_id_check;
+alter table licencias_requisitos add constraint licencias_requisitos_curso_id_check
+  check (curso_id in ('APPL', 'PPA', 'PCA', 'PCA_HVI', 'TLA'));
+
+insert into licencias_requisitos (curso_id, nombre_requisito, minimo_horas, orden) values
+  ('PCA_HVI', 'total', 200, 1),
+  ('PCA_HVI', 'pic', 100, 2),
+  ('PCA_HVI', 'travesia_pic', 50, 3),
+  ('PCA_HVI', 'instrumentos', 40, 4),
+  ('PCA_HVI', 'nocturnas', 5, 5),
+  ('PCA_HVI', 'aterrizajes_noche', 5, 6)
+on conflict (curso_id, nombre_requisito) do nothing;
+
 -- Fin del esquema.

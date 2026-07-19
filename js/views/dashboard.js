@@ -7,6 +7,7 @@
 const LABELS_REQUISITO = {
   total: 'Total', pic: 'Piloto al mando (PIC)', travesia_pic: 'Travesía como PIC',
   nocturnas: 'Nocturnas', instrumentos: 'Instrumentos (real + capota)',
+  instrumentos_sim: 'Instrumentos en simulador (FSTD)',
   aterrizajes_noche: 'Aterrizajes nocturnos', remolques: 'Remolques',
 };
 
@@ -29,9 +30,25 @@ const ViewDashboard = {
       Repo.listarVuelosProgramados(), Repo.listarAeronaves(),
     ]);
     this.aeronaves = aeronaves;
-    const config = await Repo.listarConfigLicencia(cursoActivo);
+    let config = await Repo.listarConfigLicencia(cursoActivo);
     const agg = agregarVuelos(vuelos);
     const curso = CURSOS.find((c) => c.id === cursoActivo) || CURSOS[1];
+
+    // El PCA+HVI reparte sus 40 hs de instrumentos entre real y simulador
+    // según lo que el piloto haya elegido en Perfil (no es un mínimo fijo
+    // igual para todos, así que no vive en la tabla global de requisitos).
+    let avisoHvi = '';
+    if (cursoActivo === 'PCA_HVI') {
+      const simHoras = await Repo.getHviSimHoras();
+      if (simHoras !== null && simHoras !== undefined) {
+        config = config.filter((c) => c.nombre_requisito !== 'instrumentos').concat([
+          { nombre_requisito: 'instrumentos', minimo_horas: Calc.round2(40 - simHoras) },
+          { nombre_requisito: 'instrumentos_sim', minimo_horas: simHoras },
+        ]);
+      } else {
+        avisoHvi = '<p class="muted">⚠️ Todavía no elegiste cómo repartir tus 40 hs de instrumentos entre real y simulador — <a href="#perfil">andá a Perfil</a> para configurarlo.</p>';
+      }
+    }
 
     main.innerHTML = `
       <div class="card">
@@ -58,6 +75,7 @@ const ViewDashboard = {
           <h2 style="margin:0">🎓 Progreso — ${curso.label}</h2>
           <button class="btn ghost" onclick="Router.irA('perfil')">Cambiar curso →</button>
         </div>
+        ${avisoHvi}
         <div id="barras-progreso"></div>
       </div>
 

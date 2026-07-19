@@ -11,16 +11,20 @@
 // vuelos. Si el admin agrega un requisito con otra clave, va a quedar
 // guardado pero el progreso va a mostrar 0 — no hay una fórmula para
 // inventarlo.
-const CLAVES_REQUISITO_DISPONIBLES = ['total', 'pic', 'travesia_pic', 'nocturnas', 'instrumentos', 'aterrizajes_noche', 'remolques'];
+const CLAVES_REQUISITO_DISPONIBLES = ['total', 'pic', 'travesia_pic', 'nocturnas', 'instrumentos', 'instrumentos_sim', 'aterrizajes_noche', 'remolques'];
 
 const ViewPerfil = {
   cursoActivo: 'PPA',
   esAdmin: false,
+  hviSimHoras: null,
 
   async render() {
     const main = document.getElementById('main-content');
     [this.cursoActivo, this.esAdmin] = await Promise.all([Repo.getCursoActivo(), Repo.esAdminApp()]);
     const [vencimientos] = await Promise.all([Repo.listarVencimientos()]);
+    if (this.cursoActivo === 'PCA_HVI') {
+      this.hviSimHoras = await Repo.getHviSimHoras();
+    }
 
     main.innerHTML = `
       <div class="card">
@@ -33,6 +37,8 @@ const ViewPerfil = {
         </div>
         <p class="muted">Esto define qué progreso te muestra el Dashboard. Podés cambiarlo cuando avances de curso.</p>
       </div>
+
+      ${this.cursoActivo === 'PCA_HVI' ? this._htmlRepartoHvi() : ''}
 
       <div id="bloque-licencias"></div>
 
@@ -73,11 +79,53 @@ const ViewPerfil = {
 
     document.getElementById('p-curso').onchange = (e) => this._cambiarCurso(e.target.value);
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
+    if (this.cursoActivo === 'PCA_HVI') {
+      document.getElementById('btn-guardar-hvi').onclick = () => this._guardarReparto();
+      document.getElementById('hvi-sim').addEventListener('input', (e) => {
+        const sim = Math.min(20, Math.max(0, Calc.n(e.target.value)));
+        document.getElementById('hvi-real').value = Calc.round2(40 - sim);
+      });
+    }
 
     if (this.esAdmin) {
       await this._renderPanelAdmin();
     } else {
       await this._renderSoloLectura();
+    }
+  },
+
+  // ---- Reparto instrumentos real/simulador para PCA_HVI (61.315(d)) ----
+  _htmlRepartoHvi() {
+    const yaElegido = this.hviSimHoras !== null && this.hviSimHoras !== undefined;
+    const simActual = yaElegido ? this.hviSimHoras : 20;
+    const realActual = Calc.round2(40 - simActual);
+    return `
+      <div class="card" style="border:1px solid var(--brand)">
+        <h2>✈️🖥️ Reparto de instrumentos (HVI)</h2>
+        <p class="muted">La RAAC (61.315.d) pide 40 hs de vuelo por instrumentos en total, de las cuales podés hacer <strong>hasta 20</strong> en simulador (FSTD) — el resto tiene que ser vuelo real. Elegís vos cómo repartirlas.</p>
+        ${!yaElegido ? '<p class="muted">⚠️ Todavía no elegiste tu reparto — completalo para que el progreso te calcule bien.</p>' : ''}
+        <div class="field-row">
+          <div class="field">
+            <label>Horas en simulador (0 a 20)</label>
+            <input type="number" min="0" max="20" step="0.5" id="hvi-sim" value="${simActual}">
+          </div>
+          <div class="field">
+            <label>Horas reales (se completan solas)</label>
+            <input type="number" id="hvi-real" value="${realActual}" disabled>
+          </div>
+        </div>
+        <button class="btn" id="btn-guardar-hvi">Guardar reparto</button>
+      </div>
+    `;
+  },
+
+  async _guardarReparto() {
+    const sim = Math.min(20, Math.max(0, Calc.n(document.getElementById('hvi-sim').value)));
+    try {
+      await Repo.setHviSimHoras(sim);
+      this.render();
+    } catch (err) {
+      alert('Error al guardar el reparto: ' + (err.message || err));
     }
   },
 

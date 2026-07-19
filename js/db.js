@@ -10,6 +10,7 @@ const CURSOS = [
   { id: 'APPL', label: 'APPL — Piloto de Planeador (en curso)' },
   { id: 'PPA', label: 'PPA — Piloto Privado de Avión (APPA mientras estás en curso)' },
   { id: 'PCA', label: 'PCA — Piloto Comercial de Avión' },
+  { id: 'PCA_HVI', label: 'PCA + HVI — Piloto Comercial con Habilitación de Vuelo por Instrumentos' },
   { id: 'TLA', label: 'TLA — Piloto de Transporte de Línea Aérea' },
 ];
 
@@ -117,6 +118,22 @@ const Repo = {
       .upsert({ user_id: user.id, curso_activo: cursoId, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
   },
+  // Reparto elegido por el piloto entre instrumentos reales y en simulador
+  // (FSTD) para el curso PCA_HVI — la RAAC permite hasta 20 hs en
+  // simulador de las 40 totales, pero la decisión de cuánto usar es de
+  // cada piloto, no un mínimo fijo igual para todos.
+  async getHviSimHoras() {
+    const user = await usuarioActual();
+    const { data, error } = await window.db.from('perfil_piloto').select('hvi_sim_horas').eq('user_id', user.id).maybeSingle();
+    if (error) throw error;
+    return data?.hvi_sim_horas ?? null;
+  },
+  async setHviSimHoras(horas) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('perfil_piloto')
+      .upsert({ user_id: user.id, hvi_sim_horas: horas, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error) throw error;
+  },
 
   // ---- Licencias/requisitos: tabla GLOBAL, compartida por todos los
   // usuarios. Cualquiera la puede leer; solo la cuenta admin (ver
@@ -216,6 +233,7 @@ function valorRequisito(nombre, agg) {
     case 'travesia_pic': return agg.travesia_pic;
     case 'nocturnas': return agg.total_noche;
     case 'instrumentos': return Calc.round2(agg.instrumentos_real + agg.instrumentos_capota);
+    case 'instrumentos_sim': return agg.adiestrador_simulador;
     case 'aterrizajes_noche': return agg.aterrizajes_noche;
     case 'remolques': return agg.remolques;
     default: return 0;
