@@ -60,9 +60,9 @@ const ViewDashboard = {
           <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
           <div class="hero-hours">
             <div class="ring-wrap">
-              <svg width="148" height="148" viewBox="0 0 148 148">
-                <circle class="ring-track" cx="74" cy="74" r="64" fill="none" stroke-width="9"></circle>
-                <circle id="ring-fill" class="ring-fill" cx="74" cy="74" r="64" fill="none" stroke-width="9"
+              <svg width="168" height="168" viewBox="0 0 168 168">
+                <circle class="ring-track" cx="84" cy="84" r="64" fill="none" stroke-width="9"></circle>
+                <circle id="ring-fill" class="ring-fill" cx="84" cy="84" r="64" fill="none" stroke-width="9"
                   stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="402"></circle>
               </svg>
               <div class="ring-label">
