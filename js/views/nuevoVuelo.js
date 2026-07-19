@@ -532,10 +532,23 @@ const ViewNuevoVuelo = {
           <input type="time" id="at-hora-fin" />
         </div>
       </div>
-      <div class="field">
-        <label>Tiempo de adiestrador terrestre (hs.décimos)</label>
-        <input type="number" step="0.1" min="0" id="at-tiempo" placeholder="ej. 1.0" />
-        <p class="muted" id="at-tiempo-calculado" style="margin:4px 0 0"></p>
+      <div class="field-row">
+        <div class="field">
+          <label>Tiempo de adiestrador terrestre (hs.décimos)</label>
+          <input type="number" step="0.1" min="0" id="at-tiempo" placeholder="ej. 1.0" />
+          <p class="muted" id="at-tiempo-calculado" style="margin:4px 0 0"></p>
+        </div>
+        <div class="field">
+          <label>Finalidad</label>
+          <select id="at-finalidad">
+            <option value="INST">INST — Instrucción</option>
+            <option value="ADAP">ADAP — Adaptación</option>
+            <option value="REDAP">REDAP — Readaptación</option>
+            <option value="EXA">EXA — Examen</option>
+            <option value="ENTT">ENTT — Entrenamiento (escuela)</option>
+            <option value="VP">VP — Vuelo privado</option>
+          </select>
+        </div>
       </div>
       <div class="field">
         <label>Observaciones</label>
@@ -588,6 +601,7 @@ const ViewNuevoVuelo = {
       document.getElementById('at-hora-inicio').value = (v.hora_salida_utc || '').slice(0, 5);
       document.getElementById('at-hora-fin').value = (v.hora_llegada_utc || '').slice(0, 5);
       document.getElementById('at-tiempo').value = Calc.n(v.adiestrador_simulador);
+      document.getElementById('at-finalidad').value = v.finalidad_vuelo || 'INST';
       document.getElementById('at-observaciones').value = (v.observaciones || '').replace(/^Turno de adiestrador terrestre( — )?/, '');
     }
     actualizarCostoAdiestrador();
@@ -600,6 +614,7 @@ const ViewNuevoVuelo = {
     const tiempo = Calc.n(document.getElementById('at-tiempo').value);
     const hora_salida_utc = document.getElementById('at-hora-inicio').value || null;
     const hora_llegada_utc = document.getElementById('at-hora-fin').value || null;
+    const finalidad_vuelo = document.getElementById('at-finalidad').value;
     const notasUsuario = document.getElementById('at-observaciones').value;
 
     if (!fecha || !tiempo) {
@@ -609,7 +624,7 @@ const ViewNuevoVuelo = {
 
     const campos = {
       fecha, hora_salida_utc, hora_llegada_utc, desde: 'TERR', hasta: 'TERR',
-      finalidad_vuelo: 'INST', aeronave_id,
+      finalidad_vuelo, aeronave_id,
       ...Object.fromEntries(Calc.CAMPOS_TIEMPO.map((c) => [c, 0])),
       aterrizajes_dia: 0, aterrizajes_noche: 0, remolques: 0,
       instruccion_vuelo: 0, multimotor: 0, reactor: 0, turbohelice: 0, aeroaplicador: 0,
