@@ -36,8 +36,8 @@ const ViewPerfil = {
 
   async render() {
     const main = document.getElementById('main-content');
-    const [cursosActivos, esAdmin, vencimientos, vuelos] = await Promise.all([
-      Repo.getCursosActivos(), Repo.esAdminApp(), Repo.listarVencimientos(), Repo.listarVuelos(),
+    const [cursosActivos, esAdmin, vencimientos, vuelos, papelera] = await Promise.all([
+      Repo.getCursosActivos(), Repo.esAdminApp(), Repo.listarVencimientos(), Repo.listarVuelos(), Repo.listarVuelosBorrados(),
     ]);
     this.cursosActivos = cursosActivos;
     this.esAdmin = esAdmin;
@@ -130,6 +130,29 @@ const ViewPerfil = {
 
         <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
         <div id="currency-lista"></div>
+      </div>
+
+      <div class="card">
+        <h2>${Icons.trash(18)} Papelera ${papelera.length ? `<span class="badge warn">${papelera.length}</span>` : ''}</h2>
+        ${papelera.length
+          ? `<p class="muted">Los vuelos borrados quedan acá hasta que los restaurés o los borrés definitivamente — nunca desaparecen solos.</p>
+             <div class="table-wrap"><table>
+               <thead><tr><th>Fecha</th><th>Ruta</th><th>Aeronave</th><th class="num">Tiempo</th><th></th></tr></thead>
+               <tbody>
+                 ${papelera.map((v) => `
+                   <tr>
+                     <td>${fmtFecha(v.fecha)}</td>
+                     <td>${v.desde} → ${v.hasta}</td>
+                     <td>${v.aeronaves?.matricula || '—'}</td>
+                     <td class="num">${v.tiempo_total} hs</td>
+                     <td>
+                       <button class="btn ghost" onclick="ViewPerfil._restaurarVuelo('${v.id}')">${Icons.tag('checkCircle', 'Restaurar')}</button>
+                       <button class="btn ghost" onclick="ViewPerfil._borrarVueloPermanente('${v.id}')">${Icons.trash(16)}</button>
+                     </td>
+                   </tr>`).join('')}
+               </tbody>
+             </table></div>`
+          : `<p class="muted" style="margin:0">Vacía — los vuelos que borres van a aparecer acá primero.</p>`}
       </div>
 
       <div class="card">
@@ -310,6 +333,25 @@ const ViewPerfil = {
     if (!confirm('¿Borrar este vencimiento?')) return;
     await Repo.borrarVencimiento(id);
     this.render();
+  },
+
+  async _restaurarVuelo(id) {
+    try {
+      await Repo.restaurarVuelo(id);
+      this.render();
+    } catch (err) {
+      alert('Error al restaurar: ' + (err.message || err));
+    }
+  },
+
+  async _borrarVueloPermanente(id) {
+    if (!confirm('Esto lo borra para siempre, no se puede deshacer. ¿Seguro?')) return;
+    try {
+      await Repo.borrarVueloPermanente(id);
+      this.render();
+    } catch (err) {
+      alert('Error al borrar: ' + (err.message || err));
+    }
   },
 };
 

@@ -140,7 +140,7 @@ const ViewBitacora = {
   },
 
   async _borrar(id) {
-    if (!confirm('¿Borrar este vuelo? No se puede deshacer.')) return;
+    if (!confirm('¿Borrar este vuelo? Queda en la Papelera (Perfil) por si lo querés restaurar.')) return;
     try {
       await Repo.borrarVuelo(id);
       this.render();

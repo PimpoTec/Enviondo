@@ -43,8 +43,14 @@ const Repo = {
   },
 
   // ---- Vuelos ----
+  // "Borrar" es soft-delete (deleted_at) — el vuelo sale de la bitácora,
+  // totales y progreso, pero se puede restaurar desde la Papelera (Perfil)
+  // hasta que se vacíe a mano. Un libro de vuelo es un registro con peso
+  // legal hacia la licencia; un borrado accidental sin vuelta atrás es
+  // demasiado costoso como para no tener red de seguridad.
   async listarVuelos(filtros = {}) {
-    let q = window.db.from('vuelos').select('*, aeronaves(matricula, marca_modelo, tarifa_hora_diurna, tarifa_hora_nocturna, moneda)').order('fecha', { ascending: false });
+    let q = window.db.from('vuelos').select('*, aeronaves(matricula, marca_modelo, tarifa_hora_diurna, tarifa_hora_nocturna, moneda)')
+      .is('deleted_at', null).order('fecha', { ascending: false });
     if (filtros.desde) q = q.gte('fecha', filtros.desde);
     if (filtros.hasta) q = q.lte('fecha', filtros.hasta);
     if (filtros.aeronave_id) q = q.eq('aeronave_id', filtros.aeronave_id);
@@ -78,6 +84,21 @@ const Repo = {
     if (error) throw error;
   },
   async borrarVuelo(id) {
+    const { error } = await window.db.from('vuelos').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+  },
+  async listarVuelosBorrados() {
+    const { data, error } = await window.db.from('vuelos')
+      .select('*, aeronaves(matricula, marca_modelo)')
+      .not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async restaurarVuelo(id) {
+    const { error } = await window.db.from('vuelos').update({ deleted_at: null }).eq('id', id);
+    if (error) throw error;
+  },
+  async borrarVueloPermanente(id) {
     const { error } = await window.db.from('vuelos').delete().eq('id', id);
     if (error) throw error;
   },
