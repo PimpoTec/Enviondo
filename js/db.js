@@ -28,10 +28,15 @@ async function usuarioActual() {
 
 const Repo = {
   // ---- Aeronaves ----
+  // Solo cambian cuando vos guardás/borrás una ficha con los propios botones
+  // de la app — se cachean localmente (ver js/cache.js) para que abrir la
+  // pantalla no espere la red si ya las tenés.
   async listarAeronaves() {
-    const { data, error } = await window.db.from('aeronaves').select('*').order('es_habitual', { ascending: false }).order('matricula');
-    if (error) throw error;
-    return data;
+    return Cache.conCache('aeronaves', async () => {
+      const { data, error } = await window.db.from('aeronaves').select('*').order('es_habitual', { ascending: false }).order('matricula');
+      if (error) throw error;
+      return data;
+    });
   },
   async guardarAeronave(aeronave) {
     const user = await usuarioActual();
@@ -42,10 +47,12 @@ const Repo = {
       const { error } = await window.db.from('aeronaves').insert({ ...aeronave, user_id: user.id });
       if (error) throw error;
     }
+    Cache.invalidar('aeronaves');
   },
   async borrarAeronave(id) {
     const { error } = await window.db.from('aeronaves').delete().eq('id', id);
     if (error) throw error;
+    Cache.invalidar('aeronaves');
   },
 
   // ---- Vuelos ----
@@ -54,18 +61,27 @@ const Repo = {
   // hasta que se vacíe a mano. Un libro de vuelo es un registro con peso
   // legal hacia la licencia; un borrado accidental sin vuelta atrás es
   // demasiado costoso como para no tener red de seguridad.
+  // Solo cachea el pedido "todos los vuelos, sin filtro" (el que usan
+  // Dashboard/Bitácora inicial/Totales/Costos/Perfil) — los pedidos con
+  // filtros (Bitácora filtrada, Exportar) son variados y menos frecuentes,
+  // así que van directo a la red.
   async listarVuelos(filtros = {}) {
-    let q = window.db.from('vuelos').select('*, aeronaves(matricula, marca_modelo, potencia, clase, tarifa_hora_diurna, tarifa_hora_nocturna, moneda)')
-      .is('deleted_at', null).order('fecha', { ascending: false });
-    if (filtros.desde) q = q.gte('fecha', filtros.desde);
-    if (filtros.hasta) q = q.lte('fecha', filtros.hasta);
-    if (filtros.aeronave_id) q = q.eq('aeronave_id', filtros.aeronave_id);
-    if (filtros.finalidad_vuelo) q = q.eq('finalidad_vuelo', filtros.finalidad_vuelo);
-    const { data, error } = await q;
-    if (error) throw error;
-    return data;
+    const sinFiltros = !filtros.desde && !filtros.hasta && !filtros.aeronave_id && !filtros.finalidad_vuelo;
+    const fetchFn = async () => {
+      let q = window.db.from('vuelos').select('*, aeronaves(matricula, marca_modelo, potencia, clase, tarifa_hora_diurna, tarifa_hora_nocturna, moneda)')
+        .is('deleted_at', null).order('fecha', { ascending: false });
+      if (filtros.desde) q = q.gte('fecha', filtros.desde);
+      if (filtros.hasta) q = q.lte('fecha', filtros.hasta);
+      if (filtros.aeronave_id) q = q.eq('aeronave_id', filtros.aeronave_id);
+      if (filtros.finalidad_vuelo) q = q.eq('finalidad_vuelo', filtros.finalidad_vuelo);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    };
+    return sinFiltros ? Cache.conCache('vuelos_todos', fetchFn) : fetchFn();
   },
   async obtenerVuelo(id) {
+    // Siempre fresco: es la pantalla de edición, tiene que mostrar el dato real.
     const { data, error } = await window.db.from('vuelos').select('*').eq('id', id).single();
     if (error) throw error;
     return data;
@@ -83,103 +99,123 @@ const Repo = {
       await window.Offline.guardarVueloPendiente(payload);
       return { offline: true, error };
     }
+    Cache.invalidar('vuelos_todos');
     return { offline: false };
   },
   async actualizarVuelo(id, cambios) {
     const { error } = await window.db.from('vuelos').update(cambios).eq('id', id);
     if (error) throw error;
+    Cache.invalidar('vuelos_todos');
   },
   async borrarVuelo(id) {
     const { error } = await window.db.from('vuelos').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
+    Cache.invalidar('vuelos_todos', 'vuelos_papelera');
   },
   async listarVuelosBorrados() {
-    const { data, error } = await window.db.from('vuelos')
-      .select('*, aeronaves(matricula, marca_modelo)')
-      .not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
-    if (error) throw error;
-    return data;
+    return Cache.conCache('vuelos_papelera', async () => {
+      const { data, error } = await window.db.from('vuelos')
+        .select('*, aeronaves(matricula, marca_modelo)')
+        .not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    });
   },
   async restaurarVuelo(id) {
     const { error } = await window.db.from('vuelos').update({ deleted_at: null }).eq('id', id);
     if (error) throw error;
+    Cache.invalidar('vuelos_todos', 'vuelos_papelera');
   },
   async borrarVueloPermanente(id) {
     const { error } = await window.db.from('vuelos').delete().eq('id', id);
     if (error) throw error;
+    Cache.invalidar('vuelos_papelera');
   },
 
   // ---- Vuelos programados (agenda de próximos vuelos) ----
   async listarVuelosProgramados() {
-    const { data, error } = await window.db.from('vuelos_programados')
-      .select('*, aeronaves(matricula, marca_modelo)')
-      .gte('fecha', new Date().toISOString().slice(0, 10))
-      .order('fecha', { ascending: true });
-    if (error) throw error;
-    return data;
+    return Cache.conCache('vuelos_programados', async () => {
+      const { data, error } = await window.db.from('vuelos_programados')
+        .select('*, aeronaves(matricula, marca_modelo)')
+        .gte('fecha', new Date().toISOString().slice(0, 10))
+        .order('fecha', { ascending: true });
+      if (error) throw error;
+      return data;
+    });
   },
   async crearVueloProgramado(v) {
     const user = await usuarioActual();
     const { error } = await window.db.from('vuelos_programados').insert({ ...v, user_id: user.id });
     if (error) throw error;
+    Cache.invalidar('vuelos_programados');
   },
   async borrarVueloProgramado(id) {
     const { error } = await window.db.from('vuelos_programados').delete().eq('id', id);
     if (error) throw error;
+    Cache.invalidar('vuelos_programados');
   },
 
   // ---- Perfil del piloto (cursos activos — puede ser más de uno a la vez,
   // ej. PCA + Habilitación de Vuelo Nocturno en paralelo) ----
   async getCursosActivos() {
-    const user = await usuarioActual();
-    const { data, error } = await window.db.from('perfil_piloto').select('cursos_activos, curso_activo').eq('user_id', user.id).maybeSingle();
-    if (error) throw error;
-    if (!data) {
-      const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA', cursos_activos: ['PPA'] });
-      if (e2) throw e2;
-      return ['PPA'];
-    }
-    if (data.cursos_activos && data.cursos_activos.length) return data.cursos_activos;
-    return data.curso_activo ? [data.curso_activo] : ['PPA'];
+    return Cache.conCache('cursos_activos', async () => {
+      const user = await usuarioActual();
+      const { data, error } = await window.db.from('perfil_piloto').select('cursos_activos, curso_activo').eq('user_id', user.id).maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        const { error: e2 } = await window.db.from('perfil_piloto').insert({ user_id: user.id, curso_activo: 'PPA', cursos_activos: ['PPA'] });
+        if (e2) throw e2;
+        return ['PPA'];
+      }
+      if (data.cursos_activos && data.cursos_activos.length) return data.cursos_activos;
+      return data.curso_activo ? [data.curso_activo] : ['PPA'];
+    });
   },
   async setCursosActivos(cursoIds) {
     const user = await usuarioActual();
     const { error } = await window.db.from('perfil_piloto')
       .upsert({ user_id: user.id, cursos_activos: cursoIds, curso_activo: cursoIds[0] || 'PPA', updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
+    Cache.invalidar('cursos_activos');
   },
   // Reparto elegido por el piloto entre instrumentos reales y en simulador
   // (FSTD) para el curso PCA_HVI — la RAAC permite hasta 20 hs en
   // simulador de las 40 totales, pero la decisión de cuánto usar es de
   // cada piloto, no un mínimo fijo igual para todos.
   async getHviSimHoras() {
-    const user = await usuarioActual();
-    const { data, error } = await window.db.from('perfil_piloto').select('hvi_sim_horas').eq('user_id', user.id).maybeSingle();
-    if (error) throw error;
-    return data?.hvi_sim_horas ?? null;
+    return Cache.conCache('hvi_sim_horas', async () => {
+      const user = await usuarioActual();
+      const { data, error } = await window.db.from('perfil_piloto').select('hvi_sim_horas').eq('user_id', user.id).maybeSingle();
+      if (error) throw error;
+      return data?.hvi_sim_horas ?? null;
+    });
   },
   async setHviSimHoras(horas) {
     const user = await usuarioActual();
     const { error } = await window.db.from('perfil_piloto')
       .upsert({ user_id: user.id, hvi_sim_horas: horas, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
+    Cache.invalidar('hvi_sim_horas');
   },
 
   // ---- Datos del piloto (cabecera de la Hoja de Libro de Vuelo ANAC) ----
   async getDatosPiloto() {
-    const user = await usuarioActual();
-    // Tolerante: si todavía no se corrió sql/agregar_datos_piloto.sql, las
-    // columnas no existen y devolvemos {} en vez de romper el Perfil.
-    const { data, error } = await window.db.from('perfil_piloto')
-      .select('nombre_completo, licencia, licencia_numero, legajo').eq('user_id', user.id).maybeSingle();
-    if (error) { console.warn('getDatosPiloto:', error.message); return {}; }
-    return data || {};
+    return Cache.conCache('datos_piloto', async () => {
+      const user = await usuarioActual();
+      // Tolerante: si todavía no se corrió sql/agregar_datos_piloto.sql, las
+      // columnas no existen y devolvemos {} en vez de romper el Perfil.
+      const { data, error } = await window.db.from('perfil_piloto')
+        .select('nombre_completo, licencia, licencia_numero, legajo').eq('user_id', user.id).maybeSingle();
+      if (error) { console.warn('getDatosPiloto:', error.message); return {}; }
+      return data || {};
+    });
   },
   async setDatosPiloto(datos) {
     const user = await usuarioActual();
     const { error } = await window.db.from('perfil_piloto')
       .upsert({ user_id: user.id, ...datos, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
+    Cache.invalidar('datos_piloto');
   },
 
   // ---- Licencias/requisitos: tabla GLOBAL, compartida por todos los
@@ -191,20 +227,25 @@ const Repo = {
     return !!user?.email && user.email.toLowerCase() === window.ADMIN_EMAIL.toLowerCase();
   },
   async listarConfigLicencia(cursoId) {
-    const { data, error } = await window.db.from('licencias_requisitos')
-      .select('*').eq('curso_id', cursoId).order('orden');
-    if (error) throw error;
-    return data;
+    return Cache.conCache('config_licencia_' + cursoId, async () => {
+      const { data, error } = await window.db.from('licencias_requisitos')
+        .select('*').eq('curso_id', cursoId).order('orden');
+      if (error) throw error;
+      return data;
+    });
   },
   // Todos los requisitos de todos los cursos juntos (panel de admin y backup).
   async listarConfigLicenciaTodos() {
-    const { data, error } = await window.db.from('licencias_requisitos').select('*').order('curso_id').order('orden');
-    if (error) throw error;
-    return data;
+    return Cache.conCache('config_licencia_todos', async () => {
+      const { data, error } = await window.db.from('licencias_requisitos').select('*').order('curso_id').order('orden');
+      if (error) throw error;
+      return data;
+    });
   },
   async guardarConfigLicencia(row) {
     const { error } = await window.db.from('licencias_requisitos').update({ minimo_horas: row.minimo_horas, updated_at: new Date().toISOString() }).eq('id', row.id);
     if (error) throw error;
+    _invalidarConfigLicencia();
   },
   // Solo la cuenta admin: agregar un requisito nuevo a un curso (ej. HVI)
   // o borrar uno existente. Si no sos admin, Supabase rechaza el pedido.
@@ -216,17 +257,21 @@ const Repo = {
       curso_id: cursoId, nombre_requisito: nombreRequisito, minimo_horas: minimoHoras, orden: siguienteOrden,
     });
     if (error) throw error;
+    _invalidarConfigLicencia();
   },
   async borrarConfigLicencia(id) {
     const { error } = await window.db.from('licencias_requisitos').delete().eq('id', id);
     if (error) throw error;
+    _invalidarConfigLicencia();
   },
 
   // ---- Vencimientos ----
   async listarVencimientos() {
-    const { data, error } = await window.db.from('vencimientos').select('*').order('fecha_vencimiento');
-    if (error) throw error;
-    return data;
+    return Cache.conCache('vencimientos', async () => {
+      const { data, error } = await window.db.from('vencimientos').select('*').order('fecha_vencimiento');
+      if (error) throw error;
+      return data;
+    });
   },
   async guardarVencimiento(v) {
     const user = await usuarioActual();
@@ -237,12 +282,21 @@ const Repo = {
       const { error } = await window.db.from('vencimientos').insert({ ...v, user_id: user.id });
       if (error) throw error;
     }
+    Cache.invalidar('vencimientos');
   },
   async borrarVencimiento(id) {
     const { error } = await window.db.from('vencimientos').delete().eq('id', id);
     if (error) throw error;
+    Cache.invalidar('vencimientos');
   },
 };
+
+// Los mínimos de licencia son una tabla GLOBAL (compartida por todos los
+// usuarios) — al editarla no sabemos de antemano en qué curso cae cada fila,
+// así que se invalida el cache de "todos" y el de cada curso individual.
+function _invalidarConfigLicencia() {
+  Cache.invalidar('config_licencia_todos', ...CURSOS.map((c) => 'config_licencia_' + c.id));
+}
 
 // ---- Agregados usados en varias vistas (dashboard, totales, costos) ----
 function agregarVuelos(vuelos) {

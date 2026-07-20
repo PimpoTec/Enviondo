@@ -27,6 +27,9 @@ async function actualizarPassword(nuevaPassword) {
 
 async function cerrarSesion() {
   await window.db.auth.signOut();
+  // Si otra cuenta entra en el mismo dispositivo después, no tiene que ver
+  // ni por un instante datos cacheados de esta sesión.
+  window.Cache?.invalidarTodo();
   window.location.reload();
 }
 

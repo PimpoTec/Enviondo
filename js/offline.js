@@ -64,6 +64,9 @@ async function sincronizarPendientes() {
       subidos++;
     }
   }
+  // Los vuelos recién subidos no estaban en el cache local de "todos los
+  // vuelos" — sin esto, la próxima pantalla mostraría la lista vieja.
+  if (subidos > 0) window.Cache?.invalidar('vuelos_todos');
   return { subidos, total: pendientes.length };
 }
 
