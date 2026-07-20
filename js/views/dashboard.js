@@ -82,7 +82,9 @@ const ViewDashboard = {
       cont.innerHTML = `<p class="muted">No tenés vuelos agendados. Usá "Programar vuelo" para cargar el próximo.</p>`;
       return;
     }
-    cont.innerHTML = programados.slice(0, 3).map((p, i) => {
+    const vista = programados.slice(0, 3);
+    this._programadosVista = vista;
+    cont.innerHTML = vista.map((p, i) => {
       const [anio, mes, dia] = p.fecha.split('-');
       const fechaGrande = `${dia} ${MESES_CORTOS[Number(mes) - 1]}`;
       const metarId = `metar-${i}`;
@@ -113,14 +115,25 @@ const ViewDashboard = {
               </div>` : ''}
             ${p.instructor_nombre || p.notas ? `<p class="muted" style="margin:8px 0 0">${[p.instructor_nombre && `Instructor: ${p.instructor_nombre}`, p.notas].filter(Boolean).join(' · ')}</p>` : ''}
             <div class="btn-row" style="margin-top:10px">
-              <button class="btn secondary" onclick="ViewDashboard._marcarComoVolado('${p.id}', '${p.aeronave_id || ''}', '${p.fecha}', '${p.desde || ''}', '${p.hasta || ''}')">Marcar como volado</button>
-              <button class="btn ghost" onclick="ViewDashboard._borrarProgramado('${p.id}')">Borrar</button>
+              <button class="btn secondary" data-accion="volado" data-idx="${i}">Marcar como volado</button>
+              <button class="btn ghost" data-accion="borrar" data-idx="${i}">Borrar</button>
             </div>
           </div>
         </div>`;
     }).join('');
 
-    programados.slice(0, 3).forEach((p, i) => {
+    // Delegación por índice: evita interpolar campos crudos (desde/hasta,
+    // notas) dentro de un atributo onclick, que rompería con comillas.
+    cont.querySelectorAll('button[data-accion]').forEach((b) => {
+      b.onclick = () => {
+        const p = this._programadosVista[Number(b.dataset.idx)];
+        if (!p) return;
+        if (b.dataset.accion === 'volado') this._marcarComoVolado(p.id, p.aeronave_id, p.fecha, p.desde, p.hasta);
+        else this._borrarProgramado(p.id);
+      };
+    });
+
+    vista.forEach((p, i) => {
       if (/^[A-Z]{4}$/.test(p.desde || '')) {
         cargarMetar(p.desde, `metar-${i}`, 'metar');
         cargarMetar(p.desde, `taf-${i}`, 'taf');
@@ -200,6 +213,16 @@ const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'S
 // desde el momento en que se creó (acá quedó "smooth-processor" en vez de
 // "metar" porque así la generó Supabase al crearla). Si algún día se borra
 // y se recrea con el slug "metar" desde el vamos, actualizar esta URL.
+function _metarCacheKey(icao, tipo) { return `metar_cache_${tipo}_${icao}`; }
+
+function _guardarMetarCache(icao, tipo, texto) {
+  try { localStorage.setItem(_metarCacheKey(icao, tipo), JSON.stringify({ texto, ts: Date.now() })); } catch { /* storage lleno */ }
+}
+function _leerMetarCache(icao, tipo) {
+  try { return JSON.parse(localStorage.getItem(_metarCacheKey(icao, tipo)) || 'null'); } catch { return null; }
+}
+function _horasDesde(ts) { return (Date.now() - ts) / 3600000; }
+
 async function cargarMetar(icao, elId, tipo = 'metar') {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -213,9 +236,26 @@ async function cargarMetar(icao, elId, tipo = 'metar') {
       const resp = await fetch(url);
       if (!resp.ok) continue;
       const texto = (await resp.text()).trim();
+      if (texto) _guardarMetarCache(icao, tipo, texto);
       el.textContent = texto || `Sin ${tipo.toUpperCase()} publicado para este aeródromo.`;
       return;
     } catch { /* intenta la siguiente fuente */ }
+  }
+
+  // No se pudo refrescar: mostramos el último dato leído, con un aviso de
+  // antigüedad solo si tiene 1 hora o más (si es más reciente, sirve tal cual).
+  const cache = _leerMetarCache(icao, tipo);
+  if (cache && cache.texto) {
+    const horas = _horasDesde(cache.ts);
+    el.textContent = cache.texto;
+    if (horas >= 1) {
+      const aviso = document.createElement('span');
+      aviso.className = 'muted';
+      aviso.style.cssText = 'display:block;font-size:11px;margin-top:2px';
+      aviso.innerHTML = Icons.tag('alertTriangle', `${tipo.toUpperCase()} de hace ${Math.round(horas)} h — sin conexión al servicio`);
+      el.appendChild(aviso);
+    }
+    return;
   }
   el.textContent = `${tipo.toUpperCase()} no disponible.`;
 }

@@ -21,8 +21,8 @@ const LABELS_REQUISITO = {
 };
 
 function estadoVencimiento(v) {
-  const hoy = new Date();
-  const fv = new Date(v.fecha_vencimiento + 'T00:00:00');
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const fv = Calc.parseFechaLocal(v.fecha_vencimiento);
   const dias = Math.round((fv - hoy) / 86400000);
   if (dias < 0) return { estado: 'danger', icon: 'xCircle', texto: `Vencido hace ${Math.abs(dias)} días` };
   if (dias <= (v.umbral_alerta_dias || 30)) return { estado: 'warn', icon: 'alertTriangle', texto: `Vence en ${dias} días` };
@@ -357,8 +357,8 @@ const ViewPerfil = {
 
 function renderCurrency(vuelos) {
   const cont = document.getElementById('currency-lista');
-  const hace90 = new Date(); hace90.setDate(hace90.getDate() - 90);
-  const recientes = vuelos.filter((v) => new Date(v.fecha) >= hace90);
+  const hace90 = new Date(); hace90.setHours(0, 0, 0, 0); hace90.setDate(hace90.getDate() - 90);
+  const recientes = vuelos.filter((v) => Calc.parseFechaLocal(v.fecha) >= hace90);
   const aterrDia = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_dia), 0);
   const aterrNoche = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_noche), 0);
   const okDia = aterrDia >= 3, okNoche = aterrNoche >= 3;

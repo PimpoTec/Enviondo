@@ -60,6 +60,27 @@ function round2(x) {
   return Math.round((x + Number.EPSILON) * 100) / 100;
 }
 
+// Costo a mostrar/sumar para un vuelo ya guardado. Si el vuelo trae un costo
+// congelado (importe en ARS clavado al cargarlo, ej. convertido del dólar
+// blue del día), se usa ese —así el gasto histórico no se mueve aunque cambie
+// el dólar o la tarifa—. Si no (vuelos viejos), se calcula al vuelo con la
+// tarifa de la aeronave, como antes. Devuelve { monto, moneda }.
+function costoRegistrado(vuelo, aeronave) {
+  const congelado = vuelo ? Number(vuelo.costo_congelado) : NaN;
+  if (Number.isFinite(congelado)) return { monto: round2(congelado), moneda: 'ARS', congelado: true };
+  return { monto: calcularCosto(vuelo, aeronave), moneda: (aeronave && aeronave.moneda) || 'ARS', congelado: false };
+}
+
+// Parsea 'YYYY-MM-DD' como fecha LOCAL a medianoche. Evita el bug de
+// new Date('2026-01-01'), que la interpreta como UTC y puede correrse un día
+// al comparar contra new Date() (hora local) según el huso del usuario.
+function parseFechaLocal(iso) {
+  if (!iso) return null;
+  const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
 // Reparte un tiempo total día/noche entre los 8 campos, según:
 // - esLocal (aeródromo) o travesía
 // - esPiloto (PIC) o copiloto
@@ -92,5 +113,5 @@ function horasEntre(horaSalida, horaLlegada) {
 
 window.Calc = {
   CAMPOS_TIEMPO, CAMPOS_DISCRIMINACION,
-  n, round2, calcularTotales, calcularCosto, repartirModoRapido, horasEntre,
+  n, round2, calcularTotales, calcularCosto, costoRegistrado, parseFechaLocal, repartirModoRapido, horasEntre,
 };

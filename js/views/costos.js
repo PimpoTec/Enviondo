@@ -52,7 +52,7 @@ function renderGastoPorMes(vuelos) {
   const porMes = {};
   for (const v of vuelos) {
     const key = v.fecha.slice(0, 7); // YYYY-MM
-    porMes[key] = Calc.round2((porMes[key] || 0) + Calc.calcularCosto(v, v.aeronaves));
+    porMes[key] = Calc.round2((porMes[key] || 0) + Calc.costoRegistrado(v, v.aeronaves).monto);
   }
   const claves = Object.keys(porMes).sort().slice(-12);
   if (!claves.length) { cont.innerHTML = '<p class="muted">Sin datos todavía.</p>'; return; }
@@ -70,7 +70,7 @@ function renderGastoPorAeronave(vuelos) {
   const porAeronave = {};
   for (const v of vuelos) {
     const mat = v.aeronaves?.matricula || '—';
-    porAeronave[mat] = Calc.round2((porAeronave[mat] || 0) + Calc.calcularCosto(v, v.aeronaves));
+    porAeronave[mat] = Calc.round2((porAeronave[mat] || 0) + Calc.costoRegistrado(v, v.aeronaves).monto);
   }
   const entradas = Object.entries(porAeronave).sort((a, b) => b[1] - a[1]);
   if (!entradas.length) { cont.innerHTML = '<p class="muted">Sin datos todavía.</p>'; return; }

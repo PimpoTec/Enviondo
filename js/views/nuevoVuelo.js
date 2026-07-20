@@ -225,8 +225,7 @@ const ViewNuevoVuelo = {
           <div class="field"><label>Multimotor</label><input type="number" step="0.1" min="0" id="rd-multimotor" value="0"></div>
           <div class="field"><label>Reactor</label><input type="number" step="0.1" min="0" id="rd-reactor" value="0"></div>
           <div class="field"><label>Aeroaplicador</label><input type="number" step="0.1" min="0" id="rd-aeroaplicador" value="0"></div>
-          <div class="field"><label>Instrumentos real (piloto)</label><input type="number" step="0.1" min="0" id="rd-instrumentos_real_piloto" value="0"></div>
-          <div class="field"><label>Instrumentos real (copiloto)</label><input type="number" step="0.1" min="0" id="rd-instrumentos_real_copiloto" value="0"></div>
+          <div class="field"><label>Instrumentos real</label><input type="number" step="0.1" min="0" id="rd-instrumentos_real" value="0"></div>
           <div class="field"><label>Instrumentos capota</label><input type="number" step="0.1" min="0" id="rd-instrumentos_capota" value="0"></div>
         </div>
       </div>
@@ -257,8 +256,7 @@ const ViewNuevoVuelo = {
           <div class="field"><label>Reactor</label><input type="number" step="0.1" min="0" id="d-reactor" value="0"></div>
           <div class="field"><label>Turbohélice</label><input type="number" step="0.1" min="0" id="d-turbohelice" value="0"></div>
           <div class="field"><label>Aeroaplicador</label><input type="number" step="0.1" min="0" id="d-aeroaplicador" value="0"></div>
-          <div class="field"><label>Instrumentos real (piloto)</label><input type="number" step="0.1" min="0" id="d-instrumentos_real_piloto" value="0"></div>
-          <div class="field"><label>Instrumentos real (copiloto)</label><input type="number" step="0.1" min="0" id="d-instrumentos_real_copiloto" value="0"></div>
+          <div class="field"><label>Instrumentos real</label><input type="number" step="0.1" min="0" id="d-instrumentos_real" value="0"></div>
           <div class="field"><label>Instrumentos capota</label><input type="number" step="0.1" min="0" id="d-instrumentos_capota" value="0"></div>
           <div class="field"><label>Adiestrador/simulador</label><input type="number" step="0.1" min="0" id="d-adiestrador_simulador" value="0"></div>
         </div>
@@ -293,6 +291,12 @@ const ViewNuevoVuelo = {
     this._bindVuelo();
     if (this.editVuelo) this._prefillEdicionVuelo();
     this._actualizarPreview();
+
+    // Si hay alguna aeronave en dólares, refrescamos la cotización blue en
+    // segundo plano para que el preview muestre el equivalente en pesos.
+    if (this.aeronaves.some((a) => a.moneda === 'USD')) {
+      Dolar.obtenerVentaBlue().then(() => this._actualizarPreview()).catch(() => {});
+    }
   },
 
   _prefillEdicionVuelo() {
@@ -314,8 +318,7 @@ const ViewNuevoVuelo = {
     document.getElementById('d-reactor').value = Calc.n(v.reactor);
     document.getElementById('d-turbohelice').value = Calc.n(v.turbohelice);
     document.getElementById('d-aeroaplicador').value = Calc.n(v.aeroaplicador);
-    document.getElementById('d-instrumentos_real_piloto').value = Calc.n(v.instrumentos_real);
-    document.getElementById('d-instrumentos_real_copiloto').value = 0;
+    document.getElementById('d-instrumentos_real').value = Calc.n(v.instrumentos_real);
     document.getElementById('d-instrumentos_capota').value = Calc.n(v.instrumentos_capota);
     document.getElementById('d-adiestrador_simulador').value = Calc.n(v.adiestrador_simulador);
     document.getElementById('d-instructor_nombre').value = v.instructor_nombre || '';
@@ -406,6 +409,8 @@ const ViewNuevoVuelo = {
   },
 
   _actualizarPreview() {
+    const prevCosto = document.getElementById('prev-costo');
+    if (!prevCosto) return; // se navegó fuera del formulario
     const campos = this.modoDetallado ? this._camposDetallado() : this._camposRapido();
     const totales = Calc.calcularTotales(campos);
     const aeronaveId = document.getElementById('f-aeronave')?.value;
@@ -414,7 +419,17 @@ const ViewNuevoVuelo = {
 
     document.getElementById('prev-tiempo').textContent = totales.tiempo_total.toFixed(1);
     document.getElementById('prev-dia-noche').textContent = `${totales.total_dia.toFixed(1)} / ${totales.total_noche.toFixed(1)}`;
-    document.getElementById('prev-costo').textContent = fmtMoneda(costo, aeronave?.moneda);
+
+    if (aeronave && aeronave.moneda === 'USD') {
+      const dolar = Dolar.cacheada();
+      if (dolar && dolar.venta) {
+        prevCosto.innerHTML = `${fmtMoneda(Calc.round2(costo * dolar.venta), 'ARS')}<span class="muted" style="display:block;font-size:11px;font-weight:400">${fmtMoneda(costo, 'USD')} · blue ${fmtMoneda(dolar.venta, 'ARS')}</span>`;
+      } else {
+        prevCosto.innerHTML = `${fmtMoneda(costo, 'USD')}<span class="muted" style="display:block;font-size:11px;font-weight:400">se convierte a pesos al guardar</span>`;
+      }
+    } else {
+      prevCosto.textContent = fmtMoneda(costo, aeronave?.moneda);
+    }
   },
 
   async _guardar() {
@@ -458,7 +473,7 @@ const ViewNuevoVuelo = {
       campos.reactor = Calc.n(document.getElementById('d-reactor').value);
       campos.turbohelice = Calc.n(document.getElementById('d-turbohelice').value);
       campos.aeroaplicador = Calc.n(document.getElementById('d-aeroaplicador').value);
-      campos.instrumentos_real = Calc.n(document.getElementById('d-instrumentos_real_piloto').value) + Calc.n(document.getElementById('d-instrumentos_real_copiloto').value);
+      campos.instrumentos_real = Calc.n(document.getElementById('d-instrumentos_real').value);
       campos.instrumentos_capota = Calc.n(document.getElementById('d-instrumentos_capota').value);
       campos.adiestrador_simulador = Calc.n(document.getElementById('d-adiestrador_simulador').value);
       campos.instructor_nombre = document.getElementById('d-instructor_nombre').value || null;
@@ -468,7 +483,7 @@ const ViewNuevoVuelo = {
       campos.multimotor = Calc.n(document.getElementById('rd-multimotor').value);
       campos.reactor = Calc.n(document.getElementById('rd-reactor').value);
       campos.aeroaplicador = Calc.n(document.getElementById('rd-aeroaplicador').value);
-      campos.instrumentos_real = Calc.n(document.getElementById('rd-instrumentos_real_piloto').value) + Calc.n(document.getElementById('rd-instrumentos_real_copiloto').value);
+      campos.instrumentos_real = Calc.n(document.getElementById('rd-instrumentos_real').value);
       campos.instrumentos_capota = Calc.n(document.getElementById('rd-instrumentos_capota').value);
     }
 
@@ -483,6 +498,11 @@ const ViewNuevoVuelo = {
     btn.disabled = true;
     btn.textContent = 'Guardando…';
     try {
+      const aeronave = this.aeronaves.find((a) => a.id === aeronave_id);
+      const congelado = await this._calcularCongelado(campos, aeronave, this.editVuelo);
+      campos.costo_congelado = congelado.costo_congelado;
+      campos.cotizacion_usada = congelado.cotizacion_usada;
+
       if (this.editId) {
         await Repo.actualizarVuelo(this.editId, campos);
         msg.innerHTML = Icons.tag('checkCircle', 'Cambios guardados.');
@@ -509,6 +529,27 @@ const ViewNuevoVuelo = {
       btn.disabled = false;
       btn.textContent = this.editId ? 'Guardar cambios' : 'Guardar vuelo';
     }
+  },
+
+  // Congela el importe abonado en ARS al momento de guardar. Si la aeronave
+  // cobra en dólares, convierte con el dólar blue (venta) de ahora. Al editar
+  // un vuelo que ya tenía cotización, se respeta esa (lo pagado no cambia
+  // porque el dólar se haya movido después); solo se busca una nueva si el
+  // vuelo no tenía (vuelo viejo). Si no se puede cotizar (sin señal y sin
+  // cache), devuelve null y el costo se calcula al vuelo con la tarifa.
+  async _calcularCongelado(campos, aeronave, editVuelo) {
+    const base = Calc.calcularCosto(campos, aeronave); // en la moneda de la aeronave
+    if (aeronave && aeronave.moneda === 'USD') {
+      let venta = editVuelo && Number.isFinite(Number(editVuelo.cotizacion_usada))
+        ? Number(editVuelo.cotizacion_usada) : null;
+      if (venta == null) {
+        const dolar = await Dolar.obtenerVentaBlue();
+        venta = dolar ? dolar.venta : null;
+      }
+      if (venta != null) return { costo_congelado: Calc.round2(base * venta), cotizacion_usada: venta };
+      return { costo_congelado: null, cotizacion_usada: null };
+    }
+    return { costo_congelado: Calc.round2(base), cotizacion_usada: null };
   },
 
   // ==========================================================================
@@ -657,6 +698,11 @@ const ViewNuevoVuelo = {
     btn.disabled = true;
     btn.textContent = 'Guardando…';
     try {
+      const aeronave = this.aeronaves.find((a) => a.id === aeronave_id);
+      const congelado = await this._calcularCongelado(campos, aeronave, this.editVuelo);
+      campos.costo_congelado = congelado.costo_congelado;
+      campos.cotizacion_usada = congelado.cotizacion_usada;
+
       if (this.editId) {
         await Repo.actualizarVuelo(this.editId, campos);
         msg.innerHTML = Icons.tag('checkCircle', 'Cambios guardados.');

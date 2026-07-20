@@ -16,10 +16,12 @@ const ViewAeronaves = {
   editandoId: null,
   tipo: 'aeronave', // 'aeronave' | 'simulador'
   mostrandoForm: false,
+  aeronaves: [],
 
   async render() {
     const main = document.getElementById('main-content');
     const aeronaves = await Repo.listarAeronaves();
+    this.aeronaves = aeronaves;
 
     main.innerHTML = `
       <div class="card">
@@ -136,14 +138,25 @@ const ViewAeronaves = {
         <td class="num">${a.es_simulador ? '—' : fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</td>
         <td>${a.es_habitual ? `<span style="display:inline-flex">${Icons.star(14)}</span>` : ''}</td>
         <td>
-          <button class="btn ghost" onclick='ViewAeronaves._editar(${JSON.stringify(a).replace(/'/g, "&apos;")})'>${Icons.edit(16)}</button>
-          <button class="btn ghost" onclick="ViewAeronaves._borrar('${a.id}')">${Icons.trash(16)}</button>
+          <button class="btn ghost" data-accion="editar" data-id="${a.id}">${Icons.edit(16)}</button>
+          <button class="btn ghost" data-accion="borrar" data-id="${a.id}">${Icons.trash(16)}</button>
         </td>
       </tr>
     `).join('');
+
+    // Delegación por id — evita serializar la aeronave entera (con notas/modelo
+    // que pueden traer comillas) dentro de un atributo onclick.
+    tbody.querySelectorAll('button[data-accion]').forEach((b) => {
+      b.onclick = () => {
+        if (b.dataset.accion === 'editar') this._editar(b.dataset.id);
+        else this._borrar(b.dataset.id);
+      };
+    });
   },
 
-  async _editar(a) {
+  async _editar(id) {
+    const a = this.aeronaves.find((x) => x.id === id);
+    if (!a) return;
     this.editandoId = a.id;
     this.tipo = a.es_simulador ? 'simulador' : 'aeronave';
     this.mostrandoForm = true;

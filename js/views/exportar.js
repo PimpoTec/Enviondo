@@ -119,7 +119,7 @@ const ViewExportar = {
     return vuelos.map((v) => ({
       ...v,
       matricula: v.aeronaves?.matricula, marca_modelo: v.aeronaves?.marca_modelo,
-      costo: Calc.calcularCosto(v, v.aeronaves),
+      costo: Calc.costoRegistrado(v, v.aeronaves).monto,
     }));
   },
 

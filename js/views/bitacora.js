@@ -117,7 +117,7 @@ const ViewBitacora = {
         <td class="num">${v.total_dia} / ${v.total_noche}</td>
         <td class="num">${v.total_pic}</td>
         <td class="num">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</td>
-        <td class="num">${fmtMoneda(Calc.calcularCosto(v, v.aeronaves), v.aeronaves?.moneda)}</td>
+        <td class="num">${(() => { const c = Calc.costoRegistrado(v, v.aeronaves); return fmtMoneda(c.monto, c.moneda); })()}</td>
         <td>
           <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">${Icons.edit(16)}</button>
           <button class="btn ghost" onclick="ViewBitacora._borrar('${v.id}')">${Icons.trash(16)}</button>
@@ -128,12 +128,13 @@ const ViewBitacora = {
 
   _renderEstadoLicencia(vuelos, vencimientos) {
     const cont = document.getElementById('tarjeta-estado-licencia');
-    const hace90 = new Date(); hace90.setDate(hace90.getDate() - 90);
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const hace90 = new Date(hoy); hace90.setDate(hace90.getDate() - 90);
     const horas90 = vuelos
-      .filter((v) => new Date(v.fecha) >= hace90)
+      .filter((v) => Calc.parseFechaLocal(v.fecha) >= hace90)
       .reduce((s, v) => s + Calc.n(v.tiempo_total), 0);
     const proximo = vencimientos
-      .filter((v) => new Date(v.fecha_vencimiento + 'T00:00:00') >= new Date(new Date().toDateString()))
+      .filter((v) => Calc.parseFechaLocal(v.fecha_vencimiento) >= hoy)
       .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento))[0];
     const pct = Math.min(100, Calc.round2((horas90 / 40) * 100));
 

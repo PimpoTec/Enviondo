@@ -433,4 +433,12 @@ insert into licencias_requisitos (curso_id, nombre_requisito, minimo_horas, orde
   ('PCA_HVI', 'aterrizajes_noche', 5, 6)
 on conflict (curso_id, nombre_requisito) do nothing;
 
+-- ============================================================================
+-- COSTO CONGELADO — importe en ARS realmente abonado por cada vuelo,
+-- clavado al momento de cargarlo (dólar blue venta del día si la aeronave
+-- cobra en USD). Ver sql/agregar_costo_congelado.sql para el detalle.
+-- ============================================================================
+alter table vuelos add column if not exists costo_congelado numeric(14,2);
+alter table vuelos add column if not exists cotizacion_usada numeric(12,2);
+
 -- Fin del esquema.

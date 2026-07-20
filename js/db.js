@@ -243,7 +243,7 @@ function agregarVuelos(vuelos) {
     acc.aterrizajes_noche += Calc.n(v.aterrizajes_noche);
     acc.remolques += Calc.n(v.remolques);
     for (const c of Calc.CAMPOS_DISCRIMINACION) acc[c] += Calc.n(v[c]);
-    acc.costo_total += Calc.calcularCosto(v, v.aeronaves);
+    acc.costo_total += Calc.costoRegistrado(v, v.aeronaves).monto;
   }
   for (const k of Object.keys(acc)) if (k !== 'costo_total') acc[k] = Calc.round2(acc[k]);
   acc.costo_total = Calc.round2(acc.costo_total);
