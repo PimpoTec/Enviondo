@@ -67,11 +67,35 @@ Marcá `[x]` a medida que se completan.
       cabecera de la hoja. ⚠️ Requiere `sql/agregar_datos_piloto.sql`.
       `getDatosPiloto` es tolerante si aún no se corrió (no rompe el Perfil).
 
+## Hecho — tanda 6 (4 bugs de la Hoja ANAC)
+- [x] **Arrastre en 0 al filtrar por fecha**: ahora se busca el historial real
+      (mismos filtros de aeronave/finalidad, sin límite de fecha inferior) y se
+      usa como arrastre inicial — "exportar desde tal fecha" ya no resetea las
+      horas a cero. El acumulado tampoco resetea entre años (es de carrera,
+      como en el libro de papel): un export multi-año encadena el total real.
+- [x] **Aeródromo doblado** en la Ficha por vuelo: vuelo local ahora muestra
+      una sola fila "Aeródromo" en vez de "Desde"/"Hasta" repitiendo el mismo
+      código. (En la Hoja ANAC nunca se duplicó — ahí ya mostraba un valor.)
+- [x] **"MONOMOTOR" ilegible**: se abrevia (MONOM./MULTIM./REACTOR/TURBOH./
+      AEROAP./SIMUL.) y se desactivó el wrap de texto en los renglones de datos
+      (quedó solo en la cabecera) — antes cortaba palabras cortas en columnas
+      angostas y se leían mal.
+- [x] **Total en columna equivocada**: causa real — las columnas "Instructor"
+      y "Piloto en instrucción" del formulario oficial son de NOMBRE (texto),
+      no de horas; se estaban sumando como si fueran numéricas (mostrando
+      "0.0" donde debía ir un nombre o nada). Se sacaron de los totales;
+      "Instructor" ahora muestra el nombre real, "Piloto en instrucción" queda
+      en blanco (no se usa). Los turnos de adiestrador/simulador (TERR-TERR)
+      se excluyen de la hoja (no llevan renglón en el formulario oficial —
+      sus horas se siguen viendo en Totales/Costos); se avisa cuántos quedaron
+      afuera al exportar.
+- [x] Tests de la lógica de mapeo (`tests/exportadorAnac.test.js`, sin
+      necesitar ExcelJS): 42 en verde.
+
 ## Pendiente / ideas a futuro
 - [ ] **Papelera** sigue solo en Perfil (aceptable: acción poco frecuente).
-- [ ] **Hoja ANAC**: si un vuelo se parte entre dos hojas por el corte de 15,
-      no pasa nada raro (cada uno es un renglón), pero se podría permitir elegir
-      el rango/año a exportar desde un selector, además de los filtros de fecha.
+- [ ] **Hoja ANAC**: se podría permitir elegir el rango/año a exportar desde
+      un selector, además de los filtros de fecha ya existentes.
 - [ ] **Backfill** de `costo_congelado` en vuelos viejos en USD (no hay cómo
       saber la cotización histórica exacta; quedaría estimado).
 - [ ] Migrar el resto de `onclick` inline (bitácora, vencimientos) a

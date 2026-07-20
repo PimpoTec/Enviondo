@@ -3,10 +3,14 @@
 // Reproduce fielmente el formulario oficial (35,5×16,5 cm): grilla con bordes,
 // encabezados combinados y 15 renglones por hoja. Al llenarse una hoja, pasa a
 // la siguiente arrastrando los totales de cada columna ("totales a la página
-// siguiente"). Un libro (archivo) por año.
+// siguiente"). Un libro (archivo) por año — pero el TOTAL ACUMULADO nunca se
+// resetea al cambiar de año (es un total de carrera, como en el libro de
+// papel real): si exportás desde una fecha en adelante, o el año no es el
+// primero que volaste, el arrastre arranca con las horas reales ya voladas
+// antes, no en cero.
 //
 // Isomorfo: en el navegador usa window.ExcelJS (CDN); en Node se le pasa la
-// librería por parámetro (para los tests). No depende del DOM.
+// librería por parámetro (para los tests/prototipos). No depende del DOM.
 // ============================================================================
 
 (function () {
@@ -21,9 +25,20 @@
   const XLS_PRIMER_DATO = 10;
   const XLS_TOT_SIG = 25;   // "TOTALES A LA PAGINA SIGUIENTE"
 
-  // Columnas numéricas que acumulan totales (0-indexadas).
+  // Columnas numéricas que de verdad se llenan y acumulan totales (0-indexadas).
+  // OJO: cols 26 ("copiloto" de instrumentos real) y 29 ("piloto en
+  // instrucción") nunca se escriben — quedan en blanco como en la plantilla
+  // original. Col 28 ("instructor") es un campo de NOMBRE (texto), no se suma.
   const COLS_TIEMPO = [11, 12, 13, 14, 15, 16, 17, 18];
-  const COLS_ACUM = COLS_TIEMPO.concat([19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]);
+  const COLS_ACUM = COLS_TIEMPO.concat([19, 20, 21, 22, 23, 24, 25, 27]);
+
+  // Clases de aeronave abreviadas: la columna "CLASE" del formulario oficial
+  // es angosta (7-8 caracteres); un texto largo como "monomotor" con wrap en
+  // una fila baja termina cortado y ilegible. Se abrevia como se anota a mano.
+  const CLASE_ABREV = {
+    monomotor: 'MONOM.', multimotor: 'MULTIM.', reactor: 'REACTOR',
+    turbohelice: 'TURBOH.', aeroaplicador: 'AEROAP.', simulador: 'SIMUL.',
+  };
 
   // Cómo se llena cada columna de datos (0-indexada) a partir de un vuelo.
   function valorCelda(col, v) {
@@ -31,13 +46,13 @@
       case 1: return Number(v.fecha.slice(8, 10));         // día
       case 2: return Number(v.fecha.slice(5, 7));          // mes
       case 3: return (v.hora_salida_utc || '').slice(0, 5);
-      case 4: return v.desde === v.hasta ? v.desde : `${v.desde} ${v.hasta}`;
+      case 4: return v.desde === v.hasta ? (v.desde || '') : `${v.desde || ''}-${v.hasta || ''}`;
       case 5: return (v.hora_llegada_utc || '').slice(0, 5);
       case 6: return v.finalidad_vuelo || '';
       case 7: return v.aeronaves?.marca_modelo || '';
       case 8: return v.aeronaves?.matricula || '';
       case 9: return v.aeronaves?.potencia || '';
-      case 10: return v.aeronaves?.clase || '';
+      case 10: return CLASE_ABREV[v.aeronaves?.clase] || (v.aeronaves?.clase ? String(v.aeronaves.clase).toUpperCase().slice(0, 8) : '');
       case 11: return num(v.saero_dia_piloto);
       case 12: return num(v.saero_dia_copiloto);
       case 13: return num(v.saero_noche_piloto);
@@ -54,12 +69,10 @@
       case 24: return num(v.aeroaplicador);
       case 25: return num(v.instrumentos_real);
       case 27: return num(v.instrumentos_capota);
-      case 29: return num(v.adiestrador_simulador);
+      case 28: return v.instructor_nombre || ''; // nombre, no se suma
       default: return '';
     }
   }
-
-  const ES_TEXTO = { 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1 }; // columnas de texto
 
   function num(x) {
     const n = Number(x);
@@ -80,7 +93,28 @@
     return COLS_TIEMPO.reduce((s, c) => s + (Number(valorCelda(c, v)) || 0), 0);
   }
 
-  function construirHoja(wb, ExcelJS, { grupo, indice, totalPaginas, datosPiloto, anio, grandPrev }) {
+  // Los turnos de adiestrador terrestre/simulador (desde=hasta='TERR') no son
+  // "vuelos" para el formulario oficial — no existe una columna de horas para
+  // ellos en este form (Res. 290/2012 solo registra horas de vuelo real).
+  // Quedan afuera de la Hoja ANAC; sus horas siguen viéndose en Totales/Costos.
+  function esVueloReal(v) { return !(v.desde === 'TERR' && v.hasta === 'TERR'); }
+  function filtrarVuelosReales(vuelos) { return vuelos.filter(esVueloReal); }
+
+  // Suma, por columna acumulable, el valor de una lista de vuelos.
+  function sumarColumnas(vuelos, cols = COLS_ACUM) {
+    const acc = {};
+    for (const c of cols) acc[c] = 0;
+    for (const v of vuelos) {
+      for (const c of cols) {
+        const n = Number(valorCelda(c, v));
+        if (Number.isFinite(n)) acc[c] += n;
+      }
+    }
+    for (const c of cols) acc[c] = Math.round(acc[c] * 100) / 100;
+    return acc;
+  }
+
+  function construirHoja(wb, ExcelJS, { grupo, indice, datosPiloto, anio, carryPorColumna, grandPrev }) {
     const nombre = `Hoja ${indice + 1}`;
     const ws = wb.addWorksheet(nombre, {
       pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1, margins: { left: 0.2, right: 0.2, top: 0.3, bottom: 0.3, header: 0.1, footer: 0.1 } },
@@ -95,37 +129,43 @@
     }
     // Datos de cabecera del piloto.
     if (datosPiloto) {
-      ws.getCell(3, 4).value = datosPiloto.nombre_completo || '';      // fila 2 (xls), box nombre
+      ws.getCell(3, 4).value = datosPiloto.nombre_completo || '';
       ws.getCell(3, 13).value = datosPiloto.licencia || '';
       ws.getCell(2, 21).value = datosPiloto.licencia_numero || '';
       ws.getCell(3, 27).value = datosPiloto.legajo || '';
     }
-    if (anio) ws.getCell(4, 2).value = 'AÑO ' + anio;                   // "AÑO 20xx"
+    if (anio) ws.getCell(4, 2).value = 'AÑO ' + anio;
 
     // Combinaciones.
     for (const [rlo, rhi, clo, chi] of SPEC.merges) {
-      ws.mergeCells(rlo + 1, clo + 1, rhi, chi); // rhi/chi exclusivos → inclusivos = rhi, chi
+      ws.mergeCells(rlo + 1, clo + 1, rhi, chi);
     }
 
-    // Renglones de vuelo (15).
+    // Renglones de vuelo (hasta 15).
     grupo.forEach((v, i) => {
       const fila = XLS_PRIMER_DATO + i + 1; // 1-indexado
-      for (let c = 1; c <= 29; c++) {
+      for (let c = 1; c <= 28; c++) { // 28 = instructor (texto); 29+ no se usan
         const val = valorCelda(c, v);
         if (val !== '' && val !== undefined) ws.getCell(fila, c + 1).value = val;
       }
     });
 
-    // Totales por columna (fórmulas vivas).
     const rTotAnt = XLS_TOT_ANT + 1;                 // fila 10
     const rDato1 = XLS_PRIMER_DATO + 1;              // fila 11
     const rDatoN = XLS_PRIMER_DATO + FILAS_POR_HOJA; // fila 25
     const rTotSig = XLS_TOT_SIG + 1;                 // fila 26
+
     for (const c of COLS_ACUM) {
       const L = colLetra(c + 1);
-      // Totales página anterior: referencia a la hoja previa (0 en la primera).
-      if (indice > 0) ws.getCell(rTotAnt, c + 1).value = { formula: `'Hoja ${indice}'!${L}${rTotSig}` };
-      // Totales a la página siguiente = anterior + suma de esta página.
+      if (indice > 0) {
+        // Hoja siguiente dentro del mismo año: encadena por fórmula viva.
+        ws.getCell(rTotAnt, c + 1).value = { formula: `'Hoja ${indice}'!${L}${rTotSig}` };
+      } else if (carryPorColumna && carryPorColumna[c]) {
+        // Primera hoja del archivo: arrastre real (historial previo o años
+        // anteriores), como número clavado — no hay archivo previo al que
+        // referenciar con fórmula.
+        ws.getCell(rTotAnt, c + 1).value = carryPorColumna[c];
+      }
       ws.getCell(rTotSig, c + 1).value = { formula: `${L}${rTotAnt}+SUM(${L}${rDato1}:${L}${rDatoN})` };
     }
 
@@ -136,60 +176,74 @@
     ws.getCell(25, 33).value = `Total horas de vuelo\npágina siguiente:\n${grandNext}`;
 
     estilar(ws);
-    return grandNext;
+    return { grandNext, sumaPagina: sumarColumnas(grupo) };
   }
 
   function estilar(ws) {
-    // Fuente base + bordes de la grilla + alineación.
     for (let r = 1; r <= 31; r++) {
       const esCabecera = r >= 4 && r <= 9;
       const esTotales = r === 10 || r === 26;
       for (let c = 1; c <= 33; c++) {
         const cell = ws.getCell(r, c);
         cell.font = { name: 'Arial', size: esCabecera ? 6.5 : 8, bold: esCabecera || esTotales };
-        // Bordes en la tabla (cabecera de columnas hasta totales a la siguiente).
         if (r >= 4 && r <= 26) cell.border = BORDES;
         const textoLargo = r >= 11 && r <= 25 && (c === 5 || c === 8);
-        cell.alignment = { vertical: 'middle', horizontal: textoLargo ? 'left' : 'center', wrapText: true };
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: textoLargo ? 'left' : 'center',
+          // Wrap solo en la cabecera (títulos largos multi-línea). En los
+          // renglones de datos NO: con columnas de 7-9 caracteres, wrappear
+          // un valor corto en una fila baja lo corta y lo hace ilegible.
+          wrapText: esCabecera,
+        };
       }
     }
-    // Bordes de los recuadros de cabecera (nombre/licencia/legajo).
     [[2, 4], [3, 4], [2, 13], [3, 13], [2, 21], [3, 21], [2, 27], [3, 27]].forEach(([r, c]) => {
       ws.getCell(r, c).border = BORDES;
     });
-    // Formato numérico en tiempos/discriminación y totales.
     for (let r = 11; r <= 26; r++) {
       for (const c of COLS_ACUM) {
-        if (c === 19) ws.getCell(r, c + 1).numFmt = '0';       // aterrizajes: entero
+        if (c === 19) ws.getCell(r, c + 1).numFmt = '0';
         else ws.getCell(r, c + 1).numFmt = '0.0';
       }
     }
-    // Alturas.
     ws.getRow(2).height = 16; ws.getRow(3).height = 16;
     for (let r = 4; r <= 9; r++) ws.getRow(r).height = 16;
     for (let r = 11; r <= 26; r++) ws.getRow(r).height = 15;
     ws.getRow(10).height = 32; ws.getRow(25).height = 24;
   }
 
-  // Divide un array en trozos de tamaño n.
   function enTrozos(arr, n) {
     const out = [];
     for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
     return out.length ? out : [[]];
   }
 
-  // Construye el workbook de un año.
-  function construirLibroAnual(ExcelJS, { anio, vuelos, datosPiloto }) {
+  // Construye el workbook de un año. `carryInicial` = { porColumna, grandTotal }
+  // con el arrastre real de todo lo volado ANTES del primer vuelo de este año
+  // (historial previo + años anteriores, si los hay). Devuelve además el
+  // estado final (para encadenar con el archivo del año siguiente).
+  function construirLibroAnual(ExcelJS, { anio, vuelos, datosPiloto, carryInicial }) {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Libro de Vuelo';
-    const ordenados = [...vuelos].sort((a, b) =>
+    const reales = filtrarVuelosReales(vuelos);
+    const ordenados = [...reales].sort((a, b) =>
       a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : (a.hora_salida_utc || '').localeCompare(b.hora_salida_utc || ''));
     const paginas = enTrozos(ordenados, FILAS_POR_HOJA);
-    let grandPrev = 0;
+
+    const carryPorColumna = Object.assign({}, carryInicial?.porColumna);
+    let grandPrev = carryInicial?.grandTotal || 0;
     paginas.forEach((grupo, indice) => {
-      grandPrev = construirHoja(wb, ExcelJS, { grupo, indice, totalPaginas: paginas.length, datosPiloto, anio, grandPrev });
+      const { grandNext, sumaPagina } = construirHoja(wb, ExcelJS, {
+        grupo, indice, datosPiloto, anio,
+        carryPorColumna: indice === 0 ? carryPorColumna : null,
+        grandPrev,
+      });
+      grandPrev = grandNext;
+      for (const c of COLS_ACUM) carryPorColumna[c] = Math.round(((carryPorColumna[c] || 0) + (sumaPagina[c] || 0)) * 100) / 100;
     });
-    return wb;
+
+    return { workbook: wb, estadoFinal: { porColumna: carryPorColumna, grandTotal: grandPrev }, excluidos: vuelos.length - reales.length };
   }
 
   // Agrupa vuelos por año (de la fecha) → { anio: [vuelos] }.
@@ -202,7 +256,10 @@
     return map;
   }
 
-  const ExportadorAnac = { construirLibroAnual, agruparPorAnio, SPEC };
+  const ExportadorAnac = {
+    construirLibroAnual, agruparPorAnio, sumarColumnas, filtrarVuelosReales, esVueloReal,
+    valorCelda, colLetra, CLASE_ABREV, COLS_ACUM, FILAS_POR_HOJA, SPEC,
+  };
 
   if (typeof window !== 'undefined') window.ExportadorAnac = ExportadorAnac;
   if (typeof module !== 'undefined' && module.exports) module.exports = ExportadorAnac;

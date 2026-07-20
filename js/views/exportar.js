@@ -124,14 +124,20 @@ const ViewExportar = {
     const filas = this._fichasFilas;
     const i = this._fichaIndex;
     const f = filas[i];
+    const esLocal = f.desde === f.hasta;
+    // Para un vuelo local (mismo aeródromo) mostramos una sola fila "Aeródromo"
+    // en vez de "Desde" y "Hasta" repitiendo el mismo código dos veces.
+    const columnas = esLocal
+      ? [['desde', 'Aeródromo'], ...COLUMNAS_290.filter(([k]) => k !== 'desde' && k !== 'hasta')]
+      : COLUMNAS_290;
     cont.innerHTML = `
       <div class="doc-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <span class="muted">Vuelo ${i + 1} de ${filas.length}</span>
-          <span class="muted">${fmtFecha(f.fecha)} · ${f.desde} → ${f.hasta}</span>
+          <span class="muted">${fmtFecha(f.fecha)} · ${esLocal ? f.desde : `${f.desde} → ${f.hasta}`}</span>
         </div>
         <div class="table-wrap"><table>
-          ${COLUMNAS_290.filter(([k]) => f[k] !== null && f[k] !== undefined && f[k] !== '' && f[k] !== 0).map(([k, label]) => `
+          ${columnas.filter(([k]) => f[k] !== null && f[k] !== undefined && f[k] !== '' && f[k] !== 0).map(([k, label]) => `
             <tr><td class="muted" style="white-space:nowrap">${label}</td><td style="font-family:var(--font-mono)">${f[k]}</td></tr>
           `).join('')}
         </table></div>
@@ -163,6 +169,14 @@ const ViewExportar = {
     }));
   },
 
+  // Un día antes de una fecha ISO 'YYYY-MM-DD', en formato ISO (fecha local,
+  // sin líos de huso horario).
+  _diaAnterior(iso) {
+    const d = Calc.parseFechaLocal(iso);
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
   async _exportarAnac() {
     if (typeof ExcelJS === 'undefined') {
       UI.toast('No se pudo cargar la librería de Excel (revisá tu conexión).', 'error');
@@ -173,16 +187,35 @@ const ViewExportar = {
     const original = btn.innerHTML;
     btn.innerHTML = Icons.tag('download', 'Generando…');
     try {
-      const [vuelos, datosPiloto] = await Promise.all([
-        Repo.listarVuelos(await this._filtros()), Repo.getDatosPiloto(),
-      ]);
-      if (!vuelos.length) { UI.toast('No hay vuelos con esos filtros.', 'warn'); return; }
+      const filtros = await this._filtros();
+      const [vuelos, datosPiloto] = await Promise.all([Repo.listarVuelos(filtros), Repo.getDatosPiloto()]);
+      const reales = ExportadorAnac.filtrarVuelosReales(vuelos);
+      if (!reales.length) { UI.toast('No hay vuelos con esos filtros.', 'warn'); return; }
 
-      const porAnio = ExportadorAnac.agruparPorAnio(vuelos);
+      // Arrastre real: todo lo volado ANTES del primer vuelo exportado (mismo
+      // filtro de aeronave/finalidad si se aplicó, sin límite de fecha
+      // inferior) — así "exportar desde tal fecha" no arranca en 0, sino con
+      // las horas que ya tenías acumuladas hasta ese momento.
+      const fechaMinima = reales.reduce((min, v) => (v.fecha < min ? v.fecha : min), reales[0].fecha);
+      const anteriores = ExportadorAnac.filtrarVuelosReales(await Repo.listarVuelos({
+        hasta: this._diaAnterior(fechaMinima),
+        aeronave_id: filtros.aeronave_id,
+        finalidad_vuelo: filtros.finalidad_vuelo,
+      }));
+      let carry = {
+        porColumna: ExportadorAnac.sumarColumnas(anteriores),
+        grandTotal: Calc.round2(anteriores.reduce((s, v) => s + Calc.n(v.tiempo_total), 0)),
+      };
+
+      const porAnio = ExportadorAnac.agruparPorAnio(reales);
       const anios = Object.keys(porAnio).sort();
+      const excluidos = vuelos.length - reales.length;
       for (const anio of anios) {
-        const wb = ExportadorAnac.construirLibroAnual(ExcelJS, { anio, vuelos: porAnio[anio], datosPiloto });
-        const buffer = await wb.xlsx.writeBuffer();
+        const { workbook, estadoFinal } = ExportadorAnac.construirLibroAnual(ExcelJS, {
+          anio, vuelos: porAnio[anio], datosPiloto, carryInicial: carry,
+        });
+        carry = estadoFinal; // el año siguiente sigue acumulando, no resetea
+        const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -193,7 +226,9 @@ const ViewExportar = {
         // Pequeña pausa entre descargas para que el navegador no las bloquee.
         if (anios.length > 1) await new Promise((r) => setTimeout(r, 400));
       }
-      UI.toast(anios.length > 1 ? `Se generaron ${anios.length} archivos (uno por año).` : 'Hoja generada.', 'ok');
+      const partes = [anios.length > 1 ? `Se generaron ${anios.length} archivos (uno por año).` : 'Hoja generada.'];
+      if (excluidos > 0) partes.push(`${excluidos} turno${excluidos > 1 ? 's' : ''} de adiestrador no se incluyeron (no llevan renglón en la hoja oficial).`);
+      UI.toast(partes.join(' '), 'ok');
     } catch (err) {
       UI.toast('Error al generar la hoja: ' + (err.message || err), 'error');
     } finally {
