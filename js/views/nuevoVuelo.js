@@ -141,11 +141,11 @@ const ViewNuevoVuelo = {
 
       <div class="field-row">
         <div class="field">
-          <label>Hora salida (UTC)</label>
+          <label>${labelHora('Hora salida')}</label>
           <input type="time" id="f-hora-salida" />
         </div>
         <div class="field">
-          <label>Hora llegada (UTC)</label>
+          <label>${labelHora('Hora llegada')}</label>
           <input type="time" id="f-hora-llegada" />
         </div>
       </div>
@@ -524,11 +524,11 @@ const ViewNuevoVuelo = {
       </div>
       <div class="field-row">
         <div class="field">
-          <label>Hora inicio</label>
+          <label>${labelHora('Hora inicio')}</label>
           <input type="time" id="at-hora-inicio" />
         </div>
         <div class="field">
-          <label>Hora fin</label>
+          <label>${labelHora('Hora fin')}</label>
           <input type="time" id="at-hora-fin" />
         </div>
       </div>

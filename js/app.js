@@ -5,17 +5,32 @@
 function aplicarTemaGuardado() {
   const t = localStorage.getItem('tema');
   if (t) document.documentElement.setAttribute('data-theme', t);
-  const esOscuro = document.documentElement.getAttribute('data-theme') === 'dark';
-  document.getElementById('btn-theme').innerHTML = esOscuro ? Icons.sun(18) : Icons.moon(18);
 }
 
-function toggleTema() {
-  const actual = document.documentElement.getAttribute('data-theme')
+// El toggle de tema vive en Perfil (Preferencias), no en el header.
+// setTema(tema) fija un valor explícito ('dark' | 'light'); temaActual()
+// lee cuál está aplicado ahora (con el mismo fallback a preferencia del
+// sistema que usaba el botón viejo).
+function temaActual() {
+  return document.documentElement.getAttribute('data-theme')
     || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  const nuevo = actual === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', nuevo);
-  localStorage.setItem('tema', nuevo);
-  document.getElementById('btn-theme').innerHTML = nuevo === 'dark' ? Icons.sun(18) : Icons.moon(18);
+}
+function setTema(tema) {
+  document.documentElement.setAttribute('data-theme', tema);
+  localStorage.setItem('tema', tema);
+}
+
+// Preferencia de huso horario al cargar vuelos — solo cambia la etiqueta
+// de los casilleros de hora (ver labelHora), no hace conversión de horario:
+// el piloto tipea la hora que corresponda según lo que eligió acá.
+function obtenerPrefHorario() {
+  return localStorage.getItem('horario_pref') || 'utc';
+}
+function guardarPrefHorario(valor) {
+  localStorage.setItem('horario_pref', valor);
+}
+function labelHora(base) {
+  return `${base} (${obtenerPrefHorario() === 'local' ? 'Hora local' : 'UTC'})`;
 }
 
 function actualizarBannerOffline() {
@@ -26,7 +41,7 @@ function inicializarIconosEstaticos() {
   document.getElementById('offline-banner-icon').innerHTML = Icons.wifiOff(16);
   document.getElementById('login-icon').innerHTML = Icons.plane(18);
   document.getElementById('brand-icon').innerHTML = Icons.plane(20);
-  document.getElementById('btn-perfil').innerHTML = Icons.award(18);
+  document.getElementById('btn-perfil').innerHTML = Icons.person(18);
 }
 
 function mostrarPanelLogin(panel) {
@@ -98,7 +113,6 @@ async function mostrarApp() {
   document.getElementById('vista-app').style.display = 'block';
 
   document.getElementById('btn-perfil').onclick = () => Router.irA('perfil');
-  document.getElementById('btn-theme').onclick = toggleTema;
 
   Router.construirNav();
   await Router.navegar();

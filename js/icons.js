@@ -39,6 +39,7 @@ const Icons = (() => {
     wrench: (s) => svg('<path d="M14.7 6.3a4 4 0 0 0-5.6 4.6L3 17l4 4 6.1-6.1a4 4 0 0 0 4.6-5.6l-2.7 2.7-2-2Z"/>', s),
     shield: (s) => svg('<path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5Z"/>', s),
     lock: (s) => svg('<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>', s),
+    person: (s) => svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>', s),
     star: (s) => svg('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.8 6.8 19.7l1-5.9-4.3-4.1 5.9-.8Z"/>', s),
     search: (s) => svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>', s),
     landing: (s) => svg('<path d="M3 21h18"/><path d="M4 17 20 9"/><path d="M9 12.5 6 17"/><path d="M15 5.5 12 10"/>', s),

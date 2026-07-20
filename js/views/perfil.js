@@ -41,23 +41,33 @@ const ViewPerfil = {
     ]);
     this.cursosActivos = cursosActivos;
     this.esAdmin = esAdmin;
-    const agg = agregarVuelos(vuelos);
     if (this.cursosActivos.includes('PCA_HVI')) {
       this.hviSimHoras = await Repo.getHviSimHoras();
     }
 
-    const configsPorCurso = await Promise.all(this.cursosActivos.map(async (cursoId) => {
-      let config = await Repo.listarConfigLicencia(cursoId);
-      if (cursoId === 'PCA_HVI' && this.hviSimHoras !== null && this.hviSimHoras !== undefined) {
-        config = config.filter((c) => c.nombre_requisito !== 'instrumentos').concat([
-          { nombre_requisito: 'instrumentos', minimo_horas: Calc.round2(40 - this.hviSimHoras) },
-          { nombre_requisito: 'instrumentos_sim', minimo_horas: this.hviSimHoras },
-        ]);
-      }
-      return { cursoId, curso: CURSOS.find((c) => c.id === cursoId), config };
-    }));
+    const temaGuardado = temaActual();
+    const horarioGuardado = obtenerPrefHorario();
 
     main.innerHTML = `
+      <div class="card">
+        <h2>${Icons.person(18)} Preferencias</h2>
+        <div class="field">
+          <label>Tema</label>
+          <div class="toggle-group" id="pref-tema" style="max-width:280px">
+            <button type="button" data-valor="dark" class="${temaGuardado === 'dark' ? 'active' : ''}">${Icons.tag('moon', 'Oscuro')}</button>
+            <button type="button" data-valor="light" class="${temaGuardado === 'light' ? 'active' : ''}">${Icons.tag('sun', 'Claro')}</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Huso horario al cargar vuelos</label>
+          <div class="toggle-group" id="pref-horario" style="max-width:280px">
+            <button type="button" data-valor="utc" class="${horarioGuardado === 'utc' ? 'active' : ''}">UTC</button>
+            <button type="button" data-valor="local" class="${horarioGuardado === 'local' ? 'active' : ''}">Hora local</button>
+          </div>
+          <p class="muted" style="margin:4px 0 0">Define qué aclaran los casilleros de hora al cargar un vuelo (ej. "Hora salida (UTC)").</p>
+        </div>
+      </div>
+
       <div class="card">
         <h2>${Icons.award(18)} Cursos / carreras activas</h2>
         <div class="field">
@@ -74,11 +84,6 @@ const ViewPerfil = {
       </div>
 
       ${this.cursosActivos.includes('PCA_HVI') ? this._htmlRepartoHvi() : ''}
-
-      <div class="card">
-        <h2>${Icons.award(18)} Detalle de progreso</h2>
-        <div id="barras-progreso"></div>
-      </div>
 
       <div id="bloque-licencias"></div>
 
@@ -132,6 +137,12 @@ const ViewPerfil = {
       </div>
     `;
 
+    document.querySelectorAll('#pref-tema button').forEach((b) => {
+      b.onclick = () => { setTema(b.dataset.valor); this.render(); };
+    });
+    document.querySelectorAll('#pref-horario button').forEach((b) => {
+      b.onclick = () => { guardarPrefHorario(b.dataset.valor); this.render(); };
+    });
     document.querySelectorAll('.p-curso-check').forEach((chk) => {
       chk.onchange = () => this._cambiarCursos();
     });
@@ -145,7 +156,6 @@ const ViewPerfil = {
       });
     }
 
-    try { renderBarrasProgreso(configsPorCurso, agg); } catch (err) { console.error('Error renderizando progreso en Perfil:', err); }
     try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency en Perfil:', err); }
 
     if (this.esAdmin) await this._renderPanelAdmin();
@@ -302,41 +312,6 @@ const ViewPerfil = {
     this.render();
   },
 };
-
-function renderBarrasProgreso(configsPorCurso, agg) {
-  const cont = document.getElementById('barras-progreso');
-  const conRequisitos = configsPorCurso.filter(({ config }) => config.length);
-  if (!conRequisitos.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para los cursos activos todavía.</p>'; return; }
-
-  cont.innerHTML = conRequisitos.map(({ cursoId, curso, config }) => {
-    const items = config.map((req) => {
-      const actual = req.nombre_requisito === 'nocturnas'
-        ? valorNocturnasAjustado(cursoId, agg, configsPorCurso)
-        : valorRequisito(req.nombre_requisito, agg);
-      const minimo = Calc.n(req.minimo_horas);
-      const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
-      const faltan = Math.max(0, Calc.round2(minimo - actual));
-      const esUnidad = req.nombre_requisito === 'aterrizajes_noche' || req.nombre_requisito === 'remolques';
-      return { req, actual, minimo, pct, faltan, esUnidad };
-    });
-
-    // Mayor % completado primero; entre los que ya están al 100%, el que
-    // tiene más horas/unidades voladas (cantidad) va primero.
-    items.sort((a, b) => b.pct - a.pct || (b.pct === 100 ? b.actual - a.actual : 0));
-
-    return `
-      ${conRequisitos.length > 1 ? `<h3 style="margin-top:14px">${curso?.label || cursoId}</h3>` : ''}
-      ${items.map(({ req, actual, minimo, pct, faltan, esUnidad }) => `
-        <div class="progreso-item">
-          <div class="pi-head">
-            <span class="nombre">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
-            <span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — ${faltan <= 0 ? 'completo' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
-          </div>
-          <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
-        </div>`).join('')}
-    `;
-  }).join('');
-}
 
 function renderCurrency(vuelos) {
   const cont = document.getElementById('currency-lista');

@@ -43,7 +43,7 @@ const ViewDashboard = {
             </svg>
             <div class="ring-label">
               <span class="kpi">${agg.tiempo_total}</span>
-              <span class="kpi-unit">Horas</span>
+              <span class="kpi-unit">Horas${agg.adiestrador_simulador > 0 ? ` · ${agg.adiestrador_simulador} sim.` : ''}</span>
             </div>
           </div>
           <div style="flex:1;min-width:220px">
@@ -51,10 +51,7 @@ const ViewDashboard = {
             <p style="margin:0 0 12px;font-size:18px;font-weight:600">${cursosActivos.map((id) => id.replace('_', ' ')).join(' + ')}</p>
             <div id="hero-cursos-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
             <div class="progreso-bar"><span id="hero-bar" style="width:0%"></span></div>
-            <div style="display:flex;justify-content:space-between;margin-top:6px">
-              <span class="muted" id="hero-pct"></span>
-              <span class="muted">Simulador: ${agg.adiestrador_simulador} hs</span>
-            </div>
+            <p class="muted" id="hero-pct" style="margin:6px 0 0"></p>
           </div>
         </div>
       </div>
@@ -94,7 +91,7 @@ const ViewDashboard = {
           <div class="plan-card-fecha">
             <p class="muted" style="margin:0">Fecha programada</p>
             <p style="margin:2px 0 0;font-size:20px;font-weight:700">${fechaGrande}</p>
-            ${p.hora_prevista ? `<p style="margin:2px 0 0;font-family:var(--font-mono);color:var(--brand)">${p.hora_prevista.slice(0, 5)} UTC</p>` : ''}
+            ${p.hora_prevista ? `<p style="margin:2px 0 0;font-family:var(--font-mono);color:var(--brand)">${p.hora_prevista.slice(0, 5)} ${obtenerPrefHorario() === 'local' ? 'hora local' : 'UTC'}</p>` : ''}
             ${/^[A-Z]{4}$/.test(p.desde || '') ? `
               <p class="muted" style="margin:14px 0 0">METAR ${p.desde}</p>
               <p id="${metarId}" class="muted" style="margin:2px 0 0;font-family:var(--font-mono);font-size:12px">Cargando…</p>
@@ -132,7 +129,7 @@ const ViewDashboard = {
     cont.innerHTML = `
       <div class="grid cols-2">
         <div class="field"><label>Fecha</label><input type="date" id="pv-fecha" value="${new Date().toISOString().slice(0, 10)}"></div>
-        <div class="field"><label>Hora prevista</label><input type="time" id="pv-hora"></div>
+        <div class="field"><label>${labelHora('Hora prevista')}</label><input type="time" id="pv-hora"></div>
         <div class="field"><label>Aeronave</label>
           <select id="pv-aeronave"><option value="">Sin definir</option>
             ${this.aeronaves.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
@@ -250,7 +247,7 @@ function renderHeroProgreso(configsPorCurso, agg) {
   lista.innerHTML = porCurso.map(({ cursoId, curso, principal, pct, faltan, esUnidad }) => `
     <div class="doc-card">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-        <span class="muted">${curso?.label || cursoId} — ${LABELS_REQUISITO[principal.nombre_requisito] || principal.nombre_requisito}</span>
+        <span class="muted">${cursoId.replace('_', ' ')} — ${LABELS_REQUISITO[principal.nombre_requisito] || principal.nombre_requisito}</span>
         <span style="font-family:var(--font-mono);flex-shrink:0">${pct}%</span>
       </div>
       <p class="muted" style="margin:2px 0 0">${faltan <= 0 ? '¡Completo!' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</p>
