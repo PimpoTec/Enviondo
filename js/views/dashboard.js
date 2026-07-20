@@ -86,6 +86,7 @@ const ViewDashboard = {
       const [anio, mes, dia] = p.fecha.split('-');
       const fechaGrande = `${dia} ${MESES_CORTOS[Number(mes) - 1]}`;
       const metarId = `metar-${i}`;
+      const tafId = `taf-${i}`;
       return `
         <div class="plan-card">
           <div class="plan-card-fecha">
@@ -95,6 +96,8 @@ const ViewDashboard = {
             ${/^[A-Z]{4}$/.test(p.desde || '') ? `
               <p class="muted" style="margin:14px 0 0">METAR ${p.desde}</p>
               <p id="${metarId}" class="muted" style="margin:2px 0 0;font-family:var(--font-mono);font-size:12px">Cargando…</p>
+              <p class="muted" style="margin:10px 0 0">TAF ${p.desde}</p>
+              <p id="${tafId}" class="muted" style="margin:2px 0 0;font-family:var(--font-mono);font-size:12px;white-space:pre-wrap">Cargando…</p>
             ` : ''}
           </div>
           <div class="plan-card-detalle">
@@ -118,7 +121,10 @@ const ViewDashboard = {
     }).join('');
 
     programados.slice(0, 3).forEach((p, i) => {
-      if (/^[A-Z]{4}$/.test(p.desde || '')) cargarMetar(p.desde, `metar-${i}`);
+      if (/^[A-Z]{4}$/.test(p.desde || '')) {
+        cargarMetar(p.desde, `metar-${i}`, 'metar');
+        cargarMetar(p.desde, `taf-${i}`, 'taf');
+      }
     });
   },
 
@@ -181,25 +187,25 @@ const ViewDashboard = {
 
 const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 
-// METAR real del aeródromo de origen — servicio público de NOAA
+// METAR/TAF real del aeródromo de origen — servicio público de NOAA
 // (aviationweather.gov), sin API key. aviationweather.gov no manda headers
 // CORS, así que el pedido no puede ir directo desde el navegador. Primero
 // se intenta la Edge Function propia (supabase/functions/metar) — corre
 // server-side, sin depender de terceros. Si todavía no está deployada (o
 // falla), cae a un proxy CORS público (allorigins.win) como red de
-// contención, para que el METAR no deje de funcionar de un día para el otro.
+// contención, para que el dato no deje de funcionar de un día para el otro.
 //
 // OJO: el nombre que se ve en "Name" en el dashboard de Supabase es solo
 // una etiqueta — no cambia el slug/URL real de la función, que queda fijo
 // desde el momento en que se creó (acá quedó "smooth-processor" en vez de
 // "metar" porque así la generó Supabase al crearla). Si algún día se borra
 // y se recrea con el slug "metar" desde el vamos, actualizar esta URL.
-async function cargarMetar(icao, elId) {
+async function cargarMetar(icao, elId, tipo = 'metar') {
   const el = document.getElementById(elId);
   if (!el) return;
 
-  const propia = `${window.SUPABASE_CONFIG.url}/functions/v1/smooth-processor?icao=${icao}`;
-  const destino = encodeURIComponent(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=raw`);
+  const propia = `${window.SUPABASE_CONFIG.url}/functions/v1/smooth-processor?icao=${icao}&tipo=${tipo}`;
+  const destino = encodeURIComponent(`https://aviationweather.gov/api/data/${tipo}?ids=${icao}&format=raw`);
   const proxyPublico = `https://api.allorigins.win/raw?url=${destino}`;
 
   for (const url of [propia, proxyPublico]) {
@@ -207,11 +213,11 @@ async function cargarMetar(icao, elId) {
       const resp = await fetch(url);
       if (!resp.ok) continue;
       const texto = (await resp.text()).trim();
-      el.textContent = texto || 'Sin METAR publicado para este aeródromo.';
+      el.textContent = texto || `Sin ${tipo.toUpperCase()} publicado para este aeródromo.`;
       return;
     } catch { /* intenta la siguiente fuente */ }
   }
-  el.textContent = 'METAR no disponible.';
+  el.textContent = `${tipo.toUpperCase()} no disponible.`;
 }
 
 // Cuando "Habilitación de Vuelo Nocturno" (HAB_NOC) está activa junto a otro
