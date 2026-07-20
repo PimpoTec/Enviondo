@@ -105,12 +105,17 @@
   </div>
 </div>
 
-<!-- Supabase JS (CDN) -->
+<!-- Supabase JS (CDN) — bloqueante a propósito: todo lo demás depende de que
+     window.supabase exista antes de que corra supabaseClient.js. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<!-- SheetJS, para exportar Excel real (.xlsx) -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<!-- ExcelJS, para la Hoja de Libro de Vuelo ANAC (grilla con bordes) -->
-<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- SheetJS y ExcelJS son pesadas (~270KB c/u) y solo las usa UN botón cada
+     una, en Exportar — con `defer` no bloquean el arranque del resto de la
+     app esperando el CDN (antes, si la red iba lenta, el login/dashboard/etc.
+     quedaban colgados hasta que estas dos terminaran de bajar, aunque el
+     usuario nunca fuera a exportar nada). Siguen listas antes de que el
+     usuario llegue a tocar el botón de exportar. -->
+<script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 
 <script src="js/config.js"></script>
 <script src="js/icons.js"></script>

@@ -3,6 +3,16 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 9 (arranque lento de TODA la app)
+- [x] **Causa real de "tarda 10 segundos para entrar a cualquier lado"**:
+      `xlsx` (SheetJS) y `exceljs` se cargaban como `<script>` normales
+      (bloqueantes) desde CDN, ~270KB cada una, usadas por un solo botón cada
+      una en Exportar — pero el navegador tenía que terminar de bajarlas
+      ANTES de ejecutar una sola línea del código propio de la app (login,
+      dashboard, todo). Con conexión lenta, eso bloqueaba el arranque entero.
+      Se marcaron `defer`: siguen listas antes de que el usuario llegue a
+      exportar algo, pero ya no frenan el resto de la app.
+
 ## Hecho — tanda 8 (sensación de app lenta / botones "celestes")
 - [x] **Resaltado táctil nativo**: Android/Chrome pintaba un flash celeste
       por defecto al tocar cualquier botón (el highlight táctil del sistema,
