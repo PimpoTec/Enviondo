@@ -67,7 +67,23 @@ const UI = (() => {
     });
   }
 
-  return { toast, confirmar };
+  // Skeleton de carga que solo aparece si el trabajo tarda más de `delayMs`
+  // — para transiciones instantáneas no hay parpadeo de "cargando", y para
+  // las que sí tardan, el esqueleto aparece rápido para dar feedback real de
+  // que algo está pasando. Devuelve una función para cancelarlo cuando el
+  // trabajo termina (si nunca llegó a mostrarse, no hace nada).
+  function skeletonDiferido(el, delayMs = 150) {
+    const t = setTimeout(() => {
+      el.innerHTML = `<div class="card" aria-busy="true">
+        <div class="skeleton skeleton-line" style="width:45%"></div>
+        <div class="skeleton skeleton-line" style="width:70%"></div>
+        <div class="skeleton skeleton-block"></div>
+      </div>`;
+    }, delayMs);
+    return () => clearTimeout(t);
+  }
+
+  return { toast, confirmar, skeletonDiferido };
 })();
 
 window.UI = UI;

@@ -48,16 +48,16 @@ async function navegar() {
   });
 
   const main = document.getElementById('main-content');
-  main.innerHTML = `<div class="card" aria-busy="true">
-    <div class="skeleton skeleton-line" style="width:45%"></div>
-    <div class="skeleton skeleton-line" style="width:70%"></div>
-    <div class="skeleton skeleton-block"></div>
-  </div>`;
+  // El esqueleto solo se muestra si la pantalla tarda más de un instante —
+  // si la navegación es casi inmediata, no hay parpadeo de "cargando".
+  const cancelarSkeleton = UI.skeletonDiferido(main);
   try {
     await ruta.render(params);
   } catch (err) {
     console.error(err);
     main.innerHTML = `<div class="card"><p>${Icons.tag('alertTriangle', 'Ocurrió un error cargando esta pantalla.')}</p><p class="muted">${err.message || err}</p></div>`;
+  } finally {
+    cancelarSkeleton();
   }
 }
 

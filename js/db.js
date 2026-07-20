@@ -15,9 +15,15 @@ const CURSOS = [
   { id: 'HAB_NOC', label: 'Habilitación de Vuelo Nocturno (RAAC vigente)' },
 ];
 
+// getSession() lee la sesión guardada localmente (rápido, sin red); getUser()
+// SIEMPRE hace un viaje de ida y vuelta al servidor de Supabase para
+// revalidarla — apropiado si necesitás verificar la sesión con el servidor,
+// pero acá solo usamos el id para escribir filas propias, y la seguridad real
+// la impone RLS del lado del servidor de todas formas (no esta función). Este
+// cambio le saca un round-trip de red a cada "guardar" de la app.
 async function usuarioActual() {
-  const { data } = await window.db.auth.getUser();
-  return data.user;
+  const { data } = await window.db.auth.getSession();
+  return data.session?.user;
 }
 
 const Repo = {

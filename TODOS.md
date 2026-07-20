@@ -3,6 +3,31 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 10 (feedback de carga + un round-trip menos por acción)
+- [x] **`UI.skeletonDiferido`**: esqueleto de carga que solo aparece si la
+      pantalla/sección tarda más de 150ms — si la respuesta es casi
+      instantánea, no hay parpadeo de "cargando". Conectado en el router
+      (toda navegación por hash) y en Perfil (los cambios de sección son
+      internos, no pasan por el router, así que no tenían ningún feedback).
+- [x] **`usuarioActual()` usa `getSession()` en vez de `getUser()`**:
+      `getUser()` siempre hace un viaje de ida y vuelta al servidor de
+      Supabase para revalidar la sesión; `getSession()` la lee local (sin
+      red) — la seguridad real la sigue imponiendo RLS del lado del
+      servidor, no esta función. Esto saca un round-trip de red de CADA
+      "guardar" de la app (vuelos, aeronaves, vencimientos, cursos, datos del
+      piloto) y de `esAdminApp()` (que se llama al entrar a Preferencias).
+
+## Ideas para seguir reduciendo la latencia (no implementadas todavía)
+- [ ] **Región del proyecto de Supabase**: si el proyecto no está en
+      `sa-east-1` (São Paulo) u otra región cercana a Argentina, cada consulta
+      paga latencia de distancia que ningún cambio de código puede achicar.
+      Vale la pena confirmarlo en el dashboard de Supabase (Project Settings).
+- [ ] **Cache local con revalidación en segundo plano** (stale-while-
+      revalidate) para datos que cambian poco (cursos activos, datos del
+      piloto, si sos admin): mostrar lo último que se vio al instante y
+      actualizar calladamente en el fondo, en vez de esperar la red cada vez
+      que volvés a una sección ya vista en la misma sesión.
+
 ## Hecho — tanda 9 (arranque lento de TODA la app)
 - [x] **Causa real de "tarda 10 segundos para entrar a cualquier lado"**:
       `xlsx` (SheetJS) y `exceljs` se cargaban como `<script>` normales

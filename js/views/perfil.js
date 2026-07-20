@@ -64,37 +64,45 @@ const ViewPerfil = {
     // app se ve como para un piloto normal hasta que la prendas vos mismo.
     this.mostrarAdmin = localStorage.getItem('admin_ui') === '1';
 
-    if (!this.seccion) {
-      const [papelera, vencimientos] = await Promise.all([Repo.listarVuelosBorrados(), Repo.listarVencimientos()]);
-      main.innerHTML = this._htmlMenu(papelera.length, vencimientos);
-      this._bindMenu();
-      return;
-    }
+    // Entrar a una sección no pasa por el router (no cambia el hash), así que
+    // el esqueleto diferido del router no aplica acá — se muestra este por
+    // las mismas reglas: solo si tarda, nunca para una respuesta instantánea.
+    const cancelarSkeleton = UI.skeletonDiferido(main);
+    try {
+      if (!this.seccion) {
+        const [papelera, vencimientos] = await Promise.all([Repo.listarVuelosBorrados(), Repo.listarVencimientos()]);
+        main.innerHTML = this._htmlMenu(papelera.length, vencimientos);
+        this._bindMenu();
+        return;
+      }
 
-    const volver = `<button class="btn ghost" id="btn-volver-perfil" style="margin-bottom:12px">← Perfil</button>`;
-    if (this.seccion === 'personales') {
-      const [cursosActivos, datosPiloto] = await Promise.all([Repo.getCursosActivos(), Repo.getDatosPiloto()]);
-      this.cursosActivos = cursosActivos;
-      this.datosPiloto = datosPiloto || {};
-      if (this.cursosActivos.includes('PCA_HVI')) this.hviSimHoras = await Repo.getHviSimHoras();
-      main.innerHTML = volver + this._htmlPersonales();
-      this._bindPersonales();
-    } else if (this.seccion === 'preferencias') {
-      this.esAdmin = await Repo.esAdminApp();
-      main.innerHTML = volver + this._htmlPreferencias();
-      this._bindPreferencias();
-      if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
-    } else if (this.seccion === 'alertas') {
-      const [vencimientos, vuelos] = await Promise.all([Repo.listarVencimientos(), Repo.listarVuelos()]);
-      main.innerHTML = volver + this._htmlAlertas(vencimientos);
-      this._bindAlertas();
-      try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency:', err); }
-    } else if (this.seccion === 'papelera') {
-      const papelera = await Repo.listarVuelosBorrados();
-      main.innerHTML = volver + this._htmlPapelera(papelera);
-      this._bindPapelera();
+      const volver = `<button class="btn ghost" id="btn-volver-perfil" style="margin-bottom:12px">← Perfil</button>`;
+      if (this.seccion === 'personales') {
+        const [cursosActivos, datosPiloto] = await Promise.all([Repo.getCursosActivos(), Repo.getDatosPiloto()]);
+        this.cursosActivos = cursosActivos;
+        this.datosPiloto = datosPiloto || {};
+        if (this.cursosActivos.includes('PCA_HVI')) this.hviSimHoras = await Repo.getHviSimHoras();
+        main.innerHTML = volver + this._htmlPersonales();
+        this._bindPersonales();
+      } else if (this.seccion === 'preferencias') {
+        this.esAdmin = await Repo.esAdminApp();
+        main.innerHTML = volver + this._htmlPreferencias();
+        this._bindPreferencias();
+        if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
+      } else if (this.seccion === 'alertas') {
+        const [vencimientos, vuelos] = await Promise.all([Repo.listarVencimientos(), Repo.listarVuelos()]);
+        main.innerHTML = volver + this._htmlAlertas(vencimientos);
+        this._bindAlertas();
+        try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency:', err); }
+      } else if (this.seccion === 'papelera') {
+        const papelera = await Repo.listarVuelosBorrados();
+        main.innerHTML = volver + this._htmlPapelera(papelera);
+        this._bindPapelera();
+      }
+      document.getElementById('btn-volver-perfil').onclick = () => { this.seccion = null; this.render(); };
+    } finally {
+      cancelarSkeleton();
     }
-    document.getElementById('btn-volver-perfil').onclick = () => { this.seccion = null; this.render(); };
   },
 
   // ==========================================================================
