@@ -63,22 +63,33 @@ const OFFSET_ARG_MS = 3 * 60 * 60 * 1000;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+// Devuelve un resumen (no solo tira o no tira excepción) porque un
+// webpush.sendNotification fallido con, por ejemplo, 400/401 del servicio
+// de push NO es un error de nuestra función — para el cliente eso se veía
+// como "éxito" (cartel verde) aunque no llegara nada. El modo test usa este
+// resumen para avisar de verdad cuando no se pudo entregar nada.
 async function mandarATodos(userId: string, payload: { title: string; body: string; tag: string; url?: string }) {
   if (!vapidListo) throw new Error('Faltan configurar los secretos VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY en la Edge Function.');
   const { data: subs } = await admin.from('push_subscriptions').select('*').eq('user_id', userId);
+  let enviados = 0;
+  let ultimoError = '';
   for (const s of subs ?? []) {
     try {
       await webpush.sendNotification(s.subscription, JSON.stringify(payload));
+      enviados++;
     } catch (err: any) {
       // 404/410 = el navegador descartó esa suscripción (desinstaló la PWA,
       // borró datos, etc.) — la sacamos para no seguir intentando en vano.
       if (err?.statusCode === 404 || err?.statusCode === 410) {
         await admin.from('push_subscriptions').delete().eq('id', s.id);
+        ultimoError = 'La suscripción había expirado (se borró; volvé a activar las notificaciones).';
       } else {
-        console.error('Error enviando push:', err?.message || err);
+        ultimoError = `${err?.statusCode ? 'HTTP ' + err.statusCode + ': ' : ''}${err?.body || err?.message || err}`;
+        console.error('Error enviando push:', ultimoError);
       }
     }
   }
+  return { total: (subs ?? []).length, enviados, ultimoError };
 }
 
 function estadoVencimiento(fechaVencimiento: string, umbralDias: number) {
@@ -140,12 +151,19 @@ async function correrTest(authHeader: string) {
   const cliente = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
   const { data: { user }, error } = await cliente.auth.getUser();
   if (error || !user) throw new Error('No se pudo identificar al usuario (sesión inválida).');
-  await mandarATodos(user.id, {
+  const resumen = await mandarATodos(user.id, {
     title: 'Notificación de prueba',
     body: 'Si ves esto, las notificaciones push están funcionando.',
     tag: 'prueba',
     url: './#perfil?seccion=notificaciones',
   });
+  if (resumen.total === 0) {
+    throw new Error('No hay ninguna suscripción guardada para tu usuario — desactivá y volvé a activar las notificaciones en Perfil.');
+  }
+  if (resumen.enviados === 0) {
+    throw new Error(`Se encontró ${resumen.total} dispositivo(s) suscripto(s) pero ninguno recibió el envío: ${resumen.ultimoError || 'motivo desconocido'}`);
+  }
+  return resumen;
 }
 
 Deno.serve(async (req) => {
@@ -166,8 +184,8 @@ Deno.serve(async (req) => {
 
     const auth = req.headers.get('Authorization');
     if (!auth) throw new Error('Falta la sesión del usuario.');
-    await correrTest(auth);
-    return new Response(JSON.stringify({ ok: true }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    const resumen = await correrTest(auth);
+    return new Response(JSON.stringify({ ok: true, ...resumen }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err?.message || String(err) }), {
       status: 400,
