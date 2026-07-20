@@ -54,7 +54,7 @@ const ViewNuevoVuelo = {
       } catch (err) {
         this.editId = null;
         this.editVuelo = null;
-        alert('No se pudo cargar el vuelo a editar: ' + (err.message || err));
+        UI.toast('No se pudo cargar el vuelo a editar: ' + (err.message || err), 'error');
       }
     } else if (!nuevoEditId) {
       this.editId = null;
@@ -490,7 +490,7 @@ const ViewNuevoVuelo = {
     if (avisos.length) {
       msg.innerHTML = Icons.tag('alertTriangle', avisos.join(' '));
       msg.className = 'muted';
-      const ok = confirm('Hay observaciones:\n\n' + avisos.join('\n') + '\n\n¿Guardar igual?');
+      const ok = await UI.confirmar('Hay observaciones:\n\n' + avisos.join('\n') + '\n\n¿Guardar igual?', { ok: 'Guardar igual' });
       if (!ok) return;
     }
 

@@ -147,12 +147,12 @@ const ViewBitacora = {
   },
 
   async _borrar(id) {
-    if (!confirm('¿Borrar este vuelo? Queda en la Papelera (Perfil) por si lo querés restaurar.')) return;
+    if (!(await UI.confirmar('¿Borrar este vuelo? Queda en la Papelera (Perfil) por si lo querés restaurar.', { ok: 'Borrar', peligro: true }))) return;
     try {
       await Repo.borrarVuelo(id);
       this.render();
     } catch (err) {
-      alert('Error al borrar: ' + (err.message || err));
+      UI.toast('Error al borrar: ' + (err.message || err), 'error');
     }
   },
 };

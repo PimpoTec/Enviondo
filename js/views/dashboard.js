@@ -169,7 +169,7 @@ const ViewDashboard = {
 
   async _guardarProgramado() {
     const fecha = document.getElementById('pv-fecha').value;
-    if (!fecha) { alert('Elegí una fecha.'); return; }
+    if (!fecha) { UI.toast('Elegí una fecha.', 'warn'); return; }
     try {
       await Repo.crearVueloProgramado({
         fecha,
@@ -182,7 +182,7 @@ const ViewDashboard = {
       });
       this.render();
     } catch (err) {
-      alert('Error al agendar: ' + (err.message || err));
+      UI.toast('Error al agendar: ' + (err.message || err), 'error');
     }
   },
 
@@ -192,7 +192,7 @@ const ViewDashboard = {
   },
 
   async _borrarProgramado(id) {
-    if (!confirm('¿Borrar este vuelo agendado?')) return;
+    if (!(await UI.confirmar('¿Borrar este vuelo agendado?', { ok: 'Borrar', peligro: true }))) return;
     await Repo.borrarVueloProgramado(id);
     this.render();
   },

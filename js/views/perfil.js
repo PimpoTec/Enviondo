@@ -32,6 +32,7 @@ function estadoVencimiento(v) {
 const ViewPerfil = {
   cursosActivos: ['PPA'],
   esAdmin: false,
+  mostrarAdmin: false,
   hviSimHoras: null,
 
   async render() {
@@ -41,6 +42,9 @@ const ViewPerfil = {
     ]);
     this.cursosActivos = cursosActivos;
     this.esAdmin = esAdmin;
+    // La vista de admin queda apagada por defecto: aunque seas el admin, la
+    // app se ve como para un piloto normal hasta que la prendas vos mismo.
+    this.mostrarAdmin = localStorage.getItem('admin_ui') === '1';
     if (this.cursosActivos.includes('PCA_HVI')) {
       this.hviSimHoras = await Repo.getHviSimHoras();
     }
@@ -66,6 +70,15 @@ const ViewPerfil = {
           </div>
           <p class="muted" style="margin:4px 0 0">Define qué aclaran los casilleros de hora al cargar un vuelo (ej. "Hora salida (UTC)").</p>
         </div>
+        ${this.esAdmin ? `
+        <div class="field" style="margin:12px 0 0">
+          <label>${Icons.tag('lock', 'Vista de administrador')}</label>
+          <div class="toggle-group" id="pref-admin" style="max-width:280px">
+            <button type="button" data-valor="0" class="${this.mostrarAdmin ? '' : 'active'}">Usuario normal</button>
+            <button type="button" data-valor="1" class="${this.mostrarAdmin ? 'active' : ''}">Admin</button>
+          </div>
+          <p class="muted" style="margin:4px 0 0">Solo vos ves esta opción. Con <strong>Admin</strong> aparece el panel para editar los mínimos de licencia (globales, para todos los usuarios). En <strong>Usuario normal</strong> la app se ve como para cualquier piloto.</p>
+        </div>` : ''}
       </div>
 
       <div class="card">
@@ -89,9 +102,9 @@ const ViewPerfil = {
 
       <div class="card">
         <h2>${Icons.dollar(18)} Costos y exportación</h2>
+        <p class="muted" style="margin:0 0 10px">El resumen de costos de la carrera y las opciones para exportar el libro (Excel, PDF, backup) están en una sola pantalla.</p>
         <div class="btn-row">
-          <button class="btn secondary" onclick="Router.irA('costos')">${Icons.tag('dollar', 'Ver costos de la carrera')}</button>
-          <button class="btn secondary" onclick="Router.irA('exportar')">${Icons.tag('download', 'Exportar libro de vuelo')}</button>
+          <button class="btn secondary" onclick="Router.irA('exportar')">${Icons.tag('download', 'Ver costos y exportar')}</button>
         </div>
       </div>
 
@@ -166,6 +179,9 @@ const ViewPerfil = {
     document.querySelectorAll('#pref-horario button').forEach((b) => {
       b.onclick = () => { guardarPrefHorario(b.dataset.valor); this.render(); };
     });
+    document.querySelectorAll('#pref-admin button').forEach((b) => {
+      b.onclick = () => { localStorage.setItem('admin_ui', b.dataset.valor); this.render(); };
+    });
     document.querySelectorAll('.p-curso-check').forEach((chk) => {
       chk.onchange = () => this._cambiarCursos();
     });
@@ -181,7 +197,7 @@ const ViewPerfil = {
 
     try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency en Perfil:', err); }
 
-    if (this.esAdmin) await this._renderPanelAdmin();
+    if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
   },
 
   // ---- Reparto instrumentos real/simulador para PCA_HVI (61.315(d)) ----
@@ -215,7 +231,7 @@ const ViewPerfil = {
       await Repo.setHviSimHoras(sim);
       this.render();
     } catch (err) {
-      alert('Error al guardar el reparto: ' + (err.message || err));
+      UI.toast('Error al guardar el reparto: ' + (err.message || err), 'error');
     }
   },
 
@@ -273,12 +289,12 @@ const ViewPerfil = {
 
   async _cambiarCursos() {
     const seleccionados = [...document.querySelectorAll('.p-curso-check:checked')].map((chk) => chk.value);
-    if (!seleccionados.length) { alert('Tildá al menos un curso.'); this.render(); return; }
+    if (!seleccionados.length) { UI.toast('Tildá al menos un curso.', 'warn'); this.render(); return; }
     try {
       await Repo.setCursosActivos(seleccionados);
       this.render();
     } catch (err) {
-      alert('Error al cambiar de curso: ' + (err.message || err));
+      UI.toast('Error al cambiar de curso: ' + (err.message || err), 'error');
     }
   },
 
@@ -289,17 +305,17 @@ const ViewPerfil = {
       await Repo.agregarConfigLicencia(cursoId, nombre, minimo);
       this.render();
     } catch (err) {
-      alert('Error al agregar (¿tenés permiso de administrador?): ' + (err.message || err));
+      UI.toast('Error al agregar (¿tenés permiso de administrador?): ' + (err.message || err), 'error');
     }
   },
 
   async _borrarConfig(id) {
-    if (!confirm('¿Sacar este requisito? Se aplica para todos los usuarios.')) return;
+    if (!(await UI.confirmar('¿Sacar este requisito? Se aplica para todos los usuarios.', { ok: 'Sacar', peligro: true }))) return;
     try {
       await Repo.borrarConfigLicencia(id);
       this.render();
     } catch (err) {
-      alert('Error al borrar: ' + (err.message || err));
+      UI.toast('Error al borrar: ' + (err.message || err), 'error');
     }
   },
 
@@ -309,14 +325,14 @@ const ViewPerfil = {
       await Repo.guardarConfigLicencia({ id, minimo_horas: Calc.n(input.value) });
       this.render();
     } catch (err) {
-      alert('Error al guardar: ' + (err.message || err));
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
     }
   },
 
   async _agregarVencimiento() {
     const tipo = document.getElementById('v-tipo').value;
     const fecha_vencimiento = document.getElementById('v-fecha').value;
-    if (!fecha_vencimiento) { alert('Elegí una fecha.'); return; }
+    if (!fecha_vencimiento) { UI.toast('Elegí una fecha.', 'warn'); return; }
     try {
       await Repo.guardarVencimiento({
         tipo, fecha_vencimiento,
@@ -325,12 +341,12 @@ const ViewPerfil = {
       });
       this.render();
     } catch (err) {
-      alert('Error al guardar: ' + (err.message || err));
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
     }
   },
 
   async _borrarVencimiento(id) {
-    if (!confirm('¿Borrar este vencimiento?')) return;
+    if (!(await UI.confirmar('¿Borrar este vencimiento?', { ok: 'Borrar', peligro: true }))) return;
     await Repo.borrarVencimiento(id);
     this.render();
   },
@@ -340,17 +356,17 @@ const ViewPerfil = {
       await Repo.restaurarVuelo(id);
       this.render();
     } catch (err) {
-      alert('Error al restaurar: ' + (err.message || err));
+      UI.toast('Error al restaurar: ' + (err.message || err), 'error');
     }
   },
 
   async _borrarVueloPermanente(id) {
-    if (!confirm('Esto lo borra para siempre, no se puede deshacer. ¿Seguro?')) return;
+    if (!(await UI.confirmar('Esto lo borra para siempre, no se puede deshacer. ¿Seguro?', { ok: 'Borrar para siempre', peligro: true }))) return;
     try {
       await Repo.borrarVueloPermanente(id);
       this.render();
     } catch (err) {
-      alert('Error al borrar: ' + (err.message || err));
+      UI.toast('Error al borrar: ' + (err.message || err), 'error');
     }
   },
 };

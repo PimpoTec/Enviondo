@@ -182,7 +182,7 @@ const ViewAeronaves = {
     const matricula = document.getElementById('a-matricula').value.trim().toUpperCase();
     const marca_modelo = document.getElementById('a-marca').value.trim();
     if (!matricula || !marca_modelo) {
-      alert(this.tipo === 'simulador' ? 'Nombre y modelo son obligatorios.' : 'Matrícula y modelo son obligatorios.');
+      UI.toast(this.tipo === 'simulador' ? 'Nombre y modelo son obligatorios.' : 'Matrícula y modelo son obligatorios.', 'warn');
       return;
     }
 
@@ -219,17 +219,17 @@ const ViewAeronaves = {
       this.mostrandoForm = false;
       this.render();
     } catch (err) {
-      alert('Error al guardar: ' + (err.message || err));
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
     }
   },
 
   async _borrar(id) {
-    if (!confirm('¿Borrar esta ficha? Si tiene vuelos cargados, no se va a poder borrar.')) return;
+    if (!(await UI.confirmar('¿Borrar esta ficha? Si tiene vuelos cargados, no se va a poder borrar.', { ok: 'Borrar', peligro: true }))) return;
     try {
       await Repo.borrarAeronave(id);
       this.render();
     } catch (err) {
-      alert('No se pudo borrar: ' + (err.message || err));
+      UI.toast('No se pudo borrar: ' + (err.message || err), 'error');
     }
   },
 };

@@ -25,6 +25,16 @@ Marcá `[x]` a medida que se completan.
 - [x] **`instrumentos_real` unificado**: un solo campo (antes se dividía en
       piloto/copiloto y se perdía el dato al editar).
 
+## Hecho — tanda 3 (toasts, admin toggle, costos en exportar)
+- [x] **Toasts y confirmaciones propias** (`js/ui.js`): `UI.toast` y
+      `UI.confirmar` reemplazan todos los `alert()`/`confirm()` nativos.
+- [x] **Toggle de vista admin** en Perfil (solo lo ve el admin): prende/apaga
+      el panel de edición de mínimos. Por defecto queda en "usuario normal".
+- [x] **Costos dentro de Exportar**: el resumen de costos (total, promedio/hora,
+      proyección) y los desgloses por mes/aeronave se muestran en la pantalla
+      de Exportar, con presentación más clara. Perfil linkea a una sola
+      pantalla.
+
 ## P0 — correctitud pendiente
 - [ ] **Slug METAR hardcodeado** (`smooth-processor`): recrear la Edge
       Function con slug `metar` o moverlo a `config.js`.
@@ -32,14 +42,14 @@ Marcá `[x]` a medida que se completan.
       el total la suma como ARS. Hoy solo se convierte USD→ARS (dólar blue).
 
 ## P1 — alto valor
-- [ ] **Descubribilidad de navegación**: Costos, Exportar y Papelera solo se
-      llegan desde Perfil. Sumar accesos directos o un menú.
-- [ ] **Estado de guardado**: reemplazar `alert()`/`confirm()` por toasts y
-      diálogos propios (consistencia visual, mejor en móvil).
-- [ ] **Validación de OACI**: marcar el campo en rojo en vez de depender de
-      `confirm()`.
+- [ ] **Descubribilidad de navegación**: Exportar/Costos y Papelera siguen
+      llegándose desde Perfil. Evaluar un acceso directo o menú.
+- [ ] **Validación de OACI**: marcar el campo en rojo en vez de un aviso.
 - [ ] **Cotización blue vía Edge Function**: si dolarapi/bluelytics bloquean
       por CORS, agregar un proxy propio (igual que el METAR).
+- [ ] **Ruta `#costos`**: quedó sin link (todo vive en Exportar). Se puede
+      quitar de `RUTAS` más adelante; hoy se mantiene por compatibilidad y
+      porque exportar reusa sus funciones de desglose.
 
 ## P2 — pulido / accesibilidad
 - [ ] `inputmode="decimal"` en los campos numéricos de horas (teclado móvil).
