@@ -34,7 +34,7 @@ window.PUSH_FN_SLUG = 'notificaciones-push';
 // — la privada NUNCA va acá, solo en los secretos de la Edge Function). Es
 // pública a propósito, igual que la anon key: identifica a TU servidor ante
 // el navegador, no autoriza nada por sí sola.
-window.VAPID_PUBLIC_KEY = '';
+window.VAPID_PUBLIC_KEY = 'BGKmZmkWeeQvJf4t6CdOXMUzIYP6t9irc4Qs1sM7Jpg_G2UdxeLABnQzKAQ7ENtQZODqQnu5bIerwASmPgu5p1w';
 
 // Único email con permiso para editar los mínimos de licencia (tabla
 // compartida por todos los usuarios). Es solo un gate de interfaz: el
