@@ -106,6 +106,20 @@ async function mostrarLogin(panelInicial) {
     msg.innerHTML = Icons.tag('checkCircle', 'Contraseña actualizada. Ya podés usar la app.');
     setTimeout(() => mostrarApp(), 800);
   };
+
+  // Enter envía el panel visible — los inputs no viven en un <form>, así que
+  // el teclado "Go"/"Enter" (sobre todo en móvil) no dispararía nada sin esto.
+  const submitConEnter = (inputIds, botonId) => {
+    inputIds.forEach((id) => {
+      document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById(botonId).click(); }
+      });
+    });
+  };
+  submitConEnter(['login-email', 'login-password'], 'btn-login');
+  submitConEnter(['signup-email', 'signup-password', 'signup-password2'], 'btn-signup');
+  submitConEnter(['olvide-email'], 'btn-olvide');
+  submitConEnter(['nueva-clave'], 'btn-nueva-clave');
 }
 
 async function mostrarApp() {

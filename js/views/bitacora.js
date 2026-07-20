@@ -4,6 +4,7 @@
 
 const ViewBitacora = {
   vuelos: [],
+  filasActuales: [],
   aeronaves: [],
   orden: { campo: 'fecha', asc: false },
 
@@ -70,7 +71,8 @@ const ViewBitacora = {
       th.onclick = () => this._ordenarPor(th.dataset.orden);
     });
 
-    this._renderFilas(this.vuelos);
+    this.filasActuales = this.vuelos;
+    this._renderFilas(this.filasActuales);
     this._renderEstadoLicencia(this.vuelos, vencimientos);
   },
 
@@ -82,16 +84,20 @@ const ViewBitacora = {
       finalidad_vuelo: document.getElementById('fx-finalidad').value || undefined,
     };
     const filtrados = await Repo.listarVuelos(filtros);
-    this._renderFilas(filtrados);
+    this.filasActuales = filtrados;
+    this._renderFilas(this.filasActuales);
   },
 
+  // Ordena el conjunto que se está mostrando ahora (filtrado o completo), no
+  // siempre la lista entera — así ordenar no descarta el filtro aplicado.
   _ordenarPor(campo) {
     this.orden.asc = this.orden.campo === campo ? !this.orden.asc : false;
     this.orden.campo = campo;
-    const filas = [...this.vuelos].sort((a, b) => {
+    const filas = [...this.filasActuales].sort((a, b) => {
       const va = a[campo], vb = b[campo];
       return (va > vb ? 1 : va < vb ? -1 : 0) * (this.orden.asc ? 1 : -1);
     });
+    this.filasActuales = filas;
     this._renderFilas(filas);
   },
 

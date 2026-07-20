@@ -18,15 +18,32 @@ const ViewNuevoVuelo = {
   async render(params) {
     const main = document.getElementById('main-content');
     this.aeronaves = await Repo.listarAeronaves();
+
+    // Distingue una navegación fresca (el router siempre pasa `params`) de un
+    // re-render interno de los toggles (que llaman a render() sin argumentos).
+    const esNavegacionFresca = params !== undefined;
     this.params = params || this.params;
     this.progId = this.params?.get('prog') || null;
+    const nuevoEditId = this.params?.get('editar') || null;
+
+    // Al entrar a cargar un vuelo nuevo (sin editar ni precargar desde un
+    // agendado), arrancá siempre del estado por defecto — si no, la vista
+    // singleton conservaría los toggles del vuelo anterior (modo detallado,
+    // travesía, discriminación) y confundiría al piloto.
+    if (esNavegacionFresca && !nuevoEditId && !this.progId) {
+      this.tipo = 'vuelo';
+      this.modoDetallado = false;
+      this.discriminarRapido = false;
+      this.esTravesia = false;
+      this.esPiloto = true;
+    }
+
     const desdeParam = this.params?.get('desde');
     const hastaParam = this.params?.get('hasta');
     if (desdeParam && hastaParam && desdeParam !== hastaParam) {
       this.esTravesia = true;
     }
 
-    const nuevoEditId = this.params?.get('editar') || null;
     if (nuevoEditId && nuevoEditId !== this.editId) {
       this.editId = nuevoEditId;
       try {
