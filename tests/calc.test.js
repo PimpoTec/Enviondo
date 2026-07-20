@@ -54,6 +54,13 @@ test('repartirModoRapido: horasNoche nunca supera el total', () => {
   assert.equal(out.saero_dia_piloto, 0);
 });
 
+test('repartirModoRapido: travesía con parte de día y parte de noche, PIC', () => {
+  const out = Calc.repartirModoRapido({ tiempoTotal: 2.5, esTravesia: true, esPiloto: true, horasNoche: 1 });
+  assert.equal(out.trav_dia_piloto, 1.5); // 2.5 - 1
+  assert.equal(out.trav_noche_piloto, 1);
+  assert.equal(out.saero_dia_piloto, 0); // nada cae en "sobre aeródromo"
+});
+
 test('horasEntre: vuelo normal dentro del mismo día', () => {
   assert.equal(Calc.horasEntre('10:00', '11:30'), 1.5);
 });

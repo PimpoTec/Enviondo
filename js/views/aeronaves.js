@@ -72,8 +72,13 @@ const ViewAeronaves = {
         <div class="grid cols-2">
           <div class="field"><label>Nombre del simulador</label><input id="a-matricula" placeholder="SIM-01"></div>
           <div class="field"><label>Modelo</label><input id="a-marca" placeholder="Redbird FMX"></div>
-          <div class="field"><label>Tarifa por hora</label><input type="number" step="0.01" min="0" id="a-tarifa-dia" value="0"></div>
-          <div class="field"><label>Moneda</label><input id="a-moneda" value="ARS"></div>
+          <div class="field"><label>Tarifa por hora</label><input type="number" inputmode="decimal" step="0.01" min="0" id="a-tarifa-dia" value="0"></div>
+          <div class="field"><label>Moneda</label>
+            <select id="a-moneda">
+              <option value="ARS">ARS — Pesos</option>
+              <option value="USD">USD — Dólares (se convierte a pesos al blue)</option>
+            </select>
+          </div>
         </div>
         <div class="btn-row">
           <button class="btn" id="btn-guardar-aeronave">Guardar</button>
@@ -94,9 +99,14 @@ const ViewAeronaves = {
           <div class="field"><label>Medio</label>
             <select id="a-medio"><option value="terrestre">Terrestre</option><option value="hidro">Hidro</option><option value="anfibio">Anfibio</option></select>
           </div>
-          <div class="field"><label>Tarifa hora diurna</label><input type="number" step="0.01" min="0" id="a-tarifa-dia" value="0"></div>
-          <div class="field"><label>Tarifa hora nocturna</label><input type="number" step="0.01" min="0" id="a-tarifa-noche" value="0"></div>
-          <div class="field"><label>Moneda</label><input id="a-moneda" value="ARS"></div>
+          <div class="field"><label>Tarifa hora diurna</label><input type="number" inputmode="decimal" step="0.01" min="0" id="a-tarifa-dia" value="0"></div>
+          <div class="field"><label>Tarifa hora nocturna</label><input type="number" inputmode="decimal" step="0.01" min="0" id="a-tarifa-noche" value="0"></div>
+          <div class="field"><label>Moneda</label>
+            <select id="a-moneda">
+              <option value="ARS">ARS — Pesos</option>
+              <option value="USD">USD — Dólares (se convierte a pesos al blue)</option>
+            </select>
+          </div>
           <div class="field">
             <label>&nbsp;</label>
             <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text)">

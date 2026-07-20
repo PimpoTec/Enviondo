@@ -6,6 +6,9 @@
 <title>Libro de Vuelo</title>
 <meta name="description" content="Libro de vuelo personal — formato ANAC 290/2012, progreso hacia CPL y control de costos." />
 <meta name="theme-color" content="#111317" />
+<!-- Fija el tema ANTES de pintar (evita parpadeo y deja un único set de tokens
+     en el CSS: el bloque [data-theme] correspondiente, sin @media duplicado). -->
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('tema')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" href="icons/icon-192.png" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -92,7 +95,7 @@
     <header class="topbar">
       <div class="brand"><span class="icon" id="brand-icon"></span> Libro de Vuelo</div>
       <div class="topbar-actions">
-        <button class="icon-btn" id="btn-perfil" title="Perfil"></button>
+        <button class="icon-btn" id="btn-perfil" title="Perfil" aria-label="Perfil"></button>
       </div>
     </header>
 

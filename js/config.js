@@ -14,6 +14,17 @@ window.SUPABASE_CONFIG = {
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdXJ5dWlrbGdhdXhvbmdlY3JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0MDAxMDQsImV4cCI6MjA5OTk3NjEwNH0._mrI6N7G-Fqfxkw48SUTOeWQDkvZ-6MhB-dxwZvGiRY',
 };
 
+// Slugs de las Edge Functions de Supabase. Ojo: el slug es el que Supabase le
+// puso al CREAR la función (no el "Name" que se ve después en el dashboard).
+// Si recreás la función con otro slug, cambialo acá y listo — no hace falta
+// tocar el código de las vistas.
+//   - metar: proxy a aviationweather.gov (METAR/TAF). Quedó "smooth-processor".
+//   - cotizacion: proxy al dólar blue (respaldo si el navegador bloquea por
+//     CORS el pedido directo). Deployá supabase/functions/cotizacion con este
+//     slug para que funcione; si no está, la app usa las APIs públicas directo.
+window.METAR_FN_SLUG = 'smooth-processor';
+window.COTIZACION_FN_SLUG = 'cotizacion';
+
 // Único email con permiso para editar los mínimos de licencia (tabla
 // compartida por todos los usuarios). Es solo un gate de interfaz: el
 // permiso real lo hace cumplir Supabase con RLS del lado del servidor

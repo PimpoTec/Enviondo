@@ -23,20 +23,36 @@ const Dolar = (() => {
     try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { return null; }
   }
 
+  function _guardar(v) {
+    const reg = { venta: v, ts: Date.now() };
+    try { localStorage.setItem(KEY, JSON.stringify(reg)); } catch { /* storage lleno/denegado */ }
+    return { ...reg, enVivo: true };
+  }
+
   async function obtenerVentaBlue() {
+    // 1) APIs públicas directas (rápidas, normalmente con CORS OK).
     for (const f of FUENTES) {
       try {
         const r = await fetch(f.url);
         if (!r.ok) continue;
         const d = await r.json();
         const v = Number(f.pick(d));
-        if (Number.isFinite(v) && v > 0) {
-          const reg = { venta: v, ts: Date.now() };
-          try { localStorage.setItem(KEY, JSON.stringify(reg)); } catch { /* storage lleno/denegado */ }
-          return { ...reg, enVivo: true };
-        }
+        if (Number.isFinite(v) && v > 0) return _guardar(v);
       } catch { /* probamos la siguiente fuente */ }
     }
+    // 2) Red de contención: Edge Function propia (por si bloquean CORS).
+    try {
+      const slug = window.COTIZACION_FN_SLUG;
+      if (slug && window.SUPABASE_CONFIG?.url) {
+        const r = await fetch(`${window.SUPABASE_CONFIG.url}/functions/v1/${slug}`);
+        if (r.ok) {
+          const d = await r.json();
+          const v = Number(d?.venta);
+          if (Number.isFinite(v) && v > 0) return _guardar(v);
+        }
+      }
+    } catch { /* seguimos al cache */ }
+    // 3) Última conocida, guardada de una consulta previa.
     const c = cacheada();
     return c ? { ...c, enVivo: false } : null;
   }

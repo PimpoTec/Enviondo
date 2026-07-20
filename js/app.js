@@ -3,8 +3,9 @@
 // ============================================================================
 
 function aplicarTemaGuardado() {
-  const t = localStorage.getItem('tema');
-  if (t) document.documentElement.setAttribute('data-theme', t);
+  const t = localStorage.getItem('tema')
+    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', t);
 }
 
 // El toggle de tema vive en Perfil (Preferencias), no en el header.

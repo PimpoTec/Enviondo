@@ -213,7 +213,7 @@ const ViewPerfil = {
         <div class="field-row">
           <div class="field">
             <label>Horas en simulador (0 a 20)</label>
-            <input type="number" min="0" max="20" step="0.5" id="hvi-sim" value="${simActual}">
+            <input type="number" min="0" max="20" inputmode="decimal" step="0.5" id="hvi-sim" value="${simActual}">
           </div>
           <div class="field">
             <label>Horas reales (se completan solas)</label>
@@ -263,7 +263,7 @@ const ViewPerfil = {
             ${requisitos.map((c) => `
               <tr>
                 <td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td>
-                <td class="num"><input type="number" step="0.5" min="0" style="width:100px;text-align:right" data-id="${c.id}" value="${c.minimo_horas}"></td>
+                <td class="num"><input type="number" inputmode="decimal" step="0.5" min="0" style="width:100px;text-align:right" data-id="${c.id}" value="${c.minimo_horas}"></td>
                 <td>
                   <button class="btn ghost" onclick="ViewPerfil._guardarConfig('${c.id}')">${Icons.save(16)}</button>
                   <button class="btn ghost" onclick="ViewPerfil._borrarConfig('${c.id}')">${Icons.trash(16)}</button>
@@ -278,7 +278,7 @@ const ViewPerfil = {
               ${CLAVES_REQUISITO_DISPONIBLES.map((k) => `<option value="${k}">${LABELS_REQUISITO[k] || k}</option>`).join('')}
             </select>
           </div>
-          <div class="field"><label>Mínimo</label><input type="number" step="0.5" min="0" id="p-nuevo-minimo-${curso.id}" value="0"></div>
+          <div class="field"><label>Mínimo</label><input type="number" inputmode="decimal" step="0.5" min="0" id="p-nuevo-minimo-${curso.id}" value="0"></div>
           <div class="field" style="display:flex;align-items:flex-end">
             <button class="btn secondary" id="btn-agregar-${curso.id}">+ Agregar</button>
           </div>

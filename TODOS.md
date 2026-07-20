@@ -35,27 +35,32 @@ Marcá `[x]` a medida que se completan.
       de Exportar, con presentación más clara. Perfil linkea a una sola
       pantalla.
 
-## P0 — correctitud pendiente
-- [ ] **Slug METAR hardcodeado** (`smooth-processor`): recrear la Edge
-      Function con slug `metar` o moverlo a `config.js`.
-- [ ] **Monedas exóticas**: si aparece una aeronave en EUR u otra ≠ ARS/USD,
-      el total la suma como ARS. Hoy solo se convierte USD→ARS (dólar blue).
+## Hecho — tanda 4 (todo lo pendiente P0/P1/P2)
+- [x] **Slug METAR a `config.js`** (`window.METAR_FN_SLUG`): ya no está
+      hardcodeado en la vista; cambiarlo no requiere tocar código.
+- [x] **Monedas restringidas a ARS/USD**: el alta de aeronave usa un select
+      (antes texto libre), evitando monedas exóticas que rompían los totales.
+- [x] **Exportar en la barra inferior** (rotulado "Costos"): descubrible sin
+      entrar a Perfil.
+- [x] **Validación de OACI**: el campo se marca en rojo (`.campo-invalido`) y
+      se limpia al tipear; igual se puede guardar.
+- [x] **Cotización blue vía Edge Function**: `supabase/functions/cotizacion`
+      como respaldo si el navegador bloquea las APIs públicas por CORS;
+      `js/dolar.js` la usa antes de caer al cache.
+- [x] **Ruta `#costos`** quitada de `RUTAS` (su contenido vive en Exportar;
+      `costos.js` se mantiene por sus funciones de desglose).
+- [x] **`inputmode="decimal"`** en los campos de horas/tarifas.
+- [x] **Tema claro dedup**: el `data-theme` se fija siempre por JS (script
+      inline + `app.js`), así se eliminó el `@media` duplicado del CSS.
+- [x] **ARIA**: barra inferior con `role="tablist"`/`tab`/`aria-selected`,
+      `aria-label` en botones de ícono; skeleton de carga en vez de "Cargando…".
+- [x] **Tests**: `repartirModoRapido` mixto día/noche y `estadoVencimiento`
+      (`tests/perfil.test.js`). 31 en verde.
 
-## P1 — alto valor
-- [ ] **Descubribilidad de navegación**: Exportar/Costos y Papelera siguen
-      llegándose desde Perfil. Evaluar un acceso directo o menú.
-- [ ] **Validación de OACI**: marcar el campo en rojo en vez de un aviso.
-- [ ] **Cotización blue vía Edge Function**: si dolarapi/bluelytics bloquean
-      por CORS, agregar un proxy propio (igual que el METAR).
-- [ ] **Ruta `#costos`**: quedó sin link (todo vive en Exportar). Se puede
-      quitar de `RUTAS` más adelante; hoy se mantiene por compatibilidad y
-      porque exportar reusa sus funciones de desglose.
-
-## P2 — pulido / accesibilidad
-- [ ] `inputmode="decimal"` en los campos numéricos de horas (teclado móvil).
-- [ ] CSS: el bloque de tema claro está duplicado (`[data-theme="light"]` y
-      `@media prefers-color-scheme`). Extraer a una sola lista de tokens.
-- [ ] Foco/labels ARIA en toggles y navegación inferior (rol `tablist`).
-- [ ] Skeletons en vez de "Cargando…" plano.
-- [ ] Cobertura de tests: sumar `repartirModoRapido` en travesía/copiloto y
-      `estadoVencimiento` (bordes de días).
+## Pendiente / ideas a futuro
+- [ ] **Papelera** sigue solo en Perfil (aceptable: acción poco frecuente).
+- [ ] **PDF pixel-perfect** a la hoja 35,5×16,5 cm de ANAC 290/2012.
+- [ ] **Backfill** de `costo_congelado` en vuelos viejos en USD (no hay cómo
+      saber la cotización histórica exacta; quedaría estimado).
+- [ ] Migrar el resto de `onclick` inline (bitácora, vencimientos) a
+      delegación, por prolijidad (hoy solo interpolan UUIDs, sin riesgo).

@@ -227,7 +227,7 @@ async function cargarMetar(icao, elId, tipo = 'metar') {
   const el = document.getElementById(elId);
   if (!el) return;
 
-  const propia = `${window.SUPABASE_CONFIG.url}/functions/v1/smooth-processor?icao=${icao}&tipo=${tipo}`;
+  const propia = `${window.SUPABASE_CONFIG.url}/functions/v1/${window.METAR_FN_SLUG}?icao=${icao}&tipo=${tipo}`;
   const destino = encodeURIComponent(`https://aviationweather.gov/api/data/${tipo}?ids=${icao}&format=raw`);
   const proxyPublico = `https://api.allorigins.win/raw?url=${destino}`;
 

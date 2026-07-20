@@ -191,12 +191,12 @@ const ViewNuevoVuelo = {
         <div class="field-row">
           <div class="field">
             <label>Tiempo total (hs.décimos)</label>
-            <input type="number" step="0.1" min="0" id="f-tiempo-total" placeholder="ej. 1.5" />
+            <input type="number" inputmode="decimal" step="0.1" min="0" id="f-tiempo-total" placeholder="ej. 1.5" />
             <p class="muted" id="tiempo-calculado" style="margin:4px 0 0"></p>
           </div>
           <div class="field">
             <label>De ese tiempo, ¿cuánto fue de noche?</label>
-            <input type="number" step="0.1" min="0" id="f-horas-noche" value="0" />
+            <input type="number" inputmode="decimal" step="0.1" min="0" id="f-horas-noche" value="0" />
           </div>
         </div>
         <div class="field-row">
@@ -221,12 +221,12 @@ const ViewNuevoVuelo = {
           </div>
         </div>
         <div id="bloque-discrim-rapido" class="grid cols-3" style="display:${this.discriminarRapido ? 'grid' : 'none'}">
-          <div class="field"><label>Instrucción de vuelo</label><input type="number" step="0.1" min="0" id="rd-instruccion_vuelo" value="0"></div>
-          <div class="field"><label>Multimotor</label><input type="number" step="0.1" min="0" id="rd-multimotor" value="0"></div>
-          <div class="field"><label>Reactor</label><input type="number" step="0.1" min="0" id="rd-reactor" value="0"></div>
-          <div class="field"><label>Aeroaplicador</label><input type="number" step="0.1" min="0" id="rd-aeroaplicador" value="0"></div>
-          <div class="field"><label>Instrumentos real</label><input type="number" step="0.1" min="0" id="rd-instrumentos_real" value="0"></div>
-          <div class="field"><label>Instrumentos capota</label><input type="number" step="0.1" min="0" id="rd-instrumentos_capota" value="0"></div>
+          <div class="field"><label>Instrucción de vuelo</label><input type="number" inputmode="decimal" step="0.1" min="0" id="rd-instruccion_vuelo" value="0"></div>
+          <div class="field"><label>Multimotor</label><input type="number" inputmode="decimal" step="0.1" min="0" id="rd-multimotor" value="0"></div>
+          <div class="field"><label>Reactor</label><input type="number" inputmode="decimal" step="0.1" min="0" id="rd-reactor" value="0"></div>
+          <div class="field"><label>Aeroaplicador</label><input type="number" inputmode="decimal" step="0.1" min="0" id="rd-aeroaplicador" value="0"></div>
+          <div class="field"><label>Instrumentos real</label><input type="number" inputmode="decimal" step="0.1" min="0" id="rd-instrumentos_real" value="0"></div>
+          <div class="field"><label>Instrumentos capota</label><input type="number" inputmode="decimal" step="0.1" min="0" id="rd-instrumentos_capota" value="0"></div>
         </div>
       </div>
 
@@ -234,14 +234,14 @@ const ViewNuevoVuelo = {
       <div id="bloque-detallado" style="display:${this.modoDetallado ? 'block' : 'none'}">
         <h3>Tiempos de vuelo (hs.décimos) — buckets excluyentes del libro ANAC</h3>
         <div class="grid cols-2">
-          <div class="field"><label>Sobre aeródromo · día · piloto</label><input type="number" step="0.1" min="0" id="d-saero_dia_piloto" value="0"></div>
-          <div class="field"><label>Sobre aeródromo · día · copiloto</label><input type="number" step="0.1" min="0" id="d-saero_dia_copiloto" value="0"></div>
-          <div class="field"><label>Sobre aeródromo · noche · piloto</label><input type="number" step="0.1" min="0" id="d-saero_noche_piloto" value="0"></div>
-          <div class="field"><label>Sobre aeródromo · noche · copiloto</label><input type="number" step="0.1" min="0" id="d-saero_noche_copiloto" value="0"></div>
-          <div class="field"><label>Travesía · día · piloto</label><input type="number" step="0.1" min="0" id="d-trav_dia_piloto" value="0"></div>
-          <div class="field"><label>Travesía · día · copiloto</label><input type="number" step="0.1" min="0" id="d-trav_dia_copiloto" value="0"></div>
-          <div class="field"><label>Travesía · noche · piloto</label><input type="number" step="0.1" min="0" id="d-trav_noche_piloto" value="0"></div>
-          <div class="field"><label>Travesía · noche · copiloto</label><input type="number" step="0.1" min="0" id="d-trav_noche_copiloto" value="0"></div>
+          <div class="field"><label>Sobre aeródromo · día · piloto</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-saero_dia_piloto" value="0"></div>
+          <div class="field"><label>Sobre aeródromo · día · copiloto</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-saero_dia_copiloto" value="0"></div>
+          <div class="field"><label>Sobre aeródromo · noche · piloto</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-saero_noche_piloto" value="0"></div>
+          <div class="field"><label>Sobre aeródromo · noche · copiloto</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-saero_noche_copiloto" value="0"></div>
+          <div class="field"><label>Travesía · día · piloto</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-trav_dia_piloto" value="0"></div>
+          <div class="field"><label>Travesía · día · copiloto</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-trav_dia_copiloto" value="0"></div>
+          <div class="field"><label>Travesía · noche · piloto</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-trav_noche_piloto" value="0"></div>
+          <div class="field"><label>Travesía · noche · copiloto</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-trav_noche_copiloto" value="0"></div>
         </div>
         <div class="field-row">
           <div class="field"><label>Aterrizajes de día</label><input type="number" min="0" id="d-aterrizajes_dia" value="1"></div>
@@ -251,14 +251,14 @@ const ViewNuevoVuelo = {
 
         <h3>Discriminación (informativa — no se suma al total)</h3>
         <div class="grid cols-3">
-          <div class="field"><label>Instrucción de vuelo</label><input type="number" step="0.1" min="0" id="d-instruccion_vuelo" value="0"></div>
-          <div class="field"><label>Multimotor</label><input type="number" step="0.1" min="0" id="d-multimotor" value="0"></div>
-          <div class="field"><label>Reactor</label><input type="number" step="0.1" min="0" id="d-reactor" value="0"></div>
-          <div class="field"><label>Turbohélice</label><input type="number" step="0.1" min="0" id="d-turbohelice" value="0"></div>
-          <div class="field"><label>Aeroaplicador</label><input type="number" step="0.1" min="0" id="d-aeroaplicador" value="0"></div>
-          <div class="field"><label>Instrumentos real</label><input type="number" step="0.1" min="0" id="d-instrumentos_real" value="0"></div>
-          <div class="field"><label>Instrumentos capota</label><input type="number" step="0.1" min="0" id="d-instrumentos_capota" value="0"></div>
-          <div class="field"><label>Adiestrador/simulador</label><input type="number" step="0.1" min="0" id="d-adiestrador_simulador" value="0"></div>
+          <div class="field"><label>Instrucción de vuelo</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-instruccion_vuelo" value="0"></div>
+          <div class="field"><label>Multimotor</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-multimotor" value="0"></div>
+          <div class="field"><label>Reactor</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-reactor" value="0"></div>
+          <div class="field"><label>Turbohélice</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-turbohelice" value="0"></div>
+          <div class="field"><label>Aeroaplicador</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-aeroaplicador" value="0"></div>
+          <div class="field"><label>Instrumentos real</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-instrumentos_real" value="0"></div>
+          <div class="field"><label>Instrumentos capota</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-instrumentos_capota" value="0"></div>
+          <div class="field"><label>Adiestrador/simulador</label><input type="number" inputmode="decimal" step="0.1" min="0" id="d-adiestrador_simulador" value="0"></div>
         </div>
 
         <h3>Certificación</h3>
@@ -335,7 +335,11 @@ const ViewNuevoVuelo = {
     document.getElementById('tg-discrim-no').onclick = () => this._setDiscriminar(false);
     document.getElementById('tg-discrim-si').onclick = () => this._setDiscriminar(true);
 
-    document.getElementById('f-desde').addEventListener('input', () => this._sincronizarHasta());
+    document.getElementById('f-desde').addEventListener('input', (e) => {
+      e.target.classList.remove('campo-invalido');
+      this._sincronizarHasta();
+    });
+    document.getElementById('f-hasta').addEventListener('input', (e) => e.target.classList.remove('campo-invalido'));
 
     ['f-hora-salida', 'f-hora-llegada'].forEach((id) => {
       document.getElementById(id).addEventListener('change', () => this._autocalcularTiempo());
@@ -450,6 +454,13 @@ const ViewNuevoVuelo = {
     if (!fecha) avisos.push('Falta la fecha.');
     if (desde.length !== 4) avisos.push('El código OACI de origen debería tener 4 letras.');
     if (hasta.length !== 4) avisos.push('El código OACI de destino debería tener 4 letras.');
+
+    // Marca en rojo los campos OACI con formato dudoso (igual se puede guardar).
+    const desdeEl = document.getElementById('f-desde');
+    desdeEl.classList.toggle('campo-invalido', desde.length !== 4);
+    if (this.esTravesia) {
+      document.getElementById('f-hasta').classList.toggle('campo-invalido', hasta.length !== 4);
+    }
 
     const camposTiempo = this.modoDetallado ? this._camposDetallado() : this._camposRapido();
     const totales = Calc.calcularTotales(camposTiempo);
@@ -595,7 +606,7 @@ const ViewNuevoVuelo = {
       <div class="field-row">
         <div class="field">
           <label>Tiempo de adiestrador terrestre (hs.décimos)</label>
-          <input type="number" step="0.1" min="0" id="at-tiempo" placeholder="ej. 1.0" />
+          <input type="number" inputmode="decimal" step="0.1" min="0" id="at-tiempo" placeholder="ej. 1.0" />
           <p class="muted" id="at-tiempo-calculado" style="margin:4px 0 0"></p>
         </div>
         <div class="field">
