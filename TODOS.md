@@ -3,6 +3,41 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 19 (recordatorios personalizados, uno o varios por evento)
+- [x] `js/recordatorios.js` (NEW): modal reutilizable (`RecordatoriosUI.abrir`)
+      para agregar/borrar recordatorios de un vuelo programado o un
+      vencimiento puntual — "X días antes", "X horas antes" o una fecha y
+      hora específica, tantos como quieras por evento. Se usa desde tres
+      lugares: la tarjeta de "Próximo vuelo" (Dashboard), la fila de
+      Alertas (Perfil) y la lista centralizada de Perfil → Notificaciones.
+- [x] Al agendar un vuelo nuevo, la app pregunta "¿Deseás crear
+      notificaciones para este vuelo?" y si decís que sí abre el modal ya
+      apuntando a ese vuelo. Mismo flujo al agregar un vencimiento.
+- [x] "Hora de finalización" (opcional) en Vuelo programado: si se carga,
+      se crea sola un recordatorio para el otro día a las 9 con el
+      recordatorio de cargar los datos reales del vuelo — se recrea sola
+      si se edita la hora, se borra si se saca.
+- [x] Vencimientos "rodantes" (currency: "vencés si no volás cada N días"):
+      tildando "Se resetea si volás" en Alertas, `fecha_vencimiento` deja
+      de ser fija — un trigger en Postgres la recalcula sola cada vez que
+      cargás/editás/borrás un vuelo, como fecha del último vuelo +
+      intervalo (nunca retrocede). Ej: ventana de 30 días, volás al día 24
+      → el vencimiento se corre a "ese vuelo + 30" de nuevo.
+- [x] Edge Function reescrita: procesa los recordatorios personalizados de
+      cada evento (con `ultimo_aviso_clave` para no repetir el mismo aviso
+      dos veces, pero volver a habilitarse solo si el evento se corre — vuelo
+      reprogramado o vencimiento rodante reseteado) y sigue usando el aviso
+      general (toggles + horas de anticipación) como respaldo para los
+      eventos que no tengan ningún recordatorio propio — no rompe lo que ya
+      andaba.
+- [x] `sql/agregar_recordatorios_personalizados.sql` (+ incluido en
+      `schema.sql`): tabla `recordatorios`, columnas nuevas en
+      `vencimientos` (`rodante`, `intervalo_dias`) y `vuelos_programados`
+      (`hora_finalizacion`), triggers de recálculo, RLS.
+- [x] `README.md` sección 8.1 (nueva): los 2 pasos que faltan si ya tenías
+      las notificaciones simples andando (correr el SQL nuevo, redesplegar
+      la función).
+
 ## Hecho — tanda 18 (notificaciones push: Vencimientos y Vuelos programados)
 - [x] Pestaña nueva **Notificaciones** en Perfil (`js/views/perfil.js`):
       activar/desactivar por dispositivo, toggles de "Vencimientos" y

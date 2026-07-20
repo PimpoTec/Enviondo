@@ -459,7 +459,7 @@ alter table vuelos_programados add column if not exists tipo_vuelo text;
 -- ============================================================================
 -- NOTIFICACIONES PUSH — Web Push nativo (VAPID) + Supabase. Ver el detalle,
 -- la RLS y el bloque comentado para programar el cron en
--- sql/agregar_notificaciones_push.sql (y README.md, sección 9).
+-- sql/agregar_notificaciones_push.sql (y README.md, sección 8).
 -- ============================================================================
 create table if not exists push_subscriptions (
   id         uuid primary key default gen_random_uuid(),
@@ -499,5 +499,84 @@ drop policy if exists "notif_config_update_own" on notif_config;
 create policy "notif_config_select_own" on notif_config for select using (auth.uid() = user_id);
 create policy "notif_config_insert_own" on notif_config for insert with check (auth.uid() = user_id);
 create policy "notif_config_update_own" on notif_config for update using (auth.uid() = user_id);
+
+-- ============================================================================
+-- RECORDATORIOS PERSONALIZADOS — uno o varios avisos por evento, cada uno
+-- con su propio disparador. Ver el detalle completo en
+-- sql/agregar_recordatorios_personalizados.sql.
+-- ============================================================================
+alter table vuelos add column if not exists deleted_at timestamptz;
+
+alter table vencimientos add column if not exists rodante boolean not null default false;
+alter table vencimientos add column if not exists intervalo_dias integer;
+
+create or replace function fn_recalcular_vencimiento_rodante(p_user_id uuid, p_fecha_vencimiento date, p_intervalo_dias integer)
+returns date language sql stable as $$
+  select greatest(
+    p_fecha_vencimiento,
+    coalesce(
+      (
+        select (max(fecha) + (p_intervalo_dias || ' days')::interval)::date
+        from vuelos where user_id = p_user_id and deleted_at is null
+      ),
+      p_fecha_vencimiento
+    )
+  );
+$$;
+
+create or replace function trg_fn_vencimiento_rodante() returns trigger language plpgsql as $$
+begin
+  if NEW.rodante and NEW.intervalo_dias is not null then
+    NEW.fecha_vencimiento := fn_recalcular_vencimiento_rodante(NEW.user_id, NEW.fecha_vencimiento, NEW.intervalo_dias);
+  end if;
+  return NEW;
+end;
+$$;
+drop trigger if exists trg_vencimientos_rodante on vencimientos;
+create trigger trg_vencimientos_rodante before insert or update on vencimientos
+for each row execute function trg_fn_vencimiento_rodante();
+
+create or replace function trg_fn_vuelos_recalcular_rodantes() returns trigger language plpgsql as $$
+declare
+  uid uuid := coalesce(NEW.user_id, OLD.user_id);
+begin
+  update vencimientos
+  set fecha_vencimiento = fn_recalcular_vencimiento_rodante(uid, fecha_vencimiento, intervalo_dias)
+  where user_id = uid and rodante and intervalo_dias is not null;
+  return null;
+end;
+$$;
+drop trigger if exists trg_vuelos_recalc_vencimientos on vuelos;
+create trigger trg_vuelos_recalc_vencimientos after insert or update or delete on vuelos
+for each row execute function trg_fn_vuelos_recalcular_rodantes();
+
+alter table vuelos_programados add column if not exists hora_finalizacion time;
+
+create table if not exists recordatorios (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid not null references auth.users(id) on delete cascade,
+  evento_tipo       text not null check (evento_tipo in ('vuelo_programado', 'vencimiento')),
+  evento_id         uuid not null,
+  tipo_disparo      text not null check (tipo_disparo in ('dias_antes', 'horas_antes', 'fecha_hora')),
+  valor             numeric,
+  fecha_hora        timestamptz,
+  mensaje           text,
+  origen            text not null default 'manual' check (origen in ('manual', 'auto_cargar_datos')),
+  activo            boolean not null default true,
+  ultimo_aviso_clave text,
+  created_at        timestamptz not null default now()
+);
+create index if not exists idx_recordatorios_user on recordatorios(user_id);
+create index if not exists idx_recordatorios_evento on recordatorios(evento_tipo, evento_id);
+
+alter table recordatorios enable row level security;
+drop policy if exists "recordatorios_select_own" on recordatorios;
+drop policy if exists "recordatorios_insert_own" on recordatorios;
+drop policy if exists "recordatorios_update_own" on recordatorios;
+drop policy if exists "recordatorios_delete_own" on recordatorios;
+create policy "recordatorios_select_own" on recordatorios for select using (auth.uid() = user_id);
+create policy "recordatorios_insert_own" on recordatorios for insert with check (auth.uid() = user_id);
+create policy "recordatorios_update_own" on recordatorios for update using (auth.uid() = user_id);
+create policy "recordatorios_delete_own" on recordatorios for delete using (auth.uid() = user_id);
 
 -- Fin del esquema.

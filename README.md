@@ -229,6 +229,29 @@ para el detalle de cada una):
   a mano desde la configuración del sitio en el navegador — la app no
   puede volver a preguntar sola.
 
+### 8.1) Recordatorios personalizados (varios avisos por evento)
+
+Además del aviso automático general de arriba, podés agregar uno o varios
+recordatorios propios a un vuelo programado puntual o a un vencimiento
+puntual (botón de campanita 🔔 en la tarjeta/fila, o al terminar de
+crearlos te lo pregunta la app) — "3 días antes", "2 horas antes", una
+fecha y hora específica, y cuantos quieras combinados. También soporta
+vencimientos "rodantes" (currency: vencés si no volás cada N días — se
+resetea solo cada vez que cargás un vuelo).
+
+Si ya hiciste los pasos 1-7 de arriba, para esto falta nada más que:
+
+1. Correr `sql/agregar_recordatorios_personalizados.sql` en el **SQL
+   Editor** de Supabase (o pegar `schema.sql` completo de nuevo).
+2. Redesplegar la función (cambió su código):
+   ```bash
+   supabase functions deploy notificaciones-push --project-ref TU-PROJECT-REF --no-verify-jwt
+   ```
+
+Los eventos que NO tengan ningún recordatorio propio siguen recibiendo el
+aviso general de siempre (toggles + horas de anticipación de Perfil →
+Notificaciones) — esto es aditivo, no rompe lo que ya tenías andando.
+
 ---
 
 ## 9) Qué falta / mejoras futuras

@@ -47,6 +47,7 @@ const ViewPerfil = {
   notifConfig: {},
   permisoNotif: 'default',
   notifSuscripto: false,
+  recordatoriosTodos: [],
 
   // Cada sección pide solo los datos que realmente usa — antes render()
   // hacía SIEMPRE las 6 consultas (cursos, admin, vencimientos, vuelos,
@@ -102,6 +103,14 @@ const ViewPerfil = {
         this.notifConfig = await Repo.getNotifConfig();
         this.permisoNotif = Notificaciones.permiso();
         this.notifSuscripto = !!(await Notificaciones.suscripcionActual());
+        if (this.notifSuscripto) {
+          const [recordatorios, programados, vencimientos] = await Promise.all([
+            Repo.listarRecordatoriosTodos(), Repo.listarVuelosProgramados(), Repo.listarVencimientos(),
+          ]);
+          this.recordatoriosTodos = recordatorios;
+          this._eventosProgramados = programados;
+          this._eventosVencimientos = vencimientos;
+        }
         main.innerHTML = volver + this._htmlNotificaciones();
         this._bindNotificaciones();
       } else if (this.seccion === 'papelera') {
@@ -383,6 +392,7 @@ const ViewPerfil = {
   // ALERTAS — vencimientos + currency
   // ==========================================================================
   _htmlAlertas(vencimientos) {
+    this._vencimientosVista = vencimientos;
     return `
       <div class="card">
         <h2>${Icons.idCard(18)} Vencimientos</h2>
@@ -400,6 +410,16 @@ const ViewPerfil = {
           <div class="field"><label>Umbral de alerta (días)</label><input type="number" min="1" id="v-umbral" value="30"></div>
           <div class="field"><label>Notas</label><input id="v-notas"></div>
         </div>
+        <div class="field" style="max-width:460px">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text)">
+            <input type="checkbox" id="v-rodante" style="width:auto">
+            Se resetea si volás (currency — ej. "vencés si no volás cada 30 días")
+          </label>
+          <div id="v-rodante-campo" style="display:none;margin-top:6px;max-width:200px">
+            <label>Cada cuántos días tenés que volar</label>
+            <input type="number" min="1" id="v-intervalo-dias" value="30">
+          </div>
+        </div>
         <button class="btn" id="btn-agregar-vencimiento">Agregar vencimiento</button>
 
         <div class="table-wrap" style="margin-top:14px"><table>
@@ -408,10 +428,14 @@ const ViewPerfil = {
             ${vencimientos.map((v) => {
               const est = estadoVencimiento(v);
               return `<tr>
-                <td>${v.tipo}</td><td>${fmtFecha(v.fecha_vencimiento)}</td>
+                <td>${v.tipo}${v.rodante ? ` <span class="muted" style="font-size:11px">(cada ${v.intervalo_dias}d)</span>` : ''}</td>
+                <td>${fmtFecha(v.fecha_vencimiento)}</td>
                 <td><span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span></td>
                 <td>${v.notas || ''}</td>
-                <td><button class="btn ghost" onclick="ViewPerfil._borrarVencimiento('${v.id}')">${Icons.trash(16)}</button></td>
+                <td>
+                  <button class="btn ghost" data-accion="recordatorios" data-id="${v.id}" title="Recordatorios">${Icons.bell(16)}</button>
+                  <button class="btn ghost" data-accion="borrar" data-id="${v.id}" title="Borrar">${Icons.trash(16)}</button>
+                </td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -425,6 +449,20 @@ const ViewPerfil = {
 
   _bindAlertas() {
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
+    document.getElementById('v-rodante').onchange = (e) => {
+      document.getElementById('v-rodante-campo').style.display = e.target.checked ? 'block' : 'none';
+    };
+    document.querySelectorAll('#tbody-vencimientos button[data-accion]').forEach((b) => {
+      b.onclick = () => {
+        const v = this._vencimientosVista.find((x) => x.id === b.dataset.id);
+        if (!v) return;
+        if (b.dataset.accion === 'recordatorios') {
+          RecordatoriosUI.abrir({ eventoTipo: 'vencimiento', eventoId: v.id, titulo: `${v.tipo} — vence ${fmtFecha(v.fecha_vencimiento)}` });
+        } else {
+          this._borrarVencimiento(v.id);
+        }
+      };
+    });
   },
 
   // ==========================================================================
@@ -485,7 +523,19 @@ const ViewPerfil = {
           <label>Avisar con cuántas horas de anticipación</label>
           <input type="number" min="1" id="nf-horas-antes" value="${cfg.horas_antes_vuelo ?? 12}">
         </div>
+        <p class="muted" style="margin:0 0 10px">Esto es el default: se usa solo en los eventos que no tengan ningún recordatorio propio configurado. Para avisos más específicos (varios por evento, X días antes, una fecha puntual), agregalos desde el vuelo programado o el vencimiento — quedan listados abajo.</p>
         <button class="btn" id="btn-guardar-notif">Guardar preferencias</button>
+      </div>
+
+      <div class="card">
+        <h2>${Icons.list(18)} Recordatorios personalizados</h2>
+        ${this.recordatoriosTodos.length
+          ? this.recordatoriosTodos.map((r) => `
+            <div class="rec-item">
+              <span class="rec-item-texto">${Icons.bell(14)} <strong>${this._descripcionEvento(r.evento_tipo, r.evento_id)}</strong> — ${labelRecordatorio(r)}</span>
+              <button class="btn ghost" data-accion="borrar-recordatorio" data-id="${r.id}">${Icons.trash(14)}</button>
+            </div>`).join('')
+          : '<p class="muted" style="margin:0">Todavía no creaste ninguno — se agregan desde un vuelo programado o un vencimiento puntual (botón de campanita).</p>'}
       </div>
 
       <div class="card">
@@ -493,6 +543,17 @@ const ViewPerfil = {
         <button class="btn ghost" id="btn-desactivar-notif" style="width:100%;justify-content:center;margin-top:8px">${Icons.tag('bellOff', 'Desactivar en este dispositivo')}</button>
       </div>
     `;
+  },
+
+  _descripcionEvento(tipo, id) {
+    if (tipo === 'vuelo_programado') {
+      const p = (this._eventosProgramados || []).find((x) => x.id === id);
+      if (!p) return 'Vuelo programado (ya no existe)';
+      return `Vuelo del ${fmtFecha(p.fecha)}${p.desde ? ' — ' + p.desde + (p.hasta && p.hasta !== p.desde ? ' → ' + p.hasta : '') : ''}`;
+    }
+    const v = (this._eventosVencimientos || []).find((x) => x.id === id);
+    if (!v) return 'Vencimiento (ya no existe)';
+    return `${v.tipo} — vence ${fmtFecha(v.fecha_vencimiento)}`;
   },
 
   _bindNotificaciones() {
@@ -504,6 +565,16 @@ const ViewPerfil = {
     if (btnPrueba) btnPrueba.onclick = () => this._probarNotif();
     const btnDesactivar = document.getElementById('btn-desactivar-notif');
     if (btnDesactivar) btnDesactivar.onclick = () => this._desactivarNotif();
+    document.querySelectorAll('[data-accion="borrar-recordatorio"]').forEach((b) => {
+      b.onclick = async () => {
+        try {
+          await Repo.borrarRecordatorio(b.dataset.id);
+          this.render();
+        } catch (err) {
+          UI.toast('Error al borrar: ' + (err.message || err), 'error');
+        }
+      };
+    });
   },
 
   async _activarNotif() {
@@ -654,13 +725,20 @@ const ViewPerfil = {
     const tipo = document.getElementById('v-tipo').value;
     const fecha_vencimiento = document.getElementById('v-fecha').value;
     if (!fecha_vencimiento) { UI.toast('Elegí una fecha.', 'warn'); return; }
+    const rodante = document.getElementById('v-rodante').checked;
     try {
-      await Repo.guardarVencimiento({
+      const id = await Repo.guardarVencimiento({
         tipo, fecha_vencimiento,
         umbral_alerta_dias: Calc.n(document.getElementById('v-umbral').value) || 30,
         notas: document.getElementById('v-notas').value || null,
+        rodante,
+        intervalo_dias: rodante ? (Calc.n(document.getElementById('v-intervalo-dias').value) || 30) : null,
       });
       this.render();
+      const crear = await UI.confirmar('¿Deseás crear notificaciones para este vencimiento?', { ok: 'Sí, crear', cancel: 'No' });
+      if (crear) {
+        RecordatoriosUI.abrir({ eventoTipo: 'vencimiento', eventoId: id, titulo: `${tipo} — vence ${fmtFecha(fecha_vencimiento)}` });
+      }
     } catch (err) {
       UI.toast('Error al guardar: ' + (err.message || err), 'error');
     }

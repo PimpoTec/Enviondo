@@ -145,9 +145,12 @@ const Repo = {
   },
   async crearVueloProgramado(v) {
     const user = await usuarioActual();
-    const { error } = await window.db.from('vuelos_programados').insert({ ...v, user_id: user.id });
+    // Devuelve el id: lo necesita el flujo de "¿Deseás crear notificaciones?"
+    // para poder abrir el editor de recordatorios apuntando al vuelo recién creado.
+    const { data, error } = await window.db.from('vuelos_programados').insert({ ...v, user_id: user.id }).select('id').single();
     if (error) throw error;
     Cache.invalidar('vuelos_programados');
+    return data.id;
   },
   async actualizarVueloProgramado(id, cambios) {
     const { error } = await window.db.from('vuelos_programados').update(cambios).eq('id', id);
@@ -157,6 +160,9 @@ const Repo = {
   async borrarVueloProgramado(id) {
     const { error } = await window.db.from('vuelos_programados').delete().eq('id', id);
     if (error) throw error;
+    // Los recordatorios no tienen FK dura a este evento (evento_id es
+    // polimórfico) — la limpieza al borrar el evento la hace la app.
+    await window.db.from('recordatorios').delete().eq('evento_tipo', 'vuelo_programado').eq('evento_id', id);
     Cache.invalidar('vuelos_programados');
   },
 
@@ -280,16 +286,22 @@ const Repo = {
   },
   async guardarVencimiento(v) {
     const user = await usuarioActual();
+    let id = v.id;
     if (v.id) {
       const { error } = await window.db.from('vencimientos').update(v).eq('id', v.id);
       if (error) throw error;
     } else {
-      const { error } = await window.db.from('vencimientos').insert({ ...v, user_id: user.id });
+      // Devuelve el id: lo necesita el flujo de "¿Deseás crear notificaciones?"
+      // para abrir el editor de recordatorios apuntando al vencimiento recién creado.
+      const { data, error } = await window.db.from('vencimientos').insert({ ...v, user_id: user.id }).select('id').single();
       if (error) throw error;
+      id = data.id;
     }
     Cache.invalidar('vencimientos');
+    return id;
   },
   async borrarVencimiento(id) {
+    await window.db.from('recordatorios').delete().eq('evento_tipo', 'vencimiento').eq('evento_id', id);
     const { error } = await window.db.from('vencimientos').delete().eq('id', id);
     if (error) throw error;
     Cache.invalidar('vencimientos');
@@ -325,6 +337,34 @@ const Repo = {
       .upsert({ user_id: user.id, ...cfg, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
     Cache.invalidar('notif_config');
+  },
+
+  // ---- Recordatorios personalizados (uno o varios por evento — ver
+  // js/recordatorios.js para el modal que los edita) ----
+  async listarRecordatorios(eventoTipo, eventoId) {
+    const { data, error } = await window.db.from('recordatorios')
+      .select('*').eq('evento_tipo', eventoTipo).eq('evento_id', eventoId).order('created_at');
+    if (error) throw error;
+    return data;
+  },
+  // Todos los recordatorios de todos los eventos, para la lista centralizada
+  // de Perfil → Notificaciones. evento_id es polimórfico (no hay join de
+  // Postgres posible entre dos tablas distintas según el tipo), así que acá
+  // solo se traen los recordatorios — describirlos con datos del evento
+  // (fecha, aeronave, tipo de vencimiento) lo arma quien llama esto.
+  async listarRecordatoriosTodos() {
+    const { data, error } = await window.db.from('recordatorios').select('*').order('created_at');
+    if (error) throw error;
+    return data;
+  },
+  async crearRecordatorio(r) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('recordatorios').insert({ ...r, user_id: user.id });
+    if (error) throw error;
+  },
+  async borrarRecordatorio(id) {
+    const { error } = await window.db.from('recordatorios').delete().eq('id', id);
+    if (error) throw error;
   },
 };
 

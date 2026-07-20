@@ -167,6 +167,7 @@ const ViewDashboard = {
           <div class="plan-seccion">
             <div class="btn-row plan-acciones">
               <button class="btn secondary" data-accion="volado" data-idx="${i}">Marcar como volado</button>
+              <button class="btn ghost" data-accion="recordatorios" data-idx="${i}">${Icons.bell(16)}</button>
               <button class="btn ghost" data-accion="borrar" data-idx="${i}">${Icons.trash(16)}</button>
             </div>
           </div>
@@ -190,7 +191,13 @@ const ViewDashboard = {
         if (!p) return;
         if (b.dataset.accion === 'volado') this._marcarComoVolado(p.id, p.aeronave_id, p.fecha, p.desde, p.hasta);
         else if (b.dataset.accion === 'editar') this._toggleFormProgramado(p);
-        else this._borrarProgramado(p.id);
+        else if (b.dataset.accion === 'recordatorios') {
+          RecordatoriosUI.abrir({
+            eventoTipo: 'vuelo_programado',
+            eventoId: p.id,
+            titulo: `Vuelo del ${fmtFecha(p.fecha)}${p.desde ? ' — ' + p.desde + (p.hasta && p.hasta !== p.desde ? ' → ' + p.hasta : '') : ''}`,
+          });
+        } else this._borrarProgramado(p.id);
       };
     });
 
@@ -239,6 +246,11 @@ const ViewDashboard = {
       <div class="grid cols-2">
         <div class="field"><label>Fecha</label><input type="date" id="pv-fecha" value="${p.fecha || new Date().toISOString().slice(0, 10)}"></div>
         <div class="field"><label>${labelHora('Hora prevista')}</label><input type="time" id="pv-hora" value="${(p.hora_prevista || '').slice(0, 5)}"></div>
+        <div class="field">
+          <label>Hora de finalización <span class="muted">(opcional)</span></label>
+          <input type="time" id="pv-hora-fin" value="${(p.hora_finalizacion || '').slice(0, 5)}">
+          <p class="muted" style="margin:4px 0 0">Si la completás, se crea solo un recordatorio para cargar los datos del vuelo al otro día.</p>
+        </div>
         <div class="field"><label>Aeronave</label>
           <select id="pv-aeronave"><option value="">Sin definir</option>
             ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === p.aeronave_id ? 'selected' : ''}>${a.matricula} — ${a.marca_modelo}</option>`).join('')}
@@ -277,9 +289,11 @@ const ViewDashboard = {
   async _guardarProgramado() {
     const fecha = document.getElementById('pv-fecha').value;
     if (!fecha) { UI.toast('Elegí una fecha.', 'warn'); return; }
+    const horaFin = document.getElementById('pv-hora-fin').value || null;
     const payload = {
       fecha,
       hora_prevista: document.getElementById('pv-hora').value || null,
+      hora_finalizacion: horaFin,
       aeronave_id: document.getElementById('pv-aeronave').value || null,
       desde: document.getElementById('pv-desde').value.trim().toUpperCase() || null,
       hasta: document.getElementById('pv-hasta').value.trim().toUpperCase() || null,
@@ -287,18 +301,57 @@ const ViewDashboard = {
       tipo_vuelo: document.getElementById('pv-tipo').value || null,
       notas: document.getElementById('pv-notas').value || null,
     };
+    const esNuevo = !this._editandoProgramado;
     try {
+      let id;
       if (this._editandoProgramado) {
-        await Repo.actualizarVueloProgramado(this._editandoProgramado.id, payload);
+        id = this._editandoProgramado.id;
+        await Repo.actualizarVueloProgramado(id, payload);
         UI.toast('Vuelo agendado actualizado.', 'ok');
       } else {
-        await Repo.crearVueloProgramado(payload);
+        id = await Repo.crearVueloProgramado(payload);
       }
+      await this._sincronizarRecordatorioCargaDatos(id, fecha, horaFin);
       this._editandoProgramado = null;
       this.render();
+      if (esNuevo) {
+        const crear = await UI.confirmar('¿Deseás crear notificaciones para este vuelo?', { ok: 'Sí, crear', cancel: 'No' });
+        if (crear) {
+          RecordatoriosUI.abrir({
+            eventoTipo: 'vuelo_programado',
+            eventoId: id,
+            titulo: `Vuelo del ${fmtFecha(fecha)}${payload.desde ? ' — ' + payload.desde + (payload.hasta && payload.hasta !== payload.desde ? ' → ' + payload.hasta : '') : ''}`,
+          });
+        }
+      }
     } catch (err) {
       UI.toast('Error al agendar: ' + (err.message || err), 'error');
     }
+  },
+
+  // La "hora de finalización" arma sola un recordatorio de tipo
+  // auto_cargar_datos para el otro día a las 9 (elegido así porque avisar
+  // apenas termina el vuelo suele agarrar al piloto todavía en el aeródromo,
+  // sin ganas de cargar datos en el celu). Si se saca la hora de fin, se
+  // borra el recordatorio automático; si se vuelve a cargar, se recrea con
+  // la fecha nueva — nunca queda uno viejo colgado.
+  async _sincronizarRecordatorioCargaDatos(vueloProgramadoId, fecha, horaFin) {
+    const existentes = await Repo.listarRecordatorios('vuelo_programado', vueloProgramadoId);
+    for (const r of existentes.filter((r) => r.origen === 'auto_cargar_datos')) {
+      await Repo.borrarRecordatorio(r.id);
+    }
+    if (!horaFin) return;
+    const d = Calc.parseFechaLocal(fecha);
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    await Repo.crearRecordatorio({
+      evento_tipo: 'vuelo_programado',
+      evento_id: vueloProgramadoId,
+      tipo_disparo: 'fecha_hora',
+      fecha_hora: d.toISOString(),
+      mensaje: 'Recordá cargar los datos de este vuelo.',
+      origen: 'auto_cargar_datos',
+    });
   },
 
   _marcarComoVolado(id, aeronaveId, fecha, desde, hasta) {

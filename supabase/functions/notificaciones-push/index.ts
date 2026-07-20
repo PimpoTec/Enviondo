@@ -103,14 +103,81 @@ function estadoVencimiento(fechaVencimiento: string, umbralDias: number) {
   return { estado: 'ok', dias };
 }
 
+// Procesa UN recordatorio personalizado: busca su evento, decide si ya toca
+// avisar, y si toca, manda el push y marca `ultimo_aviso_clave` con la
+// "instancia" del evento a la que correspondió ese aviso (la fecha del
+// vuelo, o la fecha_vencimiento vigente). Si el evento se corre — vuelo
+// reprogramado, o un vencimiento rodante que se resetea porque volaste —
+// la clave deja de coincidir y el recordatorio queda habilitado de nuevo
+// para la fecha nueva, sin ninguna limpieza manual.
+async function procesarRecordatorio(r: any) {
+  let evento: any;
+  let referenciaMs: number;
+  let claveActual: string;
+  let cuerpoDefault: string;
+  let titulo: string;
+  let url: string;
+
+  if (r.evento_tipo === 'vuelo_programado') {
+    const { data: p } = await admin.from('vuelos_programados').select('*, aeronaves(matricula)').eq('id', r.evento_id).maybeSingle();
+    if (!p) { await admin.from('recordatorios').delete().eq('id', r.id); return; } // el evento ya no existe: limpiamos el recordatorio huérfano
+    evento = p;
+    const hora = p.hora_prevista || '12:00:00';
+    referenciaMs = new Date(`${p.fecha}T${hora}Z`).getTime() + OFFSET_ARG_MS;
+    claveActual = `${p.fecha}T${hora}`;
+    const matricula = p.aeronaves?.matricula || 'tu aeronave';
+    const ruta = p.desde && p.hasta ? ` (${p.desde} → ${p.hasta})` : '';
+    titulo = 'Vuelo programado';
+    cuerpoDefault = `${matricula}${ruta} — ${p.fecha} ${hora.slice(0, 5)}`;
+    url = './#dashboard';
+  } else {
+    const { data: v } = await admin.from('vencimientos').select('*').eq('id', r.evento_id).maybeSingle();
+    if (!v) { await admin.from('recordatorios').delete().eq('id', r.id); return; }
+    evento = v;
+    referenciaMs = new Date(`${v.fecha_vencimiento}T00:00:00Z`).getTime() + OFFSET_ARG_MS;
+    claveActual = v.fecha_vencimiento;
+    titulo = 'Vencimiento';
+    cuerpoDefault = `${v.tipo} — vence ${v.fecha_vencimiento}`;
+    url = './#perfil?seccion=alertas';
+  }
+
+  const ahora = Date.now();
+
+  if (r.tipo_disparo === 'fecha_hora') {
+    if (r.ultimo_aviso_clave === 'enviado') return;
+    if (!r.fecha_hora || ahora < new Date(r.fecha_hora).getTime()) return;
+  } else {
+    // "Días/horas antes" es un aviso previo al evento — una vez que ya
+    // pasó, no tiene sentido seguir avisando "antes" (el fallback legacy de
+    // abajo es el que se encarga de insistir mientras algo esté vencido).
+    if (r.ultimo_aviso_clave === claveActual) return;
+    const faltanMs = referenciaMs - ahora;
+    if (faltanMs < 0) return;
+    const unidadMs = r.tipo_disparo === 'dias_antes' ? 86400000 : 3600000;
+    if (faltanMs / unidadMs > Number(r.valor)) return;
+  }
+
+  await mandarATodos(r.user_id, { title: titulo, body: r.mensaje || cuerpoDefault, tag: 'recordatorio-' + r.id, url });
+  await admin.from('recordatorios').update({ ultimo_aviso_clave: r.tipo_disparo === 'fecha_hora' ? 'enviado' : claveActual }).eq('id', r.id);
+}
+
 async function correrCron() {
   const hoyISO = new Date().toISOString().slice(0, 10);
+  const ahora = Date.now();
 
-  // ---- Vencimientos: CMA, habilitaciones, IFR, currency... ----
+  // Eventos que ya tienen recordatorios propios activos: para esos, el
+  // aviso automático "de fábrica" de abajo no manda nada — el usuario ya
+  // decidió exactamente cuándo quiere que le avisen.
+  const { data: eventosConRecordatorio } = await admin.from('recordatorios').select('evento_tipo, evento_id').eq('activo', true);
+  const vencimientosConRecordatorio = new Set((eventosConRecordatorio ?? []).filter((r) => r.evento_tipo === 'vencimiento').map((r) => r.evento_id));
+  const programadosConRecordatorio = new Set((eventosConRecordatorio ?? []).filter((r) => r.evento_tipo === 'vuelo_programado').map((r) => r.evento_id));
+
+  // ---- Aviso "de fábrica" (fallback): vencimientos sin recordatorios propios ----
   const { data: configsVenc } = await admin.from('notif_config').select('user_id').eq('vencimientos', true);
   for (const { user_id } of configsVenc ?? []) {
     const { data: vencimientos } = await admin.from('vencimientos').select('*').eq('user_id', user_id);
     for (const v of vencimientos ?? []) {
+      if (vencimientosConRecordatorio.has(v.id)) continue;
       if (v.ultimo_aviso === hoyISO) continue; // ya avisado hoy
       const { estado, dias } = estadoVencimiento(v.fecha_vencimiento, v.umbral_alerta_dias || 30);
       if (estado === 'ok') continue;
@@ -122,14 +189,14 @@ async function correrCron() {
     }
   }
 
-  // ---- Vuelos programados: recordatorio X horas antes ----
+  // ---- Aviso "de fábrica" (fallback): vuelos programados sin recordatorios propios ----
   const { data: configsVuelo } = await admin.from('notif_config').select('user_id, horas_antes_vuelo').eq('vuelos_programados', true);
-  const ahora = Date.now();
   for (const { user_id, horas_antes_vuelo } of configsVuelo ?? []) {
     const { data: programados } = await admin.from('vuelos_programados')
       .select('*, aeronaves(matricula)').eq('user_id', user_id).eq('aviso_enviado', false)
       .gte('fecha', hoyISO);
     for (const p of programados ?? []) {
+      if (programadosConRecordatorio.has(p.id)) continue;
       const hora = p.hora_prevista || '12:00:00';
       const fechaHoraLocal = new Date(`${p.fecha}T${hora}Z`).getTime() + OFFSET_ARG_MS;
       const horasFaltan = (fechaHoraLocal - ahora) / 3600000;
@@ -143,6 +210,16 @@ async function correrCron() {
         url: './#dashboard',
       });
       await admin.from('vuelos_programados').update({ aviso_enviado: true }).eq('id', p.id);
+    }
+  }
+
+  // ---- Recordatorios personalizados (uno o varios por evento) ----
+  const { data: recordatorios } = await admin.from('recordatorios').select('*').eq('activo', true);
+  for (const r of recordatorios ?? []) {
+    try {
+      await procesarRecordatorio(r);
+    } catch (err) {
+      console.error('Error procesando recordatorio', r.id, err);
     }
   }
 }
