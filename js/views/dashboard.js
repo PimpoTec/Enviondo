@@ -183,22 +183,29 @@ const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'S
 
 // METAR real del aeródromo de origen — servicio público de NOAA
 // (aviationweather.gov), sin API key. aviationweather.gov no manda headers
-// CORS, así que el pedido va a través de un proxy CORS público
-// (allorigins.win) para que el navegador no lo bloquee. Si falla (código
-// no existe, sin señal, el proxy caído), se muestra un aviso en vez de
-// romper el resto de la card.
+// CORS, así que el pedido no puede ir directo desde el navegador. Primero
+// se intenta la Edge Function propia (supabase/functions/metar) — corre
+// server-side, sin depender de terceros. Si todavía no está deployada (o
+// falla), cae a un proxy CORS público (allorigins.win) como red de
+// contención, para que el METAR no deje de funcionar de un día para el otro.
 async function cargarMetar(icao, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
-  try {
-    const destino = encodeURIComponent(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=raw`);
-    const resp = await fetch(`https://api.allorigins.win/raw?url=${destino}`);
-    if (!resp.ok) throw new Error('sin respuesta');
-    const texto = (await resp.text()).trim();
-    el.textContent = texto || 'Sin METAR publicado para este aeródromo.';
-  } catch {
-    el.textContent = 'METAR no disponible.';
+
+  const propia = `${window.SUPABASE_CONFIG.url}/functions/v1/metar?icao=${icao}`;
+  const destino = encodeURIComponent(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=raw`);
+  const proxyPublico = `https://api.allorigins.win/raw?url=${destino}`;
+
+  for (const url of [propia, proxyPublico]) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) continue;
+      const texto = (await resp.text()).trim();
+      el.textContent = texto || 'Sin METAR publicado para este aeródromo.';
+      return;
+    } catch { /* intenta la siguiente fuente */ }
   }
+  el.textContent = 'METAR no disponible.';
 }
 
 // Cuando "Habilitación de Vuelo Nocturno" (HAB_NOC) está activa junto a otro
