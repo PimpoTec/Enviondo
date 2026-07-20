@@ -184,48 +184,56 @@ main {
 .progreso-bar > span { display: block; height: 100%; background: var(--brand-strong); box-shadow: var(--brand-glow); border-radius: 3px; transition: width .3s; }
 .progreso-bar.completo > span { background: var(--ok); box-shadow: none; }
 
-/* ---------- Card de próximo vuelo (fecha/METAR + aeronave/ruta) ---------- */
+/* ---------- Card de próximo vuelo — una columna, secciones separadas por
+   línea (fecha → clima → aeronave/ruta/etiquetas), como una ficha de vuelo. ---------- */
 .plan-card {
-  display: flex; border: 1px solid var(--border); border-radius: var(--radius);
-  overflow: hidden; margin-bottom: 12px;
+  background: var(--bg-elevated-2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 12px;
 }
-.plan-card-fecha {
-  width: 40%; min-width: 150px; background: var(--bg-elevated-2);
-  border-right: 1px solid var(--border); padding: 12px 14px;
+.plan-seccion { padding: 14px 16px; }
+.plan-seccion + .plan-seccion { border-top: 1px solid var(--border); }
+.plan-label {
+  margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-muted); font-weight: 700;
 }
-.plan-card-detalle { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; }
-.plan-detalle-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.plan-aeronave { margin: 2px 0 0; font-size: 16px; font-weight: 600; }
+.plan-fecha-grande { margin: 4px 0 0; font-size: 22px; font-weight: 700; }
+.plan-hora { margin: 2px 0 0; font-family: var(--font-mono); color: var(--brand); font-weight: 600; font-size: 14px; }
+.plan-clima { margin: 4px 0 0; font-family: var(--font-mono); font-size: 12px; color: #6dd0f7; white-space: pre-wrap; }
+.plan-head-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .plan-countdown {
   display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
   background: var(--brand-weak); color: var(--brand);
   border-radius: var(--radius-sm); padding: 4px 9px;
   font-size: 12px; font-weight: 700; white-space: nowrap;
 }
-.plan-card-ruta {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 0; margin-top: 8px; color: var(--brand);
-  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+.plan-btn-editar {
+  background: var(--bg-subtle); color: var(--text-muted); border: none; font-family: inherit;
+  border-radius: var(--radius-sm); padding: 6px 10px; font-size: 11px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: .02em; cursor: pointer; white-space: nowrap;
 }
-.plan-card-ruta .mono { font-family: var(--font-mono); font-size: 15px; color: var(--text); }
-.plan-datos {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px 16px; margin-top: 12px;
+.plan-btn-editar:hover { background: var(--bg-elevated); color: var(--text); }
+.plan-aeronave-grande { margin: 4px 0 0; font-size: 19px; font-weight: 700; }
+.plan-aeronave-grande .modelo { font-weight: 500; color: var(--text-muted); }
+.plan-ruta { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.plan-ruta-punto { display: flex; flex-direction: column; gap: 2px; }
+.plan-ruta-punto.derecha { align-items: flex-end; text-align: right; }
+.plan-ruta-codigo { font-family: var(--font-mono); font-weight: 700; font-size: 16px; }
+.plan-ruta-ciudad { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .02em; }
+.plan-ruta-linea { flex: 1; position: relative; height: 16px; display: flex; align-items: center; justify-content: center; }
+.plan-ruta-linea::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dotted var(--border); }
+.plan-ruta-linea .icon { position: relative; background: var(--bg-elevated-2); padding: 0 4px; color: var(--brand); }
+.plan-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.plan-badge {
+  background: var(--bg-subtle); color: var(--text-muted);
+  border-radius: var(--radius-sm); padding: 5px 10px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
 }
-.plan-dato { display: flex; flex-direction: column; gap: 1px; font-size: 13px; }
-.plan-dato > span:first-child { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
-.plan-dato .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .plan-notas {
   margin: 12px 0 0; font-size: 13px; color: var(--text);
   background: var(--bg-subtle); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 8px 10px;
 }
 .plan-acciones { margin-top: 14px; }
-@media (min-width: 481px) { .plan-acciones { margin-top: auto; padding-top: 14px; } }
-@media (max-width: 480px) {
-  .plan-card { flex-direction: column; }
-  .plan-card-fecha { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
-}
 
 /* ---------- Forms ---------- */
 label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }

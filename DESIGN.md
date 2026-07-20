@@ -14,7 +14,10 @@ explícita guardada.
 
 - `--brand` / `--brand-strong`: naranja cálido — único acento cromático fuerte
   de la app (CTA, progreso, estado activo). No sumar azul/verde/rojo como
-  color "de marca" adicional.
+  color "de marca" adicional. Única excepción deliberada: el texto de
+  METAR/TAF en la tarjeta de "Próximo vuelo" (`.plan-clima`) usa un celeste
+  fijo (`#6dd0f7`) — mimetiza el resaltado de datos meteorológicos de un
+  instrumento real de cabina, no compite como color de marca.
 - `--ok` / `--warn` / `--danger`: estados semánticos, discretos, nunca compiten
   visualmente con el naranja.
 - `--bg` / `--bg-elevated` / `--bg-subtle` / `--bg-elevated-2`: 4 niveles de

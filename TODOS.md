@@ -3,6 +3,21 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 15 (rediseño de la tarjeta "Próximo vuelo", según foto)
+- [x] Layout de una sola columna con secciones separadas por línea (antes era
+      dos columnas lado a lado): Fecha programada → METAR/TAF → Aeronave.
+- [x] "Editar plan" se movió junto a la etiqueta "Aeronave" (antes era un
+      ícono en la fila de acciones de abajo).
+- [x] Matrícula + modelo en texto grande ("LV-WXY (Piper Archer)").
+- [x] Ruta con el código OACI grande y el **nombre de la ciudad** debajo
+      (nuevo — sale del mismo dataset de `js/aerodromos.js` que usa el
+      autocomplete), conectados con línea punteada y el ícono de avión al medio.
+- [x] Etiquetas tipo "badge" al pie (tipo de vuelo elegido, Travesía, Con
+      instructor) en vez de una lista de pares clave/valor.
+- [x] Color celeste fijo para el texto de METAR/TAF (`.plan-clima`), como
+      excepción documentada en `DESIGN.md` a la regla de "solo naranja de
+      marca" — imita el resaltado de datos meteorológicos de un instrumento.
+
 ## Hecho — tanda 14 (editar vuelos agendados)
 - [x] Botón "Editar" (ícono lápiz) en cada tarjeta de "Próximo vuelo", junto
       a "Marcar como volado"/"Borrar". Abre el mismo formulario de

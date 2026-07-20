@@ -90,7 +90,6 @@ const ViewDashboard = {
       const metarId = `metar-${i}`;
       const tafId = `taf-${i}`;
 
-      // Datos derivados para el panel derecho.
       const fechaLocal = Calc.parseFechaLocal(p.fecha);
       const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
       const diasFaltan = fechaLocal ? Math.round((fechaLocal - hoy) / 86400000) : null;
@@ -98,45 +97,74 @@ const ViewDashboard = {
       const diaSemana = fechaLocal ? DIAS_SEMANA[fechaLocal.getDay()] : '';
       const esLocal = p.desde && p.hasta && p.desde === p.hasta;
       const prefLabel = obtenerPrefHorario() === 'local' ? 'hora local' : 'UTC';
-      const aeronaveTxt = p.aeronaves?.matricula ? `${p.aeronaves.matricula} — ${p.aeronaves.marca_modelo}` : 'Sin asignar';
+      const matricula = p.aeronaves?.matricula || 'Sin asignar';
+      const modelo = p.aeronaves?.marca_modelo || '';
+      const ciudadDesde = ciudadDeAerodromo(p.desde);
+      const ciudadHasta = ciudadDeAerodromo(p.hasta);
+
+      // Etiquetas informativas: el tipo elegido al agendar (si lo eligió),
+      // "Travesía" si no es local y no quedó ya cubierto por el tipo, y si
+      // hay instructor asignado. Nada inventado — solo lo que la app sabe.
+      const badges = [];
+      if (p.tipo_vuelo) badges.push(labelTipoVueloProgramado(p.tipo_vuelo));
+      if (p.desde && p.hasta && !esLocal && p.tipo_vuelo !== 'navegacion') badges.push('Travesía');
+      if (p.instructor_nombre) badges.push('Con instructor');
+
       return `
         <div class="plan-card">
-          <div class="plan-card-fecha">
-            <p class="muted" style="margin:0">Fecha programada</p>
-            <p style="margin:2px 0 0;font-size:20px;font-weight:700">${fechaGrande}</p>
-            ${p.hora_prevista ? `<p style="margin:2px 0 0;font-family:var(--font-mono);color:var(--brand)">${p.hora_prevista.slice(0, 5)} ${obtenerPrefHorario() === 'local' ? 'hora local' : 'UTC'}</p>` : ''}
-            ${/^[A-Z]{4}$/.test(p.desde || '') ? `
-              <p class="muted" style="margin:14px 0 0">METAR ${p.desde}</p>
-              <p id="${metarId}" class="muted" style="margin:2px 0 0;font-family:var(--font-mono);font-size:12px">Cargando…</p>
-              <p class="muted" style="margin:10px 0 0">TAF ${p.desde}</p>
-              <p id="${tafId}" class="muted" style="margin:2px 0 0;font-family:var(--font-mono);font-size:12px;white-space:pre-wrap">Cargando…</p>
-            ` : ''}
-          </div>
-          <div class="plan-card-detalle">
-            <div class="plan-detalle-head">
+          <div class="plan-seccion">
+            <div class="plan-head-row">
               <div>
-                <p class="muted" style="margin:0">Aeronave</p>
-                <p class="plan-aeronave">${aeronaveTxt}</p>
+                <p class="plan-label">Fecha programada</p>
+                <p class="plan-fecha-grande">${fechaGrande}${diaSemana ? ` <span class="muted" style="font-size:13px;font-weight:500">· ${diaSemana}</span>` : ''}</p>
+                ${p.hora_prevista ? `<p class="plan-hora">${p.hora_prevista.slice(0, 5)} ${prefLabel}</p>` : ''}
               </div>
               ${cuenta ? `<span class="plan-countdown">${Icons.clock(13)} ${cuenta}</span>` : ''}
             </div>
+          </div>
 
-            ${p.desde && p.hasta ? (esLocal
-              ? `<div class="plan-card-ruta"><span class="mono">${p.desde}</span><span class="muted" style="font-size:12px;color:var(--text-muted)">vuelo local</span></div>`
-              : `<div class="plan-card-ruta"><span class="mono">${p.desde}</span>${Icons.plane(16)}<span class="mono">${p.hasta}</span></div>`) : ''}
+          ${/^[A-Z]{4}$/.test(p.desde || '') ? `
+          <div class="plan-seccion">
+            <p class="plan-label">METAR ${p.desde}</p>
+            <p id="${metarId}" class="plan-clima">Cargando…</p>
+          </div>
+          <div class="plan-seccion">
+            <p class="plan-label">TAF ${p.desde}</p>
+            <p id="${tafId}" class="plan-clima">Cargando…</p>
+          </div>` : ''}
 
-            <div class="plan-datos">
-              ${diaSemana ? `<div class="plan-dato"><span class="muted">Día</span><span>${diaSemana}</span></div>` : ''}
-              ${p.hora_prevista ? `<div class="plan-dato"><span class="muted">Hora</span><span class="mono">${p.hora_prevista.slice(0, 5)} ${prefLabel}</span></div>` : ''}
-              ${p.tipo_vuelo || (p.desde && p.hasta) ? `<div class="plan-dato"><span class="muted">Tipo</span><span>${p.tipo_vuelo ? labelTipoVueloProgramado(p.tipo_vuelo) : (esLocal ? 'Local (sobre aeródromo)' : 'Travesía')}</span></div>` : ''}
-              ${p.instructor_nombre ? `<div class="plan-dato"><span class="muted">Instructor</span><span>${p.instructor_nombre}</span></div>` : ''}
+          <div class="plan-seccion">
+            <div class="plan-head-row">
+              <p class="plan-label">Aeronave</p>
+              <button class="plan-btn-editar" data-accion="editar" data-idx="${i}">Editar plan</button>
             </div>
+            <p class="plan-aeronave-grande">${matricula}${modelo ? ` <span class="modelo">(${modelo})</span>` : ''}</p>
+
+            ${p.desde && p.hasta ? (esLocal ? `
+              <div class="plan-ruta">
+                <div class="plan-ruta-punto">
+                  <span class="plan-ruta-codigo">${p.desde}</span>
+                  <span class="plan-ruta-ciudad">${ciudadDesde || 'Vuelo local'}</span>
+                </div>
+              </div>` : `
+              <div class="plan-ruta">
+                <div class="plan-ruta-punto">
+                  <span class="plan-ruta-codigo">${p.desde}</span>
+                  <span class="plan-ruta-ciudad">${ciudadDesde || '—'}</span>
+                </div>
+                <div class="plan-ruta-linea">${Icons.plane(16)}</div>
+                <div class="plan-ruta-punto derecha">
+                  <span class="plan-ruta-codigo">${p.hasta}</span>
+                  <span class="plan-ruta-ciudad">${ciudadHasta || '—'}</span>
+                </div>
+              </div>`) : ''}
+
+            ${badges.length ? `<div class="plan-badges">${badges.map((b) => `<span class="plan-badge">${b}</span>`).join('')}</div>` : ''}
 
             ${p.notas ? `<p class="plan-notas">${Icons.tag('list', p.notas)}</p>` : ''}
 
             <div class="btn-row plan-acciones">
               <button class="btn secondary" data-accion="volado" data-idx="${i}">Marcar como volado</button>
-              <button class="btn ghost" data-accion="editar" data-idx="${i}">${Icons.edit(16)}</button>
               <button class="btn ghost" data-accion="borrar" data-idx="${i}">${Icons.trash(16)}</button>
             </div>
           </div>
@@ -267,6 +295,14 @@ const TIPOS_VUELO_PROGRAMADO = [
 ];
 function labelTipoVueloProgramado(codigo) {
   return TIPOS_VUELO_PROGRAMADO.find(([c]) => c === codigo)?.[1] || codigo;
+}
+
+// Nombre de ciudad para un código OACI/local, del mismo dataset que usa el
+// autocomplete de aeródromos — para mostrar "PALOMAR" debajo de "SADP".
+function ciudadDeAerodromo(code) {
+  if (!code) return '';
+  const a = (window.AERODROMOS || []).find((x) => x.code === code);
+  return a?.ciudad || '';
 }
 
 // METAR/TAF real del aeródromo de origen — servicio público de NOAA
