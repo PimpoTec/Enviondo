@@ -21,25 +21,28 @@ function vueloBase(extra = {}) {
   }, extra);
 }
 
-test('valorCelda: vuelo local muestra el aeródromo una sola vez (no doblado)', () => {
-  const v = vueloBase({ desde: 'SABE', hasta: 'SABE' });
-  assert.equal(ExportadorAnac.valorCelda(4, v), 'SABE');
+test('valorCelda: vuelo local repite el aeródromo (así lo pide ANAC: DESDE y HASTA con el mismo código)', () => {
+  const v = vueloBase({ desde: 'SADF', hasta: 'SADF' });
+  assert.equal(ExportadorAnac.valorCelda(4, v), 'SADF SADF');
 });
 
-test('valorCelda: travesía muestra origen-destino', () => {
+test('valorCelda: travesía muestra origen-destino separados por guion', () => {
   const v = vueloBase({ desde: 'SABE', hasta: 'SADF' });
   assert.equal(ExportadorAnac.valorCelda(4, v), 'SABE-SADF');
 });
 
-test('valorCelda: clase de aeronave se abrevia (evita texto cortado en columna angosta)', () => {
-  assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: 'monomotor' } })), 'MONOM.');
-  assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: 'multimotor' } })), 'MULTIM.');
-  assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: 'aeroaplicador' } })), 'AEROAP.');
+test('valorCelda: clase monomotor usa el código ANAC "MONTT"', () => {
+  assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: 'monomotor' } })), 'MONTT');
 });
 
 test('valorCelda: clase tolera mayúsculas/espacios (no rompe el mapeo)', () => {
-  assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: ' Monomotor ' } })), 'MONOM.');
+  assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: ' Monomotor ' } })), 'MONTT');
   assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: '' } })), '');
+});
+
+test('formatearRuta: local repite, travesía separa con guion', () => {
+  assert.equal(ExportadorAnac.formatearRuta('SADF', 'SADF'), 'SADF SADF');
+  assert.equal(ExportadorAnac.formatearRuta('SABE', 'SADF'), 'SABE-SADF');
 });
 
 test('valorCelda: turno de adiestrador/simulador (col 29) suma sus horas', () => {

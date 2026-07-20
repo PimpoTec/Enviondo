@@ -159,9 +159,7 @@ const ViewExportar = {
     const vuelos = await Repo.listarVuelos(await this._filtros());
     return vuelos.map((v) => ({
       ...v,
-      // Una sola columna de ruta: si es local (mismo aeródromo) no repite el
-      // código dos veces.
-      ruta: v.desde === v.hasta ? v.desde : `${v.desde}-${v.hasta}`,
+      ruta: ExportadorAnac.formatearRuta(v.desde, v.hasta),
       matricula: v.aeronaves?.matricula, marca_modelo: v.aeronaves?.marca_modelo,
       costo: Calc.costoRegistrado(v, v.aeronaves).monto,
     }));

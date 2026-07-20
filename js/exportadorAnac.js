@@ -29,13 +29,21 @@
   const COLS_TIEMPO = [11, 12, 13, 14, 15, 16, 17, 18];
   const COLS_ACUM = COLS_TIEMPO.concat([19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]);
 
-  // Clases de aeronave abreviadas: la columna "CLASE" del formulario oficial
-  // es angosta (7-8 caracteres); un texto largo como "monomotor" con wrap en
-  // una fila baja termina cortado y ilegible. Se abrevia como se anota a mano.
+  // Códigos de clase de aeronave tal como los pide ANAC en la hoja (no es una
+  // abreviación libre nuestra — es el código fijo que corresponde a cada
+  // clase). Completar/corregir acá si hace falta otro código.
   const CLASE_ABREV = {
-    monomotor: 'MONOM.', multimotor: 'MULTIM.', reactor: 'REACTOR',
-    turbohelice: 'TURBOH.', aeroaplicador: 'AEROAP.', simulador: 'SIMUL.',
+    monomotor: 'MONTT',
   };
+
+  // Ruta (columna "DESDE HASTA", una sola casilla en el formulario oficial):
+  // en un vuelo local el piloto anota el mismo aeródromo dos veces (DESDE y
+  // HASTA), no una sola — por eso siempre van los dos valores, aunque sean
+  // iguales. En travesía, separados por guion.
+  function formatearRuta(desde, hasta) {
+    const d = desde || '', h = hasta || '';
+    return d === h ? `${d} ${h}` : `${d}-${h}`;
+  }
 
   // Cómo se llena cada columna de datos (0-indexada) a partir de un vuelo.
   function valorCelda(col, v) {
@@ -43,7 +51,7 @@
       case 1: return Number(v.fecha.slice(8, 10));         // día
       case 2: return Number(v.fecha.slice(5, 7));          // mes
       case 3: return (v.hora_salida_utc || '').slice(0, 5);
-      case 4: return v.desde === v.hasta ? (v.desde || '') : `${v.desde || ''}-${v.hasta || ''}`;
+      case 4: return formatearRuta(v.desde, v.hasta);
       case 5: return (v.hora_llegada_utc || '').slice(0, 5);
       case 6: return v.finalidad_vuelo || '';
       case 7: return v.aeronaves?.marca_modelo || '';
@@ -257,7 +265,7 @@
   }
 
   const ExportadorAnac = {
-    construirLibroAnual, agruparPorAnio, sumarColumnas,
+    construirLibroAnual, agruparPorAnio, sumarColumnas, formatearRuta,
     valorCelda, colLetra, CLASE_ABREV, COLS_ACUM, FILAS_POR_HOJA, SPEC,
   };
 
