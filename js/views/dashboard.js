@@ -188,11 +188,17 @@ const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'S
 // server-side, sin depender de terceros. Si todavía no está deployada (o
 // falla), cae a un proxy CORS público (allorigins.win) como red de
 // contención, para que el METAR no deje de funcionar de un día para el otro.
+//
+// OJO: el nombre que se ve en "Name" en el dashboard de Supabase es solo
+// una etiqueta — no cambia el slug/URL real de la función, que queda fijo
+// desde el momento en que se creó (acá quedó "smooth-processor" en vez de
+// "metar" porque así la generó Supabase al crearla). Si algún día se borra
+// y se recrea con el slug "metar" desde el vamos, actualizar esta URL.
 async function cargarMetar(icao, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
 
-  const propia = `${window.SUPABASE_CONFIG.url}/functions/v1/metar?icao=${icao}`;
+  const propia = `${window.SUPABASE_CONFIG.url}/functions/v1/smooth-processor?icao=${icao}`;
   const destino = encodeURIComponent(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=raw`);
   const proxyPublico = `https://api.allorigins.win/raw?url=${destino}`;
 
