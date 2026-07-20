@@ -167,7 +167,71 @@ tabla directo desde Supabase).
 
 ---
 
-## 8) Qué falta / mejoras futuras
+## 8) Notificaciones push (opcional)
+
+Avisos de **Vencimientos** (CMA, habilitaciones, IFR, currency) y **Vuelos
+programados** que llegan al celular/notebook aunque la app esté cerrada.
+Es Web Push nativo (estándar del navegador, protocolo VAPID) + Supabase —
+nada de terceros, nada de pagar por notificaciones. Sin este paso la
+pestaña **Perfil → Notificaciones** sigue andando, pero avisa que falta
+configurar el servidor en vez de romperse.
+
+1. Generá el par de claves VAPID (necesitás Node instalado, es un comando
+   de una sola vez, no hace falta para nada más del proyecto):
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+   Te da una `Public Key` y una `Private Key`.
+
+2. Pegá la **Public Key** en `js/config.js`:
+   ```js
+   window.VAPID_PUBLIC_KEY = 'TU-PUBLIC-KEY-ACÁ';
+   ```
+   (Es pública a propósito, igual que la `anon key` — identifica a tu
+   servidor ante el navegador, no autoriza nada por sí sola.)
+
+3. Instalá la [CLI de Supabase](https://supabase.com/docs/guides/cli) si no
+   la tenés, logueate (`supabase login`) y desplegá la función:
+   ```bash
+   supabase functions deploy notificaciones-push --project-ref TU-PROJECT-REF --no-verify-jwt
+   ```
+   (`--no-verify-jwt` porque la función valida la sesión ella misma —
+   mismo criterio que las funciones `metar` y `cotizacion` que ya tenés.)
+
+4. Cargale los secretos (la **Private Key** NUNCA va al frontend, solo acá):
+   ```bash
+   supabase secrets set VAPID_PUBLIC_KEY=TU-PUBLIC-KEY --project-ref TU-PROJECT-REF
+   supabase secrets set VAPID_PRIVATE_KEY=TU-PRIVATE-KEY --project-ref TU-PROJECT-REF
+   supabase secrets set VAPID_SUBJECT=mailto:tu-email@ejemplo.com --project-ref TU-PROJECT-REF
+   supabase secrets set CRON_SECRET=elegí-algo-largo-y-random --project-ref TU-PROJECT-REF
+   ```
+
+5. Corré `sql/agregar_notificaciones_push.sql` en el **SQL Editor** de
+   Supabase (o pegá el `schema.sql` completo de nuevo, ya lo incluye).
+
+6. Para que los avisos se disparen SOLOS (sin este paso, solo funciona el
+   botón "Enviar notificación de prueba"): descomentá y completá el bloque
+   final de `sql/agregar_notificaciones_push.sql` (programa un cron por
+   hora con `pg_cron` que llama a la función) y corré ese bloque también.
+
+7. Entrá a **Perfil → Notificaciones** en la app, tocá **Activar
+   notificaciones** (te va a pedir permiso del navegador) y probá con
+   **Enviar notificación de prueba**.
+
+Falencias típicas si algo no llega (ver comentarios en
+`js/notificaciones.js` y `supabase/functions/notificaciones-push/index.ts`
+para el detalle de cada una):
+- En iPhone, Safari solo entrega push si la PWA está instalada en la
+  pantalla de inicio — abrirla en el navegador no alcanza.
+- Necesita HTTPS (localhost es la única excepción); en un servidor de
+  desarrollo sin TLS el Service Worker ni se registra.
+- Si pediste permiso y tocaste "Bloquear" sin querer, hay que reactivarlo
+  a mano desde la configuración del sitio en el navegador — la app no
+  puede volver a preguntar sola.
+
+---
+
+## 9) Qué falta / mejoras futuras
 
 - PDF pixel-perfect a la hoja física de 35,5 × 16,5 cm (hoy exporta un PDF
   tabular vía impresión del navegador, con el mismo orden de columnas, pero

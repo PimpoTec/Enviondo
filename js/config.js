@@ -24,6 +24,17 @@ window.SUPABASE_CONFIG = {
 //     slug para que funcione; si no está, la app usa las APIs públicas directo.
 window.METAR_FN_SLUG = 'smooth-processor';
 window.COTIZACION_FN_SLUG = 'cotizacion';
+//   - notificaciones-push: manda los avisos de Vencimientos/Vuelos
+//     programados por Web Push. Sin esta función desplegada, la pestaña
+//     "Notificaciones" de Perfil sigue andando pero el botón de prueba y
+//     los avisos reales no van a llegar. Ver README.md sección 8.
+window.PUSH_FN_SLUG = 'notificaciones-push';
+
+// Clave PÚBLICA de VAPID (par generado con `npx web-push generate-vapid-keys`
+// — la privada NUNCA va acá, solo en los secretos de la Edge Function). Es
+// pública a propósito, igual que la anon key: identifica a TU servidor ante
+// el navegador, no autoriza nada por sí sola.
+window.VAPID_PUBLIC_KEY = '';
 
 // Único email con permiso para editar los mínimos de licencia (tabla
 // compartida por todos los usuarios). Es solo un gate de interfaz: el

@@ -294,6 +294,38 @@ const Repo = {
     if (error) throw error;
     Cache.invalidar('vencimientos');
   },
+
+  // ---- Notificaciones push (ver js/notificaciones.js para el flujo de
+  // permiso/suscripción y supabase/functions/notificaciones-push para el
+  // envío real) ----
+  async guardarSuscripcionPush(sub) {
+    const user = await usuarioActual();
+    // La clave de conflicto es el ENDPOINT, no el user_id: un mismo usuario
+    // puede tener el celu y la notebook suscriptos a la vez sin que uno pise
+    // la suscripción del otro.
+    const { error } = await window.db.from('push_subscriptions')
+      .upsert({ user_id: user.id, endpoint: sub.endpoint, subscription: sub }, { onConflict: 'endpoint' });
+    if (error) throw error;
+  },
+  async borrarSuscripcionPush(endpoint) {
+    const { error } = await window.db.from('push_subscriptions').delete().eq('endpoint', endpoint);
+    if (error) throw error;
+  },
+  async getNotifConfig() {
+    return Cache.conCache('notif_config', async () => {
+      const user = await usuarioActual();
+      const { data, error } = await window.db.from('notif_config').select('*').eq('user_id', user.id).maybeSingle();
+      if (error) { console.warn('getNotifConfig:', error.message); return {}; }
+      return data || {};
+    });
+  },
+  async setNotifConfig(cfg) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('notif_config')
+      .upsert({ user_id: user.id, ...cfg, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error) throw error;
+    Cache.invalidar('notif_config');
+  },
 };
 
 // Los mínimos de licencia son una tabla GLOBAL (compartida por todos los

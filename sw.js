@@ -11,13 +11,13 @@
 // corregido.
 // ============================================================================
 
-const CACHE = 'libro-vuelo-v20';
+const CACHE = 'libro-vuelo-v21';
 const ARCHIVOS_SHELL = [
   './', './index.html', './manifest.webmanifest',
   './css/styles.css',
   './js/config.js', './js/icons.js', './js/ui.js',
   './js/supabaseClient.js', './js/calc.js', './js/dolar.js', './js/exportadorAnac.js', './js/cache.js', './js/offline.js',
-  './js/auth.js', './js/db.js', './js/router.js', './js/app.js',
+  './js/auth.js', './js/db.js', './js/notificaciones.js', './js/router.js', './js/app.js',
   './js/views/dashboard.js', './js/views/nuevoVuelo.js', './js/views/bitacora.js',
   './js/views/aeronaves.js', './js/views/totales.js', './js/views/costos.js',
   './js/views/perfil.js', './js/views/exportar.js',
@@ -58,5 +58,34 @@ self.addEventListener('fetch', (event) => {
         return resp;
       })
       .catch(() => caches.match(req))
+  );
+});
+
+// ----------------------------------------------------------------------------
+// PUSH — notificaciones de Vencimientos y Vuelos programados (js/notificaciones.js
+// arma la suscripción, supabase/functions/notificaciones-push las manda).
+// ----------------------------------------------------------------------------
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data ? event.data.text() : '' }; }
+  const titulo = data.title || 'Libro de Vuelo';
+  event.waitUntil(self.registration.showNotification(titulo, {
+    body: data.body || '',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    tag: data.tag || 'libro-vuelo-notif',
+    data: { url: data.url || './' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || './';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
+      const abierta = lista.find((c) => 'focus' in c);
+      if (abierta) return abierta.focus();
+      return clients.openWindow(url);
+    })
   );
 });

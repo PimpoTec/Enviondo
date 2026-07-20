@@ -3,6 +3,39 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 18 (notificaciones push: Vencimientos y Vuelos programados)
+- [x] Pestaña nueva **Notificaciones** en Perfil (`js/views/perfil.js`):
+      activar/desactivar por dispositivo, toggles de "Vencimientos" y
+      "Vuelos programados", horas de anticipación configurables, botón de
+      prueba y estados claros para no soportado / permiso bloqueado / falta
+      configurar el servidor.
+- [x] `js/notificaciones.js` (NEW): pide permiso SIEMPRE desde el click del
+      usuario (nunca al cargar la página), suscribe con `pushManager` y
+      convierte la VAPID public key de base64url a `Uint8Array` a mano
+      (`urlBase64ToUint8Array` — si no, `subscribe()` tira `InvalidAccessError`
+      o falla en silencio). Probado en `tests/notificaciones.test.js`.
+- [x] `sw.js`: handlers de `push` (muestra la notificación) y
+      `notificationclick` (foco a la pestaña abierta o abre una nueva).
+      Cache bumpeado a v21.
+- [x] `supabase/functions/notificaciones-push` (NEW, Deno + `web-push`):
+      modo `test` (identifica al usuario por su JWT, ignora sus
+      preferencias) y modo `cron` (autenticado con un `CRON_SECRET` propio,
+      NO la service_role key en texto plano; barre todos los usuarios,
+      manda vencimientos en estado warn/danger no avisados hoy y vuelos
+      programados dentro de la ventana de horas configurada, y borra
+      suscripciones que el navegador ya descartó (404/410)).
+- [x] `sql/agregar_notificaciones_push.sql` (+ incluido en `schema.sql`):
+      tablas `push_subscriptions` (conflicto por `endpoint`, no por
+      `user_id` — soporta varios dispositivos por usuario) y
+      `notif_config`, columnas de control `vencimientos.ultimo_aviso` /
+      `vuelos_programados.aviso_enviado` para no repetir el mismo aviso,
+      RLS en las dos tablas nuevas, y bloque comentado para programar el
+      cron por hora con `pg_cron` + `pg_net`.
+- [x] `README.md` sección 8 (nueva): guía paso a paso completa para dejar
+      esto funcionando (generar VAPID, desplegar la función, secretos,
+      correr el SQL, programar el cron) — es 100% opcional, sin este paso
+      la app sigue andando igual, solo que la pestaña avisa qué falta.
+
 ## Hecho — tanda 17 (ajustes al carrusel de "Próximo vuelo")
 - [x] Tarjetas centradas en el carrusel: `scroll-snap-align: center` +
       padding lateral proporcional (`6%`) en `.plan-carrusel`, así cada

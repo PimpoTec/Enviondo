@@ -456,4 +456,48 @@ alter table perfil_piloto add column if not exists legajo          text;
 -- ============================================================================
 alter table vuelos_programados add column if not exists tipo_vuelo text;
 
+-- ============================================================================
+-- NOTIFICACIONES PUSH — Web Push nativo (VAPID) + Supabase. Ver el detalle,
+-- la RLS y el bloque comentado para programar el cron en
+-- sql/agregar_notificaciones_push.sql (y README.md, sección 9).
+-- ============================================================================
+create table if not exists push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  endpoint   text not null unique,
+  subscription jsonb not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_push_subscriptions_user on push_subscriptions(user_id);
+
+create table if not exists notif_config (
+  user_id            uuid primary key references auth.users(id) on delete cascade,
+  vencimientos       boolean not null default true,
+  vuelos_programados boolean not null default true,
+  horas_antes_vuelo  integer not null default 12,
+  updated_at         timestamptz not null default now()
+);
+
+alter table vencimientos add column if not exists ultimo_aviso date;
+alter table vuelos_programados add column if not exists aviso_enviado boolean not null default false;
+
+alter table push_subscriptions enable row level security;
+alter table notif_config       enable row level security;
+
+drop policy if exists "push_subscriptions_select_own" on push_subscriptions;
+drop policy if exists "push_subscriptions_insert_own" on push_subscriptions;
+drop policy if exists "push_subscriptions_update_own" on push_subscriptions;
+drop policy if exists "push_subscriptions_delete_own" on push_subscriptions;
+create policy "push_subscriptions_select_own" on push_subscriptions for select using (auth.uid() = user_id);
+create policy "push_subscriptions_insert_own" on push_subscriptions for insert with check (auth.uid() = user_id);
+create policy "push_subscriptions_update_own" on push_subscriptions for update using (auth.uid() = user_id);
+create policy "push_subscriptions_delete_own" on push_subscriptions for delete using (auth.uid() = user_id);
+
+drop policy if exists "notif_config_select_own" on notif_config;
+drop policy if exists "notif_config_insert_own" on notif_config;
+drop policy if exists "notif_config_update_own" on notif_config;
+create policy "notif_config_select_own" on notif_config for select using (auth.uid() = user_id);
+create policy "notif_config_insert_own" on notif_config for insert with check (auth.uid() = user_id);
+create policy "notif_config_update_own" on notif_config for update using (auth.uid() = user_id);
+
 -- Fin del esquema.

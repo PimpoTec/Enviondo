@@ -24,6 +24,7 @@ const MENU_PERFIL = [
   { id: 'costos', icon: 'dollar', label: 'Costos', desc: 'Gasto de la carrera', ruta: 'costos' },
   { id: 'exportar', icon: 'download', label: 'Exportar', desc: 'Hoja ANAC, Excel, PDF, backup', ruta: 'exportar' },
   { id: 'alertas', icon: 'alertTriangle', label: 'Alertas', desc: 'Vencimientos, currency' },
+  { id: 'notificaciones', icon: 'bell', label: 'Notificaciones', desc: 'Avisos push de vencimientos y vuelos' },
   { id: 'papelera', icon: 'trash', label: 'Papelera', desc: 'Vuelos borrados' },
 ];
 
@@ -43,6 +44,9 @@ const ViewPerfil = {
   mostrarAdmin: false,
   hviSimHoras: null,
   datosPiloto: {},
+  notifConfig: {},
+  permisoNotif: 'default',
+  notifSuscripto: false,
 
   // Cada sección pide solo los datos que realmente usa — antes render()
   // hacía SIEMPRE las 6 consultas (cursos, admin, vencimientos, vuelos,
@@ -94,6 +98,12 @@ const ViewPerfil = {
         main.innerHTML = volver + this._htmlAlertas(vencimientos);
         this._bindAlertas();
         try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency:', err); }
+      } else if (this.seccion === 'notificaciones') {
+        this.notifConfig = await Repo.getNotifConfig();
+        this.permisoNotif = Notificaciones.permiso();
+        this.notifSuscripto = !!(await Notificaciones.suscripcionActual());
+        main.innerHTML = volver + this._htmlNotificaciones();
+        this._bindNotificaciones();
       } else if (this.seccion === 'papelera') {
         const papelera = await Repo.listarVuelosBorrados();
         main.innerHTML = volver + this._htmlPapelera(papelera);
@@ -415,6 +425,128 @@ const ViewPerfil = {
 
   _bindAlertas() {
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
+  },
+
+  // ==========================================================================
+  // NOTIFICACIONES — Web Push nativo (VAPID) + Supabase, sin terceros.
+  // Requiere haber corrido sql/agregar_notificaciones_push.sql, desplegado
+  // supabase/functions/notificaciones-push y completado VAPID_PUBLIC_KEY en
+  // js/config.js (ver README.md sección 8) — sin eso, esta pantalla explica
+  // qué falta en vez de romperse.
+  // ==========================================================================
+  _htmlNotificaciones() {
+    if (this.permisoNotif === 'unsupported') {
+      return `
+        <div class="card">
+          <h2>${Icons.bellOff(18)} Notificaciones no disponibles</h2>
+          <p class="muted">Este navegador no soporta notificaciones push. En iPhone/iPad: agregá la app a la pantalla de inicio primero (Safari no entrega push a una pestaña común, solo a la app instalada).</p>
+        </div>`;
+    }
+    if (!window.VAPID_PUBLIC_KEY) {
+      return `
+        <div class="card">
+          <h2>${Icons.bell(18)} Notificaciones</h2>
+          <p class="muted">${Icons.tag('alertTriangle', 'Todavía falta terminar de configurar esto del lado del servidor (clave VAPID_PUBLIC_KEY en js/config.js) — ver README.md, sección 8.')}</p>
+        </div>`;
+    }
+    if (this.permisoNotif === 'denied') {
+      return `
+        <div class="card">
+          <h2>${Icons.bellOff(18)} Notificaciones bloqueadas</h2>
+          <p class="muted">Bloqueaste el permiso de notificaciones para esta app. Para reactivarlo, entrá a la configuración del sitio en tu navegador (el ícono de candado/info junto a la URL) y cambiá "Notificaciones" a permitir.</p>
+        </div>`;
+    }
+    if (!this.notifSuscripto) {
+      return `
+        <div class="card">
+          <h2>${Icons.bell(18)} Activar notificaciones</h2>
+          <p class="muted">Recibí un aviso cuando se acerque un vencimiento (CMA, habilitación, IFR, currency) o un vuelo programado. Se activa por dispositivo — si usás el celu y la notebook, activalo en cada uno.</p>
+          <button class="btn" id="btn-activar-notif">${Icons.tag('bell', 'Activar notificaciones en este dispositivo')}</button>
+        </div>`;
+    }
+    const cfg = this.notifConfig;
+    return `
+      <div class="card">
+        <h2>${Icons.bell(18)} Notificaciones</h2>
+        <p class="muted" style="margin:0 0 10px">${Icons.tag('checkCircle', 'Activas en este dispositivo.')}</p>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text)">
+            <input type="checkbox" id="nf-vencimientos" style="width:auto" ${cfg.vencimientos !== false ? 'checked' : ''}>
+            Vencimientos (CMA, habilitaciones, IFR, currency)
+          </label>
+        </div>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text)">
+            <input type="checkbox" id="nf-vuelos" style="width:auto" ${cfg.vuelos_programados !== false ? 'checked' : ''}>
+            Vuelos programados
+          </label>
+        </div>
+        <div class="field" style="max-width:220px">
+          <label>Avisar con cuántas horas de anticipación</label>
+          <input type="number" min="1" id="nf-horas-antes" value="${cfg.horas_antes_vuelo ?? 12}">
+        </div>
+        <button class="btn" id="btn-guardar-notif">Guardar preferencias</button>
+      </div>
+
+      <div class="card">
+        <button class="btn secondary" id="btn-prueba-notif" style="width:100%;justify-content:center">${Icons.tag('bell', 'Enviar notificación de prueba')}</button>
+        <button class="btn ghost" id="btn-desactivar-notif" style="width:100%;justify-content:center;margin-top:8px">${Icons.tag('bellOff', 'Desactivar en este dispositivo')}</button>
+      </div>
+    `;
+  },
+
+  _bindNotificaciones() {
+    const btnActivar = document.getElementById('btn-activar-notif');
+    if (btnActivar) btnActivar.onclick = () => this._activarNotif();
+    const btnGuardar = document.getElementById('btn-guardar-notif');
+    if (btnGuardar) btnGuardar.onclick = () => this._guardarNotifConfig();
+    const btnPrueba = document.getElementById('btn-prueba-notif');
+    if (btnPrueba) btnPrueba.onclick = () => this._probarNotif();
+    const btnDesactivar = document.getElementById('btn-desactivar-notif');
+    if (btnDesactivar) btnDesactivar.onclick = () => this._desactivarNotif();
+  },
+
+  async _activarNotif() {
+    try {
+      await Notificaciones.activar();
+      UI.toast('Notificaciones activadas en este dispositivo.', 'ok');
+      this.render();
+    } catch (err) {
+      UI.toast(err.message || 'No se pudo activar.', 'error');
+    }
+  },
+
+  async _guardarNotifConfig() {
+    try {
+      await Repo.setNotifConfig({
+        vencimientos: document.getElementById('nf-vencimientos').checked,
+        vuelos_programados: document.getElementById('nf-vuelos').checked,
+        horas_antes_vuelo: Calc.n(document.getElementById('nf-horas-antes').value) || 12,
+      });
+      UI.toast('Preferencias de notificaciones guardadas.', 'ok');
+    } catch (err) {
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
+    }
+  },
+
+  async _probarNotif() {
+    try {
+      await Notificaciones.enviarPrueba();
+      UI.toast('Notificación de prueba enviada — debería llegarte en unos segundos.', 'ok');
+    } catch (err) {
+      UI.toast('Error al enviar la prueba: ' + (err.message || err), 'error');
+    }
+  },
+
+  async _desactivarNotif() {
+    if (!(await UI.confirmar('¿Desactivar las notificaciones en este dispositivo?'))) return;
+    try {
+      await Notificaciones.desactivar();
+      UI.toast('Notificaciones desactivadas en este dispositivo.', 'ok');
+      this.render();
+    } catch (err) {
+      UI.toast('Error al desactivar: ' + (err.message || err), 'error');
+    }
   },
 
   // ==========================================================================
