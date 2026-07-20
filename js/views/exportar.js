@@ -4,7 +4,7 @@
 // ============================================================================
 
 const COLUMNAS_290 = [
-  ['fecha', 'Fecha'], ['hora_salida_utc', 'Hora salida'], ['desde', 'Desde'], ['hasta', 'Hasta'], ['hora_llegada_utc', 'Hora llegada'],
+  ['fecha', 'Fecha'], ['hora_salida_utc', 'Hora salida'], ['ruta', 'Desde / Hasta'], ['hora_llegada_utc', 'Hora llegada'],
   ['finalidad_vuelo', 'Finalidad'], ['matricula', 'Matrícula'], ['marca_modelo', 'Marca/Modelo'],
   ['saero_dia_piloto', 'S/Aeródromo Día Piloto'], ['saero_dia_copiloto', 'S/Aeródromo Día Copiloto'],
   ['saero_noche_piloto', 'S/Aeródromo Noche Piloto'], ['saero_noche_copiloto', 'S/Aeródromo Noche Copiloto'],
@@ -125,11 +125,6 @@ const ViewExportar = {
     const i = this._fichaIndex;
     const f = filas[i];
     const esLocal = f.desde === f.hasta;
-    // Para un vuelo local (mismo aeródromo) mostramos una sola fila "Aeródromo"
-    // en vez de "Desde" y "Hasta" repitiendo el mismo código dos veces.
-    const columnas = esLocal
-      ? [['desde', 'Aeródromo'], ...COLUMNAS_290.filter(([k]) => k !== 'desde' && k !== 'hasta')]
-      : COLUMNAS_290;
     cont.innerHTML = `
       <div class="doc-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -137,7 +132,7 @@ const ViewExportar = {
           <span class="muted">${fmtFecha(f.fecha)} · ${esLocal ? f.desde : `${f.desde} → ${f.hasta}`}</span>
         </div>
         <div class="table-wrap"><table>
-          ${columnas.filter(([k]) => f[k] !== null && f[k] !== undefined && f[k] !== '' && f[k] !== 0).map(([k, label]) => `
+          ${COLUMNAS_290.filter(([k]) => f[k] !== null && f[k] !== undefined && f[k] !== '' && f[k] !== 0).map(([k, label]) => `
             <tr><td class="muted" style="white-space:nowrap">${label}</td><td style="font-family:var(--font-mono)">${f[k]}</td></tr>
           `).join('')}
         </table></div>
@@ -164,6 +159,9 @@ const ViewExportar = {
     const vuelos = await Repo.listarVuelos(await this._filtros());
     return vuelos.map((v) => ({
       ...v,
+      // Una sola columna de ruta: si es local (mismo aeródromo) no repite el
+      // código dos veces.
+      ruta: v.desde === v.hasta ? v.desde : `${v.desde}-${v.hasta}`,
       matricula: v.aeronaves?.matricula, marca_modelo: v.aeronaves?.marca_modelo,
       costo: Calc.costoRegistrado(v, v.aeronaves).monto,
     }));
@@ -189,27 +187,25 @@ const ViewExportar = {
     try {
       const filtros = await this._filtros();
       const [vuelos, datosPiloto] = await Promise.all([Repo.listarVuelos(filtros), Repo.getDatosPiloto()]);
-      const reales = ExportadorAnac.filtrarVuelosReales(vuelos);
-      if (!reales.length) { UI.toast('No hay vuelos con esos filtros.', 'warn'); return; }
+      if (!vuelos.length) { UI.toast('No hay vuelos con esos filtros.', 'warn'); return; }
 
       // Arrastre real: todo lo volado ANTES del primer vuelo exportado (mismo
       // filtro de aeronave/finalidad si se aplicó, sin límite de fecha
       // inferior) — así "exportar desde tal fecha" no arranca en 0, sino con
       // las horas que ya tenías acumuladas hasta ese momento.
-      const fechaMinima = reales.reduce((min, v) => (v.fecha < min ? v.fecha : min), reales[0].fecha);
-      const anteriores = ExportadorAnac.filtrarVuelosReales(await Repo.listarVuelos({
+      const fechaMinima = vuelos.reduce((min, v) => (v.fecha < min ? v.fecha : min), vuelos[0].fecha);
+      const anteriores = await Repo.listarVuelos({
         hasta: this._diaAnterior(fechaMinima),
         aeronave_id: filtros.aeronave_id,
         finalidad_vuelo: filtros.finalidad_vuelo,
-      }));
+      });
       let carry = {
         porColumna: ExportadorAnac.sumarColumnas(anteriores),
         grandTotal: Calc.round2(anteriores.reduce((s, v) => s + Calc.n(v.tiempo_total), 0)),
       };
 
-      const porAnio = ExportadorAnac.agruparPorAnio(reales);
+      const porAnio = ExportadorAnac.agruparPorAnio(vuelos);
       const anios = Object.keys(porAnio).sort();
-      const excluidos = vuelos.length - reales.length;
       for (const anio of anios) {
         const { workbook, estadoFinal } = ExportadorAnac.construirLibroAnual(ExcelJS, {
           anio, vuelos: porAnio[anio], datosPiloto, carryInicial: carry,
@@ -226,9 +222,7 @@ const ViewExportar = {
         // Pequeña pausa entre descargas para que el navegador no las bloquee.
         if (anios.length > 1) await new Promise((r) => setTimeout(r, 400));
       }
-      const partes = [anios.length > 1 ? `Se generaron ${anios.length} archivos (uno por año).` : 'Hoja generada.'];
-      if (excluidos > 0) partes.push(`${excluidos} turno${excluidos > 1 ? 's' : ''} de adiestrador no se incluyeron (no llevan renglón en la hoja oficial).`);
-      UI.toast(partes.join(' '), 'ok');
+      UI.toast(anios.length > 1 ? `Se generaron ${anios.length} archivos (uno por año).` : 'Hoja generada.', 'ok');
     } catch (err) {
       UI.toast('Error al generar la hoja: ' + (err.message || err), 'error');
     } finally {

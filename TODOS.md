@@ -67,30 +67,34 @@ Marcá `[x]` a medida que se completan.
       cabecera de la hoja. ⚠️ Requiere `sql/agregar_datos_piloto.sql`.
       `getDatosPiloto` es tolerante si aún no se corrió (no rompe el Perfil).
 
-## Hecho — tanda 6 (4 bugs de la Hoja ANAC)
-- [x] **Arrastre en 0 al filtrar por fecha**: ahora se busca el historial real
+## Hecho — tanda 6 (4 bugs de la Hoja ANAC) — con una corrección posterior
+- [x] **Arrastre en 0 al filtrar por fecha**: se busca el historial real
       (mismos filtros de aeronave/finalidad, sin límite de fecha inferior) y se
       usa como arrastre inicial — "exportar desde tal fecha" ya no resetea las
       horas a cero. El acumulado tampoco resetea entre años (es de carrera,
       como en el libro de papel): un export multi-año encadena el total real.
-- [x] **Aeródromo doblado** en la Ficha por vuelo: vuelo local ahora muestra
-      una sola fila "Aeródromo" en vez de "Desde"/"Hasta" repitiendo el mismo
-      código. (En la Hoja ANAC nunca se duplicó — ahí ya mostraba un valor.)
+- [x] **Aeródromo doblado**: NO era la Hoja ANAC (ahí ya mostraba un solo
+      valor) — era la "Planilla simple (.xlsx)" y la Ficha por vuelo, que
+      tenían columnas separadas "Desde"/"Hasta" repitiendo el mismo código en
+      vuelos locales. Se unificaron en una sola columna "Desde / Hasta" (o
+      "ruta") en ambas.
 - [x] **"MONOMOTOR" ilegible**: se abrevia (MONOM./MULTIM./REACTOR/TURBOH./
-      AEROAP./SIMUL.) y se desactivó el wrap de texto en los renglones de datos
-      (quedó solo en la cabecera) — antes cortaba palabras cortas en columnas
-      angostas y se leían mal.
-- [x] **Total en columna equivocada**: causa real — las columnas "Instructor"
-      y "Piloto en instrucción" del formulario oficial son de NOMBRE (texto),
-      no de horas; se estaban sumando como si fueran numéricas (mostrando
-      "0.0" donde debía ir un nombre o nada). Se sacaron de los totales;
-      "Instructor" ahora muestra el nombre real, "Piloto en instrucción" queda
-      en blanco (no se usa). Los turnos de adiestrador/simulador (TERR-TERR)
-      se excluyen de la hoja (no llevan renglón en el formulario oficial —
-      sus horas se siguen viendo en Totales/Costos); se avisa cuántos quedaron
-      afuera al exportar.
+      AEROAP./SIMUL.), tolerante a mayúsculas/espacios.
+- [x] **Recuadro "Total horas" mal ubicado/cortado**: al arreglar el punto
+      anterior (desactivar wrap en los renglones de datos para que la
+      abreviación de clase no se corte), sin querer se le sacó el wrap
+      TAMBIÉN al recuadro de "Total horas de vuelo", que si lo necesita
+      (3 líneas cortas) — quedó amontonado/ilegible, exactamente el problema
+      original. Corregido: wrap explícito solo en ese recuadro, fila más alta,
+      texto más corto ("TOTAL HS. VUELO / PÁG. ANTERIOR/SIGUIENTE / N.N").
+  - ⚠️ **Revertido por error de interpretación**: en el primer intento de este
+    fix había sacado las horas de adiestrador/simulador de la hoja (asumiendo
+    que "Instructor"/"Piloto en instrucción" eran campos de nombre) — el
+    usuario confirmó que ESO estaba bien antes y no había que tocarlo. Se
+    restauró el mapeo original (col 29 = horas de adiestrador, sumadas en los
+    totales; turnos TERR-TERR incluidos como renglón normal).
 - [x] Tests de la lógica de mapeo (`tests/exportadorAnac.test.js`, sin
-      necesitar ExcelJS): 42 en verde.
+      necesitar ExcelJS): 43 en verde.
 
 ## Pendiente / ideas a futuro
 - [ ] **Papelera** sigue solo en Perfil (aceptable: acción poco frecuente).

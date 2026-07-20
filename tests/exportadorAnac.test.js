@@ -5,7 +5,7 @@ const { loadApp } = require('./_helpers/loadApp');
 
 const ROOT = path.join(__dirname, '..');
 // No requiere ExcelJS: solo testea el mapeo de datos (valorCelda) y los
-// helpers puros (sumarColumnas, filtrarVuelosReales, agruparPorAnio).
+// helpers puros (sumarColumnas, agruparPorAnio).
 const { window } = loadApp([path.join(ROOT, 'js/calc.js'), path.join(ROOT, 'js/exportadorAnac.js')]);
 const { ExportadorAnac } = window;
 
@@ -37,31 +37,31 @@ test('valorCelda: clase de aeronave se abrevia (evita texto cortado en columna a
   assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: 'aeroaplicador' } })), 'AEROAP.');
 });
 
-test('valorCelda: columna 28 (instructor) es el nombre, no se confunde con horas', () => {
-  const v = vueloBase({ instructor_nombre: 'Ana Pérez' });
-  assert.equal(ExportadorAnac.valorCelda(28, v), 'Ana Pérez');
+test('valorCelda: clase tolera mayúsculas/espacios (no rompe el mapeo)', () => {
+  assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: ' Monomotor ' } })), 'MONOM.');
+  assert.equal(ExportadorAnac.valorCelda(10, vueloBase({ aeronaves: { clase: '' } })), '');
 });
 
-test('COLS_ACUM no incluye las columnas de nombre (28) ni las que nunca se llenan (26, 29)', () => {
-  assert.equal(ExportadorAnac.COLS_ACUM.includes(28), false);
-  assert.equal(ExportadorAnac.COLS_ACUM.includes(26), false);
-  assert.equal(ExportadorAnac.COLS_ACUM.includes(29), false);
+test('valorCelda: turno de adiestrador/simulador (col 29) suma sus horas', () => {
+  const v = vueloBase({ desde: 'TERR', hasta: 'TERR', adiestrador_simulador: 1.0, saero_dia_piloto: 0 });
+  assert.equal(ExportadorAnac.valorCelda(29, v), 1);
 });
 
-test('filtrarVuelosReales: excluye turnos de adiestrador terrestre (TERR-TERR)', () => {
-  const vuelos = [
-    vueloBase({ desde: 'SABE', hasta: 'SABE' }),
-    vueloBase({ desde: 'TERR', hasta: 'TERR' }),
-  ];
-  const reales = ExportadorAnac.filtrarVuelosReales(vuelos);
-  assert.equal(reales.length, 1);
-  assert.equal(reales[0].desde, 'SABE');
+test('COLS_ACUM incluye todas las columnas numéricas de la plantilla (incluido adiestrador, col 29)', () => {
+  assert.equal(ExportadorAnac.COLS_ACUM.includes(29), true);
+  assert.equal(ExportadorAnac.COLS_ACUM.includes(11), true);
 });
 
 test('sumarColumnas: suma el tiempo de vuelo (col 11) de varios vuelos', () => {
   const vuelos = [vueloBase({ saero_dia_piloto: 1.5 }), vueloBase({ saero_dia_piloto: 2.0 })];
   const sumas = ExportadorAnac.sumarColumnas(vuelos);
   assert.equal(sumas[11], 3.5);
+});
+
+test('sumarColumnas: incluye las horas de adiestrador de turnos TERR-TERR', () => {
+  const vuelos = [vueloBase({ desde: 'TERR', hasta: 'TERR', saero_dia_piloto: 0, adiestrador_simulador: 2.0 })];
+  const sumas = ExportadorAnac.sumarColumnas(vuelos);
+  assert.equal(sumas[29], 2);
 });
 
 test('agruparPorAnio: agrupa por el año de la fecha', () => {
