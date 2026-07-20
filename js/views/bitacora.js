@@ -8,10 +8,28 @@ const ViewBitacora = {
   aeronaves: [],
   orden: { campo: 'fecha', asc: false },
 
-  async render() {
+  // El filtro vive en la URL (#bitacora?desde=...&aeronave=...), no solo en
+  // memoria — si el navegador descarga la pestaña en segundo plano (pasa
+  // seguido en mobile) y la recargás al volver, la URL sigue teniendo el
+  // filtro y la bitácora lo vuelve a aplicar solo, en vez de mostrarte todo
+  // de nuevo como si nunca lo hubieras puesto.
+  async render(params) {
     const main = document.getElementById('main-content');
+    // Navegación fresca (el router siempre pasa `params`) vs re-render interno
+    // (this.render() sin argumentos, ej. después de borrar un vuelo) — solo
+    // una navegación fresca puede cambiar el filtro; un re-render interno
+    // mantiene el que ya estaba aplicado.
+    if (params !== undefined) {
+      this.filtros = {
+        desde: params.get('desde') || undefined,
+        hasta: params.get('hasta') || undefined,
+        aeronave_id: params.get('aeronave') || undefined,
+        finalidad_vuelo: params.get('finalidad') || undefined,
+      };
+    }
+    this.filtros = this.filtros || {};
     const [vuelos, aeronaves, vencimientos] = await Promise.all([
-      Repo.listarVuelos(), Repo.listarAeronaves(), Repo.listarVencimientos(),
+      Repo.listarVuelos(this.filtros), Repo.listarAeronaves(), Repo.listarVencimientos(),
     ]);
     this.vuelos = vuelos;
     this.aeronaves = aeronaves;
@@ -20,22 +38,20 @@ const ViewBitacora = {
       <div class="card">
         <h2>${Icons.list(18)} Bitácora</h2>
         <div class="grid cols-4">
-          <div class="field"><label>Desde</label><input type="date" id="fx-desde"></div>
-          <div class="field"><label>Hasta</label><input type="date" id="fx-hasta"></div>
+          <div class="field"><label>Desde</label><input type="date" id="fx-desde" value="${this.filtros.desde || ''}"></div>
+          <div class="field"><label>Hasta</label><input type="date" id="fx-hasta" value="${this.filtros.hasta || ''}"></div>
           <div class="field"><label>Aeronave</label>
             <select id="fx-aeronave"><option value="">Todas</option>
-              ${this.aeronaves.map((a) => `<option value="${a.id}">${a.matricula}</option>`).join('')}
+              ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === this.filtros.aeronave_id ? 'selected' : ''}>${a.matricula}</option>`).join('')}
             </select>
           </div>
           <div class="field"><label>Finalidad</label>
             <select id="fx-finalidad">
               <option value="">Todas</option>
-              <option value="INST">INST — Instrucción</option>
-              <option value="ADAP">ADAP — Adaptación</option>
-              <option value="REDAP">REDAP — Readaptación</option>
-              <option value="EXA">EXA — Examen</option>
-              <option value="ENTT">ENTT — Entrenamiento</option>
-              <option value="VP">VP — Vuelo privado</option>
+              ${[
+                ['INST', 'INST — Instrucción'], ['ADAP', 'ADAP — Adaptación'], ['REDAP', 'REDAP — Readaptación'],
+                ['EXA', 'EXA — Examen'], ['ENTT', 'ENTT — Entrenamiento'], ['VP', 'VP — Vuelo privado'],
+              ].map(([f, label]) => `<option value="${f}" ${f === this.filtros.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -65,7 +81,7 @@ const ViewBitacora = {
     `;
 
     document.getElementById('btn-filtrar').onclick = () => this._aplicarFiltro();
-    document.getElementById('btn-limpiar-filtro').onclick = () => this.render();
+    document.getElementById('btn-limpiar-filtro').onclick = () => Router.irA('bitacora');
     document.querySelectorAll('#tabla-bitacora th[data-orden]').forEach((th) => {
       th.style.cursor = 'pointer';
       th.onclick = () => this._ordenarPor(th.dataset.orden);
@@ -76,16 +92,20 @@ const ViewBitacora = {
     this._renderEstadoLicencia(this.vuelos, vencimientos);
   },
 
-  async _aplicarFiltro() {
-    const filtros = {
-      desde: document.getElementById('fx-desde').value || undefined,
-      hasta: document.getElementById('fx-hasta').value || undefined,
-      aeronave_id: document.getElementById('fx-aeronave').value || undefined,
-      finalidad_vuelo: document.getElementById('fx-finalidad').value || undefined,
-    };
-    const filtrados = await Repo.listarVuelos(filtros);
-    this.filasActuales = filtrados;
-    this._renderFilas(this.filasActuales);
+  // Navega a la URL con el filtro puesto (en vez de solo refrescar la tabla
+  // en memoria) — así queda en el hash y sobrevive a una recarga.
+  _aplicarFiltro() {
+    const qs = new URLSearchParams();
+    const desde = document.getElementById('fx-desde').value;
+    const hasta = document.getElementById('fx-hasta').value;
+    const aeronave = document.getElementById('fx-aeronave').value;
+    const finalidad = document.getElementById('fx-finalidad').value;
+    if (desde) qs.set('desde', desde);
+    if (hasta) qs.set('hasta', hasta);
+    if (aeronave) qs.set('aeronave', aeronave);
+    if (finalidad) qs.set('finalidad', finalidad);
+    const query = qs.toString();
+    Router.irA('bitacora' + (query ? '?' + query : ''));
   },
 
   // Ordena el conjunto que se está mostrando ahora (filtrado o completo), no

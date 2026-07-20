@@ -3,6 +3,31 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 12 (sobrevivir a que el navegador descargue la pestaña)
+Causa: en mobile (más todavía si la app está "instalada" como PWA, que es
+`display: standalone` en el manifest), el sistema operativo suele descargar
+de memoria una pestaña/app en segundo plano para liberar RAM. Al volver, el
+navegador hace una recarga completa desde cero — y todo lo que vivía solo en
+memoria de JS (formulario sin guardar, filtro aplicado, en qué sección de
+Perfil estabas) se pierde, como si nunca hubiera estado.
+- [x] **Nuevo vuelo — borrador automático**: mientras cargás un vuelo nuevo
+      (no mientras editás uno existente), cada cambio en el formulario se
+      guarda solo en `localStorage`. Si la pestaña se recarga a mitad de
+      carga, al volver a "Nuevo vuelo" se restaura el borrador (con un aviso
+      de que se recuperó) en vez de arrancar en blanco. Se borra solo al
+      guardar el vuelo con éxito o al tocar "Limpiar".
+- [x] **Bitácora — filtro en la URL**: `#bitacora?desde=...&aeronave=...` en
+      vez de vivir solo en memoria — una recarga vuelve a aplicar el mismo
+      filtro en vez de mostrar todo de nuevo. Borrar un vuelo desde una vista
+      filtrada ya no descarta el filtro al refrescar la tabla.
+- [x] **Perfil — sección en la URL**: `#perfil?seccion=personales` (etc.) en
+      vez de un estado interno — un reload te devuelve a la misma sección en
+      vez de mandarte al menú.
+- [ ] Pendiente si hace falta más: los filtros de Exportar (fecha/aeronave/
+      finalidad) todavía viven solo en memoria — impacto menor porque no
+      hacen desaparecer una vista, solo hay que volver a elegirlos antes de
+      exportar. Mismo patrón que Bitácora si en algún momento molesta.
+
 ## Hecho — tanda 10 (feedback de carga + un round-trip menos por acción)
 - [x] **`UI.skeletonDiferido`**: esqueleto de carga que solo aparece si la
       pantalla/sección tarda más de 150ms — si la respuesta es casi

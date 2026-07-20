@@ -99,7 +99,7 @@ const ViewPerfil = {
         main.innerHTML = volver + this._htmlPapelera(papelera);
         this._bindPapelera();
       }
-      document.getElementById('btn-volver-perfil').onclick = () => { this.seccion = null; this.render(); };
+      document.getElementById('btn-volver-perfil').onclick = () => Router.irA('perfil');
     } finally {
       cancelarSkeleton();
     }
@@ -137,12 +137,12 @@ const ViewPerfil = {
   },
 
   _bindMenu() {
+    // Navega por hash (no solo cambia this.seccion en memoria) para que la
+    // sección en la que estás quede en la URL — si el navegador descarga la
+    // pestaña en segundo plano y volvés, la recarga te devuelve a la misma
+    // sección en vez de al menú.
     document.querySelectorAll('.menu-item').forEach((b) => {
-      b.onclick = () => {
-        if (b.dataset.ruta) { Router.irA(b.dataset.ruta); return; }
-        this.seccion = b.dataset.id;
-        this.render();
-      };
+      b.onclick = () => Router.irA(b.dataset.ruta || ('perfil?seccion=' + b.dataset.id));
     });
     document.getElementById('btn-logout').onclick = () => Auth.cerrarSesion();
   },

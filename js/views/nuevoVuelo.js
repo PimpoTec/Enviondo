@@ -3,6 +3,8 @@
 // + turnos de adiestrador terrestre (entrada simplificada, sin horas de vuelo)
 // ============================================================================
 
+const BORRADOR_KEY = 'borrador_nuevo_vuelo';
+
 const ViewNuevoVuelo = {
   aeronaves: [],
   tipo: 'vuelo', // 'vuelo' | 'adiestrador'
@@ -14,6 +16,7 @@ const ViewNuevoVuelo = {
   editId: null,
   editVuelo: null,
   params: null,
+  _borradorCampos: null, // valores de campos a restaurar después de pintar el form (una sola vez)
 
   async render(params) {
     const main = document.getElementById('main-content');
@@ -29,13 +32,29 @@ const ViewNuevoVuelo = {
     // Al entrar a cargar un vuelo nuevo (sin editar ni precargar desde un
     // agendado), arrancá siempre del estado por defecto — si no, la vista
     // singleton conservaría los toggles del vuelo anterior (modo detallado,
-    // travesía, discriminación) y confundiría al piloto.
+    // travesía, discriminación) y confundiría al piloto. Salvo que haya un
+    // borrador sin guardar (el navegador descarga la pestaña en segundo
+    // plano bastante seguido en mobile, y al volver recarga todo desde
+    // cero) — en ese caso se restaura en vez de arrancar en blanco.
     if (esNavegacionFresca && !nuevoEditId && !this.progId) {
-      this.tipo = 'vuelo';
-      this.modoDetallado = false;
-      this.discriminarRapido = false;
-      this.esTravesia = false;
-      this.esPiloto = true;
+      const borrador = this._leerBorrador();
+      if (borrador) {
+        this.tipo = borrador.tipo === 'adiestrador' ? 'adiestrador' : 'vuelo';
+        this.modoDetallado = !!borrador.modoDetallado;
+        this.discriminarRapido = !!borrador.discriminarRapido;
+        this.esTravesia = !!borrador.esTravesia;
+        this.esPiloto = borrador.esPiloto !== false;
+        this._borradorCampos = borrador.campos || null;
+      } else {
+        this.tipo = 'vuelo';
+        this.modoDetallado = false;
+        this.discriminarRapido = false;
+        this.esTravesia = false;
+        this.esPiloto = true;
+        this._borradorCampos = null;
+      }
+    } else if (esNavegacionFresca) {
+      this._borradorCampos = null; // editando o precargado: no hay borrador que aplicar
     }
 
     const desdeParam = this.params?.get('desde');
@@ -105,6 +124,50 @@ const ViewNuevoVuelo = {
     } else {
       this._renderFormVuelo();
     }
+    this._aplicarBorradorCampos();
+
+    // Autoguardado: cualquier cambio en el formulario (mientras NO estés
+    // editando un vuelo real) se guarda como borrador local. Un solo
+    // listener delegado en el contenedor cubre ambos formularios (vuelo y
+    // adiestrador) y sobrevive a que se re-pinte su contenido interno.
+    document.getElementById('form-registro').addEventListener('input', () => this._guardarBorrador());
+    document.getElementById('form-registro').addEventListener('change', () => this._guardarBorrador());
+  },
+
+  _aplicarBorradorCampos() {
+    if (!this._borradorCampos) return;
+    const campos = this._borradorCampos;
+    this._borradorCampos = null; // se aplica una sola vez
+    Object.entries(campos).forEach(([id, valor]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = valor;
+      else el.value = valor;
+    });
+    if (this.tipo === 'vuelo') this._actualizarPreview();
+    UI.toast('Recuperamos tu borrador sin guardar de la última vez.', 'info');
+  },
+
+  _guardarBorrador() {
+    if (this.editId) return; // editando un vuelo real: no es un "borrador"
+    const campos = {};
+    document.querySelectorAll('#form-registro input, #form-registro select, #form-registro textarea').forEach((el) => {
+      if (!el.id) return;
+      campos[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    const snapshot = {
+      tipo: this.tipo, modoDetallado: this.modoDetallado, esTravesia: this.esTravesia,
+      esPiloto: this.esPiloto, discriminarRapido: this.discriminarRapido, campos,
+    };
+    try { localStorage.setItem(BORRADOR_KEY, JSON.stringify(snapshot)); } catch { /* storage lleno/denegado: sin borrador, no rompe nada */ }
+  },
+
+  _leerBorrador() {
+    try { return JSON.parse(localStorage.getItem(BORRADOR_KEY) || 'null'); } catch { return null; }
+  },
+
+  _borrarBorrador() {
+    try { localStorage.removeItem(BORRADOR_KEY); } catch { /* noop */ }
   },
 
   // ==========================================================================
@@ -358,6 +421,7 @@ const ViewNuevoVuelo = {
     document.getElementById('btn-guardar-vuelo').onclick = () => this._guardar();
     document.getElementById('btn-limpiar').onclick = () => {
       if (this.editId) { Router.irA('bitacora'); return; }
+      this._borrarBorrador();
       this.render();
     };
   },
@@ -524,6 +588,7 @@ const ViewNuevoVuelo = {
         return;
       }
       const res = await Repo.crearVuelo(campos);
+      this._borrarBorrador();
       if (this.progId) {
         Repo.borrarVueloProgramado(this.progId).catch(() => {});
       }
@@ -662,6 +727,7 @@ const ViewNuevoVuelo = {
     document.getElementById('btn-guardar-adiestrador').onclick = () => this._guardarAdiestrador();
     document.getElementById('btn-limpiar').onclick = () => {
       if (this.editId) { Router.irA('bitacora'); return; }
+      this._borrarBorrador();
       this.render();
     };
 
@@ -724,6 +790,7 @@ const ViewNuevoVuelo = {
         return;
       }
       const res = await Repo.crearVuelo(campos);
+      this._borrarBorrador();
       msg.innerHTML = res.offline ? Icons.tag('wifiOff', 'Guardado localmente. Se sincroniza solo al volver la señal.') : Icons.tag('checkCircle', 'Turno guardado.');
       msg.className = 'muted';
       setTimeout(() => Router.irA('bitacora'), 700);

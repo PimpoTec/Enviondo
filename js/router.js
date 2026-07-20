@@ -5,7 +5,7 @@
 const RUTAS = [
   { id: 'dashboard', label: 'Inicio', icon: 'home', render: () => ViewDashboard.render() },
   { id: 'nuevo-vuelo', label: 'Nuevo vuelo', icon: 'plusCircle', render: (p) => ViewNuevoVuelo.render(p) },
-  { id: 'bitacora', label: 'Bitácora', icon: 'list', render: () => ViewBitacora.render() },
+  { id: 'bitacora', label: 'Bitácora', icon: 'list', render: (p) => ViewBitacora.render(p) },
   { id: 'aeronaves', label: 'Aeronaves', icon: 'plane', render: () => ViewAeronaves.render() },
   { id: 'totales', label: 'Totales', icon: 'barChart', render: () => ViewTotales.render() },
   { id: 'costos', label: 'Costos', icon: 'dollar', render: () => ViewCostos.render() },
