@@ -11,7 +11,7 @@
 // corregido.
 // ============================================================================
 
-const CACHE = 'libro-vuelo-v15';
+const CACHE = 'libro-vuelo-v16';
 const ARCHIVOS_SHELL = [
   './', './index.html', './manifest.webmanifest',
   './css/styles.css',

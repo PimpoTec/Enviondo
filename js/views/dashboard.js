@@ -128,7 +128,7 @@ const ViewDashboard = {
             <div class="plan-datos">
               ${diaSemana ? `<div class="plan-dato"><span class="muted">Día</span><span>${diaSemana}</span></div>` : ''}
               ${p.hora_prevista ? `<div class="plan-dato"><span class="muted">Hora</span><span class="mono">${p.hora_prevista.slice(0, 5)} ${prefLabel}</span></div>` : ''}
-              ${p.desde && p.hasta ? `<div class="plan-dato"><span class="muted">Tipo</span><span>${esLocal ? 'Local (sobre aeródromo)' : 'Travesía'}</span></div>` : ''}
+              ${p.tipo_vuelo || (p.desde && p.hasta) ? `<div class="plan-dato"><span class="muted">Tipo</span><span>${p.tipo_vuelo ? labelTipoVueloProgramado(p.tipo_vuelo) : (esLocal ? 'Local (sobre aeródromo)' : 'Travesía')}</span></div>` : ''}
               ${p.instructor_nombre ? `<div class="plan-dato"><span class="muted">Instructor</span><span>${p.instructor_nombre}</span></div>` : ''}
             </div>
 
@@ -177,6 +177,13 @@ const ViewDashboard = {
         <div class="field"><label>Instructor</label><input type="text" id="pv-instructor"></div>
         <div class="field"><label>Desde (OACI)</label><input type="text" id="pv-desde" maxlength="4" style="text-transform:uppercase"></div>
         <div class="field"><label>Hasta (OACI)</label><input type="text" id="pv-hasta" maxlength="4" style="text-transform:uppercase"></div>
+        <div class="field">
+          <label>Tipo de vuelo <span class="muted">(opcional)</span></label>
+          <select id="pv-tipo">
+            <option value="">Sin especificar — usa Local/Travesía según destino</option>
+            ${TIPOS_VUELO_PROGRAMADO.map(([c, label]) => `<option value="${c}">${label}</option>`).join('')}
+          </select>
+        </div>
       </div>
       <div class="field"><label>Notas</label><input type="text" id="pv-notas"></div>
       <div class="btn-row"><button class="btn" id="btn-guardar-programado">Agendar</button></div>
@@ -198,6 +205,7 @@ const ViewDashboard = {
         desde: document.getElementById('pv-desde').value.trim().toUpperCase() || null,
         hasta: document.getElementById('pv-hasta').value.trim().toUpperCase() || null,
         instructor_nombre: document.getElementById('pv-instructor').value || null,
+        tipo_vuelo: document.getElementById('pv-tipo').value || null,
         notas: document.getElementById('pv-notas').value || null,
       });
       this.render();
@@ -220,6 +228,21 @@ const ViewDashboard = {
 
 const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+// Tipo de vuelo agendado — completamente opcional. Si no se elige nada, la
+// tarjeta de "Próximo vuelo" sigue mostrando Local/Travesía deducido del
+// destino, como siempre; si se elige uno, se muestra este en su lugar.
+const TIPOS_VUELO_PROGRAMADO = [
+  ['solo', 'Vuelo Solo'],
+  ['instruccion', 'Vuelo de Instrucción'],
+  ['capota', 'Capota'],
+  ['nocturno', 'Nocturno'],
+  ['navegacion', 'Navegación'],
+  ['examen', 'Examen'],
+];
+function labelTipoVueloProgramado(codigo) {
+  return TIPOS_VUELO_PROGRAMADO.find(([c]) => c === codigo)?.[1] || codigo;
+}
 
 // METAR/TAF real del aeródromo de origen — servicio público de NOAA
 // (aviationweather.gov), sin API key. aviationweather.gov no manda headers

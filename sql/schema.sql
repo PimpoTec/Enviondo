@@ -450,4 +450,10 @@ alter table perfil_piloto add column if not exists licencia        text;
 alter table perfil_piloto add column if not exists licencia_numero text;
 alter table perfil_piloto add column if not exists legajo          text;
 
+-- ============================================================================
+-- TIPO DE VUELO (opcional) en vuelos programados. Ver
+-- sql/agregar_tipo_vuelo_programado.sql.
+-- ============================================================================
+alter table vuelos_programados add column if not exists tipo_vuelo text;
+
 -- Fin del esquema.

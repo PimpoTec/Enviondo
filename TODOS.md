@@ -3,6 +3,13 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 13 (tipo de vuelo agendado, opcional)
+- [x] **"Programar vuelo"**: nuevo campo opcional "Tipo de vuelo" (Vuelo
+      Solo / Vuelo de Instrucción / Capota / Nocturno / Navegación / Examen).
+      Si no lo elegís, la tarjeta de "Próximo vuelo" sigue mostrando
+      Local/Travesía deducido del destino, como siempre. Requiere correr
+      `sql/agregar_tipo_vuelo_programado.sql` en Supabase.
+
 ## Hecho — tanda 12 (sobrevivir a que el navegador descargue la pestaña)
 Causa: en mobile (más todavía si la app está "instalada" como PWA, que es
 `display: standalone` en el manifest), el sistema operativo suele descargar
