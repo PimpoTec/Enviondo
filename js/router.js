@@ -8,16 +8,16 @@ const RUTAS = [
   { id: 'bitacora', label: 'Bitácora', icon: 'list', render: () => ViewBitacora.render() },
   { id: 'aeronaves', label: 'Aeronaves', icon: 'plane', render: () => ViewAeronaves.render() },
   { id: 'totales', label: 'Totales', icon: 'barChart', render: () => ViewTotales.render() },
-  { id: 'exportar', label: 'Costos', icon: 'dollar', render: () => ViewExportar.render() },
-  { id: 'perfil', label: 'Perfil', icon: 'award', render: () => ViewPerfil.render() },
-  // 'costos' quedó sin ruta propia: su contenido vive ahora en Exportar
-  // (que reusa las funciones de desglose de js/views/costos.js).
+  { id: 'costos', label: 'Costos', icon: 'dollar', render: () => ViewCostos.render() },
+  { id: 'exportar', label: 'Exportar', icon: 'download', render: () => ViewExportar.render() },
+  { id: 'perfil', label: 'Perfil', icon: 'award', render: (p) => ViewPerfil.render(p) },
 ];
 
-// Íconos propios en la barra inferior. Exportar (rotulado "Costos" porque ahí
-// vive el resumen de gastos + la exportación) se sumó para no dejarlo escondido
-// dentro de Perfil. Nuevo vuelo se llega desde botones; Perfil, desde el header.
-const RUTAS_NAV_INFERIOR = ['dashboard', 'bitacora', 'aeronaves', 'totales', 'exportar'];
+// Solo estas 4 tienen ícono propio en la barra inferior — Costos y Exportar
+// se sacaron a propósito: viven únicamente dentro de Perfil (más "íntimo",
+// no un destino de primer nivel). Nuevo vuelo se llega desde botones dentro
+// de las pantallas; Perfil, desde el ícono del header.
+const RUTAS_NAV_INFERIOR = ['dashboard', 'bitacora', 'aeronaves', 'totales'];
 
 function construirNav() {
   const nav = document.getElementById('bottom-nav');

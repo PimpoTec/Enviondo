@@ -22,43 +22,9 @@ const ViewExportar = {
 
   async render() {
     const main = document.getElementById('main-content');
-    const [aeronaves, vuelos, cursosActivos] = await Promise.all([
-      Repo.listarAeronaves(), Repo.listarVuelos(), Repo.getCursosActivos(),
-    ]);
-    this.aeronaves = aeronaves;
-
-    // ---- Resumen de costos (antes vivía en su propia pantalla; ahora se ve
-    // acá, junto a la exportación) ----
-    const configsPorCurso = await Promise.all(cursosActivos.map((id) => Repo.listarConfigLicencia(id)));
-    const agg = agregarVuelos(vuelos);
-    const costoPromedioHora = agg.tiempo_total > 0 ? Calc.round2(agg.costo_total / agg.tiempo_total) : 0;
-    const reqsTotal = configsPorCurso.flat().filter((c) => c.nombre_requisito === 'total');
-    const reqTotal = reqsTotal.length ? reqsTotal.reduce((a, b) => (Calc.n(b.minimo_horas) > Calc.n(a.minimo_horas) ? b : a)) : null;
-    const curso = CURSOS.find((c) => c.id === reqTotal?.curso_id) || CURSOS.find((c) => c.id === cursosActivos[0]) || CURSOS[1];
-    const horasFaltantes = reqTotal ? Math.max(0, Calc.round2(Calc.n(reqTotal.minimo_horas) - agg.tiempo_total)) : 0;
-    const proyeccion = Calc.round2(horasFaltantes * costoPromedioHora);
+    this.aeronaves = await Repo.listarAeronaves();
 
     main.innerHTML = `
-      <div class="card">
-        <h2>${Icons.dollar(18)} Costos de la carrera</h2>
-        <div class="grid cols-3">
-          <div class="stat"><div class="num">${fmtMoneda(agg.costo_total)}</div><div class="lbl">Gastado total</div></div>
-          <div class="stat"><div class="num">${fmtMoneda(costoPromedioHora)}</div><div class="lbl">Promedio / hora</div></div>
-          <div class="stat"><div class="num">${fmtMoneda(proyeccion)}</div><div class="lbl">Falta para ${curso.id}</div></div>
-        </div>
-        <p class="muted" style="margin-top:8px">Proyección: faltan ${horasFaltantes} hs para el total de ${curso.label}, al costo promedio por hora de hasta ahora. Lo que volaste en aeronaves que cobran en dólares ya quedó convertido a pesos al valor del día en que lo cargaste.</p>
-        <div class="grid cols-2" style="margin-top:6px">
-          <div>
-            <h3 style="margin-top:8px">${Icons.barChart(16)} Gasto por mes</h3>
-            <div id="gasto-mes"></div>
-          </div>
-          <div>
-            <h3 style="margin-top:8px">${Icons.plane(16)} Costo por aeronave</h3>
-            <div id="gasto-aeronave"></div>
-          </div>
-        </div>
-      </div>
-
       <div class="card">
         <h2>${Icons.download(18)} Exportar</h2>
         <div class="grid cols-4">
@@ -101,10 +67,6 @@ const ViewExportar = {
     document.getElementById('btn-export-pdf').onclick = () => this._exportarPdf();
     document.getElementById('btn-export-json').onclick = () => this._exportarJson();
     document.getElementById('btn-ver-fichas').onclick = () => this._toggleFichas();
-
-    // Desgloses de costo (funciones compartidas con la vista de costos).
-    renderGastoPorMes(vuelos);
-    renderGastoPorAeronave(vuelos);
   },
 
   async _toggleFichas() {

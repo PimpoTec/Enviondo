@@ -1,10 +1,8 @@
 // ============================================================================
-// VISTA: PERFIL / LICENCIAS / VENCIMIENTOS
-// Los mínimos son GLOBALES (los mismos para todos los pilotos que usen la
-// app) y referenciales — no reemplazan la normativa vigente. Solo la
-// cuenta admin (ver js/config.js ADMIN_EMAIL) puede editarlos; el resto
-// los ve de solo lectura. RLS en Supabase hace cumplir esto del lado del
-// servidor, no solo acá en la interfaz.
+// VISTA: PERFIL — menú interno (como Ajustes): elegís a qué entrar.
+// Datos Personales · Preferencias · Costos · Exportar · Alertas · Papelera.
+// Costos y Exportar navegan a su propia pantalla (ya existían como vistas
+// completas); el resto se muestra adentro de Perfil mismo.
 // ============================================================================
 
 // Claves de requisito que la app efectivamente sabe calcular con tus
@@ -20,6 +18,15 @@ const LABELS_REQUISITO = {
   aterrizajes_noche: 'Aterrizajes nocturnos', remolques: 'Remolques',
 };
 
+const MENU_PERFIL = [
+  { id: 'personales', icon: 'person', label: 'Datos Personales', desc: 'Cursos, licencia, contraseña' },
+  { id: 'preferencias', icon: 'wrench', label: 'Preferencias', desc: 'Tema, huso horario' },
+  { id: 'costos', icon: 'dollar', label: 'Costos', desc: 'Gasto de la carrera', ruta: 'costos' },
+  { id: 'exportar', icon: 'download', label: 'Exportar', desc: 'Hoja ANAC, Excel, PDF, backup', ruta: 'exportar' },
+  { id: 'alertas', icon: 'alertTriangle', label: 'Alertas', desc: 'Vencimientos, currency' },
+  { id: 'papelera', icon: 'trash', label: 'Papelera', desc: 'Vuelos borrados' },
+];
+
 function estadoVencimiento(v) {
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
   const fv = Calc.parseFechaLocal(v.fecha_vencimiento);
@@ -30,13 +37,24 @@ function estadoVencimiento(v) {
 }
 
 const ViewPerfil = {
+  seccion: null, // null = menú · 'personales' | 'preferencias' | 'alertas' | 'papelera'
   cursosActivos: ['PPA'],
   esAdmin: false,
   mostrarAdmin: false,
   hviSimHoras: null,
+  datosPiloto: {},
 
-  async render() {
+  async render(params) {
     const main = document.getElementById('main-content');
+
+    // Navegación fresca (el router siempre pasa `params`) vs re-render interno
+    // (this.render() sin argumentos, tras guardar algo) — mismo patrón que
+    // ViewNuevoVuelo: solo una navegación fresca puede cambiar de sección.
+    if (params !== undefined) {
+      const seccionPedida = params?.get('seccion');
+      this.seccion = MENU_PERFIL.some((m) => m.id === seccionPedida && !m.ruta) ? seccionPedida : null;
+    }
+
     const [cursosActivos, esAdmin, vencimientos, vuelos, papelera, datosPiloto] = await Promise.all([
       Repo.getCursosActivos(), Repo.esAdminApp(), Repo.listarVencimientos(), Repo.listarVuelos(), Repo.listarVuelosBorrados(), Repo.getDatosPiloto(),
     ]);
@@ -50,12 +68,182 @@ const ViewPerfil = {
       this.hviSimHoras = await Repo.getHviSimHoras();
     }
 
+    if (!this.seccion) {
+      main.innerHTML = this._htmlMenu(papelera.length, vencimientos);
+      this._bindMenu();
+      return;
+    }
+
+    const volver = `<button class="btn ghost" id="btn-volver-perfil" style="margin-bottom:12px">← Perfil</button>`;
+    if (this.seccion === 'personales') {
+      main.innerHTML = volver + this._htmlPersonales();
+      this._bindPersonales();
+    } else if (this.seccion === 'preferencias') {
+      main.innerHTML = volver + this._htmlPreferencias();
+      this._bindPreferencias();
+      if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
+    } else if (this.seccion === 'alertas') {
+      main.innerHTML = volver + this._htmlAlertas(vencimientos);
+      this._bindAlertas();
+      try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency:', err); }
+    } else if (this.seccion === 'papelera') {
+      main.innerHTML = volver + this._htmlPapelera(papelera);
+      this._bindPapelera();
+    }
+    document.getElementById('btn-volver-perfil').onclick = () => { this.seccion = null; this.render(); };
+  },
+
+  // ==========================================================================
+  // MENÚ PRINCIPAL
+  // ==========================================================================
+  _htmlMenu(papeleraLen, vencimientos) {
+    const alertasPend = vencimientos.filter((v) => estadoVencimiento(v).estado !== 'ok').length;
+    return `
+      <div class="card" style="padding:6px 16px">
+        <div class="menu-list">
+          ${MENU_PERFIL.map((m) => {
+            const badge = m.id === 'papelera' && papeleraLen ? `<span class="badge warn">${papeleraLen}</span>`
+              : m.id === 'alertas' && alertasPend ? `<span class="badge warn">${alertasPend}</span>` : '';
+            return `
+            <button class="menu-item" data-id="${m.id}" data-ruta="${m.ruta || ''}">
+              <span class="menu-item-icon">${Icons[m.icon](20)}</span>
+              <span class="menu-item-text">
+                <span class="menu-item-label">${m.label}</span>
+                <span class="menu-item-desc">${m.desc}</span>
+              </span>
+              ${badge}
+              ${Icons.chevronRight(18)}
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <button class="btn ghost" id="btn-logout" style="width:100%;justify-content:center">${Icons.tag('logOut', 'Cerrar sesión')}</button>
+      </div>
+    `;
+  },
+
+  _bindMenu() {
+    document.querySelectorAll('.menu-item').forEach((b) => {
+      b.onclick = () => {
+        if (b.dataset.ruta) { Router.irA(b.dataset.ruta); return; }
+        this.seccion = b.dataset.id;
+        this.render();
+      };
+    });
+    document.getElementById('btn-logout').onclick = () => Auth.cerrarSesion();
+  },
+
+  // ==========================================================================
+  // DATOS PERSONALES — cursos, datos del piloto, cambiar contraseña
+  // ==========================================================================
+  _htmlPersonales() {
+    return `
+      <div class="card">
+        <h2>${Icons.award(18)} Cursos / carreras activas</h2>
+        <div class="field">
+          <label>¿Qué estás haciendo ahora? (podés tildar más de uno, ej. un curso + una habilitación en paralelo)</label>
+          <div id="p-cursos-lista" style="display:flex;flex-direction:column;gap:4px">
+            ${CURSOS.map((c) => `
+              <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text)">
+                <input type="checkbox" class="p-curso-check" value="${c.id}" style="width:auto" ${this.cursosActivos.includes(c.id) ? 'checked' : ''}>
+                ${c.label}
+              </label>`).join('')}
+          </div>
+        </div>
+        <p class="muted">Esto define qué progreso te muestra el Dashboard. Podés cambiarlo cuando avances de curso o sumar una habilitación.</p>
+      </div>
+
+      ${this.cursosActivos.includes('PCA_HVI') ? this._htmlRepartoHvi() : ''}
+
+      <div class="card">
+        <h2>${Icons.idCard(18)} Datos del piloto</h2>
+        <p class="muted" style="margin:0 0 10px">Se usan para completar la cabecera de la Hoja de Libro de Vuelo (ANAC 290/2012) cuando exportás.</p>
+        <div class="grid cols-4">
+          <div class="field"><label>Apellido y Nombre</label><input id="dp-nombre" value="${(this.datosPiloto.nombre_completo || '').replace(/"/g, '&quot;')}"></div>
+          <div class="field"><label>Licencia</label><input id="dp-licencia" value="${(this.datosPiloto.licencia || '').replace(/"/g, '&quot;')}" placeholder="PPA / PCA…"></div>
+          <div class="field"><label>Nº de licencia</label><input id="dp-lic-num" value="${(this.datosPiloto.licencia_numero || '').replace(/"/g, '&quot;')}"></div>
+          <div class="field"><label>Legajo Nº</label><input id="dp-legajo" value="${(this.datosPiloto.legajo || '').replace(/"/g, '&quot;')}"></div>
+        </div>
+        <button class="btn" id="btn-guardar-datos-piloto" style="margin-top:8px">Guardar datos</button>
+      </div>
+
+      <div class="card">
+        <h2>${Icons.lock(18)} Cambiar contraseña</h2>
+        <div class="field"><label>Contraseña nueva</label><input type="password" id="cp-nueva" placeholder="Mínimo 6 caracteres"></div>
+        <button class="btn secondary" id="btn-cambiar-clave">Cambiar contraseña</button>
+      </div>
+
+      <div class="card">
+        <button class="btn ghost" id="btn-logout-personales" style="width:100%;justify-content:center">${Icons.tag('logOut', 'Cerrar sesión')}</button>
+      </div>
+    `;
+  },
+
+  _bindPersonales() {
+    document.querySelectorAll('.p-curso-check').forEach((chk) => {
+      chk.onchange = () => this._cambiarCursos();
+    });
+    document.getElementById('btn-guardar-datos-piloto').onclick = () => this._guardarDatosPiloto();
+    document.getElementById('btn-cambiar-clave').onclick = () => this._cambiarPassword();
+    document.getElementById('btn-logout-personales').onclick = () => Auth.cerrarSesion();
+    if (this.cursosActivos.includes('PCA_HVI')) {
+      document.getElementById('btn-guardar-hvi').onclick = () => this._guardarReparto();
+      document.getElementById('hvi-sim').addEventListener('input', (e) => {
+        const sim = Math.min(20, Math.max(0, Calc.n(e.target.value)));
+        document.getElementById('hvi-real').value = Calc.round2(40 - sim);
+      });
+    }
+  },
+
+  _htmlRepartoHvi() {
+    const yaElegido = this.hviSimHoras !== null && this.hviSimHoras !== undefined;
+    const simActual = yaElegido ? this.hviSimHoras : 20;
+    const realActual = Calc.round2(40 - simActual);
+    return `
+      <div class="card" style="border:1px solid var(--brand)">
+        <h2>${Icons.award(18)} Reparto de instrumentos (HVI)</h2>
+        <p class="muted">La RAAC (61.315.d) pide 40 hs de vuelo por instrumentos en total, de las cuales podés hacer <strong>hasta 20</strong> en simulador (FSTD) — el resto tiene que ser vuelo real. Elegís vos cómo repartirlas.</p>
+        ${!yaElegido ? `<p class="muted">${Icons.tag('alertTriangle', 'Todavía no elegiste tu reparto — completalo para que el progreso te calcule bien.')}</p>` : ''}
+        <div class="field-row">
+          <div class="field">
+            <label>Horas en simulador (0 a 20)</label>
+            <input type="number" min="0" max="20" inputmode="decimal" step="0.5" id="hvi-sim" value="${simActual}">
+          </div>
+          <div class="field">
+            <label>Horas reales (se completan solas)</label>
+            <input type="number" id="hvi-real" value="${realActual}" disabled>
+          </div>
+        </div>
+        <button class="btn" id="btn-guardar-hvi">Guardar reparto</button>
+      </div>
+    `;
+  },
+
+  async _cambiarPassword() {
+    const input = document.getElementById('cp-nueva');
+    const nueva = input.value;
+    if (!nueva || nueva.length < 6) { UI.toast('La contraseña tiene que tener al menos 6 caracteres.', 'warn'); return; }
+    try {
+      const { error } = await Auth.actualizarPassword(nueva);
+      if (error) { UI.toast('Error al cambiar la contraseña: ' + error.message, 'error'); return; }
+      input.value = '';
+      UI.toast('Contraseña actualizada.', 'ok');
+    } catch (err) {
+      UI.toast('Error al cambiar la contraseña: ' + (err.message || err), 'error');
+    }
+  },
+
+  // ==========================================================================
+  // PREFERENCIAS — tema, huso horario, vista de administrador (+ su panel)
+  // ==========================================================================
+  _htmlPreferencias() {
     const temaGuardado = temaActual();
     const horarioGuardado = obtenerPrefHorario();
-
-    main.innerHTML = `
+    return `
       <div class="card">
-        <h2>${Icons.person(18)} Preferencias</h2>
+        <h2>${Icons.wrench(18)} Preferencias</h2>
         <div class="field">
           <label>Tema</label>
           <div class="toggle-group" id="pref-tema" style="max-width:280px">
@@ -82,110 +270,11 @@ const ViewPerfil = {
         </div>` : ''}
       </div>
 
-      <div class="card">
-        <h2>${Icons.award(18)} Cursos / carreras activas</h2>
-        <div class="field">
-          <label>¿Qué estás haciendo ahora? (podés tildar más de uno, ej. un curso + una habilitación en paralelo)</label>
-          <div id="p-cursos-lista" style="display:flex;flex-direction:column;gap:4px">
-            ${CURSOS.map((c) => `
-              <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text)">
-                <input type="checkbox" class="p-curso-check" value="${c.id}" style="width:auto" ${this.cursosActivos.includes(c.id) ? 'checked' : ''}>
-                ${c.label}
-              </label>`).join('')}
-          </div>
-        </div>
-        <p class="muted">Esto define qué progreso te muestra el Dashboard. Podés cambiarlo cuando avances de curso o sumar una habilitación.</p>
-      </div>
-
-      ${this.cursosActivos.includes('PCA_HVI') ? this._htmlRepartoHvi() : ''}
-
       <div id="bloque-licencias"></div>
-
-      <div class="card">
-        <h2>${Icons.idCard(18)} Datos del piloto</h2>
-        <p class="muted" style="margin:0 0 10px">Se usan para completar la cabecera de la Hoja de Libro de Vuelo (ANAC 290/2012) cuando exportás.</p>
-        <div class="grid cols-4">
-          <div class="field"><label>Apellido y Nombre</label><input id="dp-nombre" value="${(this.datosPiloto.nombre_completo || '').replace(/"/g, '&quot;')}"></div>
-          <div class="field"><label>Licencia</label><input id="dp-licencia" value="${(this.datosPiloto.licencia || '').replace(/"/g, '&quot;')}" placeholder="PPA / PCA…"></div>
-          <div class="field"><label>Nº de licencia</label><input id="dp-lic-num" value="${(this.datosPiloto.licencia_numero || '').replace(/"/g, '&quot;')}"></div>
-          <div class="field"><label>Legajo Nº</label><input id="dp-legajo" value="${(this.datosPiloto.legajo || '').replace(/"/g, '&quot;')}"></div>
-        </div>
-        <button class="btn" id="btn-guardar-datos-piloto" style="margin-top:8px">Guardar datos</button>
-      </div>
-
-      <div class="card">
-        <h2>${Icons.dollar(18)} Costos y exportación</h2>
-        <p class="muted" style="margin:0 0 10px">El resumen de costos de la carrera y las opciones para exportar el libro (hoja ANAC, Excel, PDF, backup) están en una sola pantalla.</p>
-        <div class="btn-row">
-          <button class="btn secondary" onclick="Router.irA('exportar')">${Icons.tag('download', 'Ver costos y exportar')}</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>${Icons.idCard(18)} Vencimientos</h2>
-        <div class="grid cols-4">
-          <div class="field"><label>Tipo</label>
-            <select id="v-tipo">
-              <option value="CMA">Certificado Médico Aeronáutico</option>
-              <option value="habilitacion">Habilitación</option>
-              <option value="IFR">Habilitación IFR</option>
-              <option value="currency_nocturno">Currency nocturno</option>
-              <option value="otro">Otro</option>
-            </select>
-          </div>
-          <div class="field"><label>Fecha de vencimiento</label><input type="date" id="v-fecha"></div>
-          <div class="field"><label>Umbral de alerta (días)</label><input type="number" min="1" id="v-umbral" value="30"></div>
-          <div class="field"><label>Notas</label><input id="v-notas"></div>
-        </div>
-        <button class="btn" id="btn-agregar-vencimiento">Agregar vencimiento</button>
-
-        <div class="table-wrap" style="margin-top:14px"><table>
-          <thead><tr><th>Tipo</th><th>Vence</th><th>Estado</th><th>Notas</th><th></th></tr></thead>
-          <tbody id="tbody-vencimientos">
-            ${vencimientos.map((v) => {
-              const est = estadoVencimiento(v);
-              return `<tr>
-                <td>${v.tipo}</td><td>${fmtFecha(v.fecha_vencimiento)}</td>
-                <td><span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span></td>
-                <td>${v.notas || ''}</td>
-                <td><button class="btn ghost" onclick="ViewPerfil._borrarVencimiento('${v.id}')">${Icons.trash(16)}</button></td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table></div>
-
-        <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
-        <div id="currency-lista"></div>
-      </div>
-
-      <div class="card">
-        <h2>${Icons.trash(18)} Papelera ${papelera.length ? `<span class="badge warn">${papelera.length}</span>` : ''}</h2>
-        ${papelera.length
-          ? `<p class="muted">Los vuelos borrados quedan acá hasta que los restaurés o los borrés definitivamente — nunca desaparecen solos.</p>
-             <div class="table-wrap"><table>
-               <thead><tr><th>Fecha</th><th>Ruta</th><th>Aeronave</th><th class="num">Tiempo</th><th></th></tr></thead>
-               <tbody>
-                 ${papelera.map((v) => `
-                   <tr>
-                     <td>${fmtFecha(v.fecha)}</td>
-                     <td>${v.desde} → ${v.hasta}</td>
-                     <td>${v.aeronaves?.matricula || '—'}</td>
-                     <td class="num">${v.tiempo_total} hs</td>
-                     <td>
-                       <button class="btn ghost" onclick="ViewPerfil._restaurarVuelo('${v.id}')">${Icons.tag('checkCircle', 'Restaurar')}</button>
-                       <button class="btn ghost" onclick="ViewPerfil._borrarVueloPermanente('${v.id}')">${Icons.trash(16)}</button>
-                     </td>
-                   </tr>`).join('')}
-               </tbody>
-             </table></div>`
-          : `<p class="muted" style="margin:0">Vacía — los vuelos que borres van a aparecer acá primero.</p>`}
-      </div>
-
-      <div class="card">
-        <button class="btn ghost" id="btn-logout" style="width:100%;justify-content:center">${Icons.tag('logOut', 'Cerrar sesión')}</button>
-      </div>
     `;
+  },
 
+  _bindPreferencias() {
     document.querySelectorAll('#pref-tema button').forEach((b) => {
       b.onclick = () => { setTema(b.dataset.valor); this.render(); };
     });
@@ -195,58 +284,6 @@ const ViewPerfil = {
     document.querySelectorAll('#pref-admin button').forEach((b) => {
       b.onclick = () => { localStorage.setItem('admin_ui', b.dataset.valor); this.render(); };
     });
-    document.querySelectorAll('.p-curso-check').forEach((chk) => {
-      chk.onchange = () => this._cambiarCursos();
-    });
-    document.getElementById('btn-guardar-datos-piloto').onclick = () => this._guardarDatosPiloto();
-    document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
-    document.getElementById('btn-logout').onclick = () => Auth.cerrarSesion();
-    if (this.cursosActivos.includes('PCA_HVI')) {
-      document.getElementById('btn-guardar-hvi').onclick = () => this._guardarReparto();
-      document.getElementById('hvi-sim').addEventListener('input', (e) => {
-        const sim = Math.min(20, Math.max(0, Calc.n(e.target.value)));
-        document.getElementById('hvi-real').value = Calc.round2(40 - sim);
-      });
-    }
-
-    try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency en Perfil:', err); }
-
-    if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
-  },
-
-  // ---- Reparto instrumentos real/simulador para PCA_HVI (61.315(d)) ----
-  _htmlRepartoHvi() {
-    const yaElegido = this.hviSimHoras !== null && this.hviSimHoras !== undefined;
-    const simActual = yaElegido ? this.hviSimHoras : 20;
-    const realActual = Calc.round2(40 - simActual);
-    return `
-      <div class="card" style="border:1px solid var(--brand)">
-        <h2>${Icons.award(18)} Reparto de instrumentos (HVI)</h2>
-        <p class="muted">La RAAC (61.315.d) pide 40 hs de vuelo por instrumentos en total, de las cuales podés hacer <strong>hasta 20</strong> en simulador (FSTD) — el resto tiene que ser vuelo real. Elegís vos cómo repartirlas.</p>
-        ${!yaElegido ? `<p class="muted">${Icons.tag('alertTriangle', 'Todavía no elegiste tu reparto — completalo para que el progreso te calcule bien.')}</p>` : ''}
-        <div class="field-row">
-          <div class="field">
-            <label>Horas en simulador (0 a 20)</label>
-            <input type="number" min="0" max="20" inputmode="decimal" step="0.5" id="hvi-sim" value="${simActual}">
-          </div>
-          <div class="field">
-            <label>Horas reales (se completan solas)</label>
-            <input type="number" id="hvi-real" value="${realActual}" disabled>
-          </div>
-        </div>
-        <button class="btn" id="btn-guardar-hvi">Guardar reparto</button>
-      </div>
-    `;
-  },
-
-  async _guardarReparto() {
-    const sim = Math.min(20, Math.max(0, Calc.n(document.getElementById('hvi-sim').value)));
-    try {
-      await Repo.setHviSimHoras(sim);
-      this.render();
-    } catch (err) {
-      UI.toast('Error al guardar el reparto: ' + (err.message || err), 'error');
-    }
   },
 
   // ---- Vista admin: TODOS los cursos con sus requisitos, editables ----
@@ -299,6 +336,99 @@ const ViewPerfil = {
         </div>
       </div>
     `;
+  },
+
+  // ==========================================================================
+  // ALERTAS — vencimientos + currency
+  // ==========================================================================
+  _htmlAlertas(vencimientos) {
+    return `
+      <div class="card">
+        <h2>${Icons.idCard(18)} Vencimientos</h2>
+        <div class="grid cols-4">
+          <div class="field"><label>Tipo</label>
+            <select id="v-tipo">
+              <option value="CMA">Certificado Médico Aeronáutico</option>
+              <option value="habilitacion">Habilitación</option>
+              <option value="IFR">Habilitación IFR</option>
+              <option value="currency_nocturno">Currency nocturno</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="field"><label>Fecha de vencimiento</label><input type="date" id="v-fecha"></div>
+          <div class="field"><label>Umbral de alerta (días)</label><input type="number" min="1" id="v-umbral" value="30"></div>
+          <div class="field"><label>Notas</label><input id="v-notas"></div>
+        </div>
+        <button class="btn" id="btn-agregar-vencimiento">Agregar vencimiento</button>
+
+        <div class="table-wrap" style="margin-top:14px"><table>
+          <thead><tr><th>Tipo</th><th>Vence</th><th>Estado</th><th>Notas</th><th></th></tr></thead>
+          <tbody id="tbody-vencimientos">
+            ${vencimientos.map((v) => {
+              const est = estadoVencimiento(v);
+              return `<tr>
+                <td>${v.tipo}</td><td>${fmtFecha(v.fecha_vencimiento)}</td>
+                <td><span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span></td>
+                <td>${v.notas || ''}</td>
+                <td><button class="btn ghost" onclick="ViewPerfil._borrarVencimiento('${v.id}')">${Icons.trash(16)}</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>
+
+        <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
+        <div id="currency-lista"></div>
+      </div>
+    `;
+  },
+
+  _bindAlertas() {
+    document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
+  },
+
+  // ==========================================================================
+  // PAPELERA
+  // ==========================================================================
+  _htmlPapelera(papelera) {
+    return `
+      <div class="card">
+        <h2>${Icons.trash(18)} Papelera ${papelera.length ? `<span class="badge warn">${papelera.length}</span>` : ''}</h2>
+        ${papelera.length
+          ? `<p class="muted">Los vuelos borrados quedan acá hasta que los restaurés o los borrés definitivamente — nunca desaparecen solos.</p>
+             <div class="table-wrap"><table>
+               <thead><tr><th>Fecha</th><th>Ruta</th><th>Aeronave</th><th class="num">Tiempo</th><th></th></tr></thead>
+               <tbody>
+                 ${papelera.map((v) => `
+                   <tr>
+                     <td>${fmtFecha(v.fecha)}</td>
+                     <td>${v.desde} → ${v.hasta}</td>
+                     <td>${v.aeronaves?.matricula || '—'}</td>
+                     <td class="num">${v.tiempo_total} hs</td>
+                     <td>
+                       <button class="btn ghost" onclick="ViewPerfil._restaurarVuelo('${v.id}')">${Icons.tag('checkCircle', 'Restaurar')}</button>
+                       <button class="btn ghost" onclick="ViewPerfil._borrarVueloPermanente('${v.id}')">${Icons.trash(16)}</button>
+                     </td>
+                   </tr>`).join('')}
+               </tbody>
+             </table></div>`
+          : `<p class="muted" style="margin:0">Vacía — los vuelos que borres van a aparecer acá primero.</p>`}
+      </div>
+    `;
+  },
+
+  _bindPapelera() {},
+
+  // ==========================================================================
+  // ACCIONES COMPARTIDAS
+  // ==========================================================================
+  async _guardarReparto() {
+    const sim = Math.min(20, Math.max(0, Calc.n(document.getElementById('hvi-sim').value)));
+    try {
+      await Repo.setHviSimHoras(sim);
+      this.render();
+    } catch (err) {
+      UI.toast('Error al guardar el reparto: ' + (err.message || err), 'error');
+    }
   },
 
   async _cambiarCursos() {

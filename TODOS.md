@@ -3,6 +3,27 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 7 (Perfil como menú interno)
+- [x] **Costos fuera de la barra inferior**: la barra vuelve a sus 4 íconos
+      originales (Inicio, Bitácora, Aeronaves, Totales). Costos y Exportar ya
+      no son destinos de primer nivel.
+- [x] **Perfil = menú interno** (estilo Ajustes): al entrar mostrás una lista
+      de 6 opciones — Datos Personales, Preferencias, Costos, Exportar,
+      Alertas, Papelera — con badges de aviso (papelera con vuelos, alertas
+      pendientes). Cada una abre su contenido con un botón "← Perfil" para
+      volver.
+- [x] **Datos Personales**: cursos/carreras activas, reparto HVI, datos del
+      piloto (nombre/licencia/legajo) y **cambiar contraseña** (nuevo, usando
+      `Auth.actualizarPassword` con la sesión activa).
+- [x] **Preferencias**: tema, huso horario y el toggle/panel de administrador
+      (antes sueltos en la pantalla única de Perfil).
+- [x] **Costos y Exportar** vuelven a ser pantallas propias (se deshizo el
+      merge de la tanda 3): Costos con su resumen y gráficos; Exportar con
+      las herramientas de exportación y la ficha ANAC — accesibles solo desde
+      el menú de Perfil.
+- [x] **Alertas**: vencimientos + currency (antes en la pantalla única).
+- [x] **Papelera**: sin cambios de contenido, ahora en su propia sección.
+
 ## Hecho — tanda 1 (UX)
 - [x] Bitácora: ordenar por columna ya no descarta el filtro aplicado.
 - [x] Login: Enter envía el panel visible.
