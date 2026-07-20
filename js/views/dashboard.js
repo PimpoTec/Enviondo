@@ -222,6 +222,17 @@ function valorNocturnasAjustado(cursoId, agg, configsPorCurso) {
   return Math.max(0, Calc.round2(agg.total_noche - minimoHabNoc));
 }
 
+// Promedio ponderado por tamaño del requisito, no un promedio simple de
+// porcentajes: si un curso pide 200 hs y otro (ej. HAB_NOC) pide 3, ese de
+// 3 hs no puede pesar lo mismo que el de 200 — si no, faltar poco de esas
+// 3 hs hunde el % general aunque estés casi terminando el curso grande.
+// Pura (sin DOM) a propósito, para poder testearla — ver tests/dashboard.test.js.
+function calcularProgresoPonderado(porCurso) {
+  const actualTotal = porCurso.reduce((s, c) => s + Math.min(c.actual, c.minimo), 0);
+  const minimoTotal = porCurso.reduce((s, c) => s + c.minimo, 0);
+  return minimoTotal > 0 ? Calc.round2(Math.min(100, (actualTotal / minimoTotal) * 100)) : 0;
+}
+
 // Promedia el progreso entre todos los cursos activos, ponderado por
 // tamaño de requisito (ver comentario en la función), y lo pinta en el
 // anillo grande del hero.
@@ -262,13 +273,7 @@ function renderHeroProgreso(configsPorCurso, agg) {
       <p class="muted" style="margin:2px 0 0">${faltan <= 0 ? '¡Completo!' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</p>
     </div>`).join('');
 
-  // Promedio ponderado por tamaño del requisito, no un promedio simple de
-  // porcentajes: si un curso pide 200 hs y otro (ej. HAB_NOC) pide 3, ese
-  // de 3 hs no puede pesar lo mismo que el de 200 — si no, faltar poco de
-  // esas 3 hs hunde el % general aunque estés casi terminando el curso grande.
-  const actualTotal = porCurso.reduce((s, c) => s + Math.min(c.actual, c.minimo), 0);
-  const minimoTotal = porCurso.reduce((s, c) => s + c.minimo, 0);
-  const promedio = minimoTotal > 0 ? Calc.round2(Math.min(100, (actualTotal / minimoTotal) * 100)) : 0;
+  const promedio = calcularProgresoPonderado(porCurso);
   bar.style.width = promedio + '%';
   pctLabel.textContent = porCurso.length > 1 ? `Progreso combinado: ${promedio}% completado` : `${promedio}% completado`;
   ring.style.strokeDashoffset = CIRC - (CIRC * promedio) / 100;
