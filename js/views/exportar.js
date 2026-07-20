@@ -52,11 +52,57 @@ const ViewExportar = {
         </div>
         <p class="muted" style="margin-top:8px">El PDF pixel-perfect a la hoja de 35,5×16,5 cm queda como mejora futura; esta versión respeta el orden de columnas e imprime los totales acumulados al pie, lista para imprimir o guardar como PDF desde el navegador.</p>
       </div>
+
+      <div class="card">
+        <h2>${Icons.idCard(18)} Ficha para cargar en cad.anac.gob.ar</h2>
+        <p class="muted">No tengo acceso al formulario online de ANAC (pide tu login) para calzar los campos exactos, así que esta ficha usa el formato oficial 290/2012 (mismo orden de columnas del PDF/Excel) — un vuelo a la vez, en grande, para tenerla al lado mientras cargás en la web de ANAC. Si el formulario online pide los datos en otro orden o con otros nombres, contame y la ajusto.</p>
+        <button class="btn secondary" id="btn-ver-fichas">${Icons.tag('list', 'Ver fichas por vuelo')}</button>
+        <div id="fichas-anac" style="display:none;margin-top:14px"></div>
+      </div>
     `;
 
     document.getElementById('btn-export-xlsx').onclick = () => this._exportarXlsx();
     document.getElementById('btn-export-pdf').onclick = () => this._exportarPdf();
     document.getElementById('btn-export-json').onclick = () => this._exportarJson();
+    document.getElementById('btn-ver-fichas').onclick = () => this._toggleFichas();
+  },
+
+  async _toggleFichas() {
+    const cont = document.getElementById('fichas-anac');
+    const visible = cont.style.display !== 'none';
+    if (visible) { cont.style.display = 'none'; return; }
+    const filas = await this._filasPlanas();
+    if (!filas.length) { alert('No hay vuelos con esos filtros.'); return; }
+    this._fichasFilas = filas;
+    this._fichaIndex = 0;
+    cont.style.display = 'block';
+    this._renderFicha();
+  },
+
+  _renderFicha() {
+    const cont = document.getElementById('fichas-anac');
+    const filas = this._fichasFilas;
+    const i = this._fichaIndex;
+    const f = filas[i];
+    cont.innerHTML = `
+      <div class="doc-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span class="muted">Vuelo ${i + 1} de ${filas.length}</span>
+          <span class="muted">${fmtFecha(f.fecha)} · ${f.desde} → ${f.hasta}</span>
+        </div>
+        <div class="table-wrap"><table>
+          ${COLUMNAS_290.filter(([k]) => f[k] !== null && f[k] !== undefined && f[k] !== '' && f[k] !== 0).map(([k, label]) => `
+            <tr><td class="muted" style="white-space:nowrap">${label}</td><td style="font-family:var(--font-mono)">${f[k]}</td></tr>
+          `).join('')}
+        </table></div>
+      </div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn secondary" id="btn-ficha-prev" ${i === 0 ? 'disabled' : ''}>← Anterior</button>
+        <button class="btn secondary" id="btn-ficha-next" ${i === filas.length - 1 ? 'disabled' : ''}>Siguiente →</button>
+      </div>
+    `;
+    document.getElementById('btn-ficha-prev').onclick = () => { this._fichaIndex--; this._renderFicha(); };
+    document.getElementById('btn-ficha-next').onclick = () => { this._fichaIndex++; this._renderFicha(); };
   },
 
   async _filtros() {
