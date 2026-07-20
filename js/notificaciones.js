@@ -64,11 +64,26 @@ const Notificaciones = {
   // desesperantemente lento.
   async enviarPrueba() {
     const { data, error } = await window.db.functions.invoke(window.PUSH_FN_SLUG, { body: { modo: 'test' } });
-    if (error) throw error;
+    if (error) throw new Error(await mensajeDeErrorFuncion(error));
     if (data?.error) throw new Error(data.error);
     return data;
   },
 };
+
+// supabase-js, ante un status no-2xx de una Edge Function, tira un error
+// genérico ("Edge Function returned a non-2xx status code") que no dice
+// nada del motivo real — el motivo de verdad viaja en el body de la
+// respuesta (`error.context`, un Response), así que hay que leerlo aparte.
+async function mensajeDeErrorFuncion(error) {
+  try {
+    const resp = error?.context;
+    if (resp && typeof resp.json === 'function') {
+      const body = await resp.clone().json();
+      if (body?.error) return body.error;
+    }
+  } catch { /* nos quedamos con el mensaje genérico de abajo */ }
+  return error?.message || 'Error desconocido al llamar a la función.';
+}
 
 window.Notificaciones = Notificaciones;
 window.urlBase64ToUint8Array = urlBase64ToUint8Array;
