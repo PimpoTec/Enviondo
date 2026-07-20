@@ -256,7 +256,15 @@ main {
   background: var(--bg-subtle); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 8px 10px;
 }
-.plan-acciones { margin-top: 14px; }
+/* flex-wrap:nowrap a propósito: con 3 botones en .btn-row genérico
+   (Marcar como volado + 2 íconos) el tercero quedaba solo en un renglón
+   aparte en pantallas angostas — acá el botón de texto se achica lo que
+   haga falta (flex:1, min-width:0) y los dos íconos quedan siempre
+   agrupados a la derecha, en la misma línea. */
+.plan-acciones { margin-top: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.plan-acciones > .btn { flex: 1 1 auto; min-width: 0; justify-content: center; }
+.plan-acciones-iconos { display: flex; gap: 8px; flex: 0 0 auto; }
+.plan-acciones-iconos .btn { padding: 8px 10px; }
 
 /* ---------- Forms ---------- */
 label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }

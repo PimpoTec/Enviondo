@@ -3,6 +3,22 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 20 (ícono de notificación en Android + layout de botones)
+- [x] `icons/badge-192.png` (NEW): silueta blanca del avión de papel sobre
+      fondo transparente, generada a partir de `icons/icon.svg`. Android
+      solo usa el canal alfa del `badge` para armar el ícono de la barra de
+      estado (el color SIEMPRE lo pinta el propio SO) — pasarle el logo a
+      color entero, sin transparencia, hacía que se viera como un cuadrado
+      blanco liso en vez de la forma del avión. `sw.js` ahora usa este
+      archivo en el campo `badge` de `showNotification` (antes apuntaba a
+      `icon-192.png`, a color). Cache bumpeado a v24.
+- [x] Los 3 botones de la tarjeta de "Próximo vuelo" ("Marcar como volado" +
+      recordatorios + borrar) quedaban mal en pantallas angostas: el
+      `.btn-row` genérico (flex-wrap) dejaba el tercero solo en un renglón
+      aparte. Ahora es un layout dedicado (`.plan-acciones`): el botón de
+      texto se achica lo que haga falta y los dos íconos quedan siempre
+      agrupados a la derecha, sin wrap.
+
 ## Hecho — tanda 19 (recordatorios personalizados, uno o varios por evento)
 - [x] `js/recordatorios.js` (NEW): modal reutilizable (`RecordatoriosUI.abrir`)
       para agregar/borrar recordatorios de un vuelo programado o un

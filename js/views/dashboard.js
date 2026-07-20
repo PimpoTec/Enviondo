@@ -165,10 +165,12 @@ const ViewDashboard = {
           </div>` : ''}
 
           <div class="plan-seccion">
-            <div class="btn-row plan-acciones">
+            <div class="plan-acciones">
               <button class="btn secondary" data-accion="volado" data-idx="${i}">Marcar como volado</button>
-              <button class="btn ghost" data-accion="recordatorios" data-idx="${i}">${Icons.bell(16)}</button>
-              <button class="btn ghost" data-accion="borrar" data-idx="${i}">${Icons.trash(16)}</button>
+              <div class="plan-acciones-iconos">
+                <button class="btn ghost" data-accion="recordatorios" data-idx="${i}" title="Recordatorios">${Icons.bell(16)}</button>
+                <button class="btn ghost" data-accion="borrar" data-idx="${i}" title="Borrar">${Icons.trash(16)}</button>
+              </div>
             </div>
           </div>
         </div>`;

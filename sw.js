@@ -11,7 +11,7 @@
 // corregido.
 // ============================================================================
 
-const CACHE = 'libro-vuelo-v23';
+const CACHE = 'libro-vuelo-v24';
 const ARCHIVOS_SHELL = [
   './', './index.html', './manifest.webmanifest',
   './css/styles.css',
@@ -21,7 +21,7 @@ const ARCHIVOS_SHELL = [
   './js/views/dashboard.js', './js/views/nuevoVuelo.js', './js/views/bitacora.js',
   './js/views/aeronaves.js', './js/views/totales.js', './js/views/costos.js',
   './js/views/perfil.js', './js/views/exportar.js',
-  './icons/icon-192.png', './icons/icon-512.png',
+  './icons/icon-192.png', './icons/icon-512.png', './icons/badge-192.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -72,7 +72,13 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(titulo, {
     body: data.body || '',
     icon: './icons/icon-192.png',
-    badge: './icons/icon-192.png',
+    // "badge" es el ícono chico de la barra de estado de Android — el SO lo
+    // usa SOLO como máscara de transparencia (el color lo pinta el propio
+    // Android, siempre blanco), así que tiene que ser un PNG con fondo
+    // transparente y el dibujo en blanco sólido. Si le pasás el logo a
+    // color entero (sin canal alfa útil), Android no tiene de dónde sacar
+    // la silueta y termina mostrando un cuadrado blanco liso.
+    badge: './icons/badge-192.png',
     tag: data.tag || 'libro-vuelo-notif',
     data: { url: data.url || './' },
   }));
