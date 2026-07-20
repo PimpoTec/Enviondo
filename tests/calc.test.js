@@ -73,3 +73,27 @@ test('horasEntre: sin horarios devuelve 0', () => {
   assert.equal(Calc.horasEntre('', ''), 0);
   assert.equal(Calc.horasEntre(null, '10:00'), 0);
 });
+
+test('horasEntre: usa el cuadro centésimal, no minutos/60', () => {
+  assert.equal(Calc.horasEntre('10:00', '11:20'), 1.3); // 1h20m: 20 min → 0.3 (no 1.33)
+  assert.equal(Calc.horasEntre('10:00', '10:15'), 0.3); // 15 min → 0.3
+  assert.equal(Calc.horasEntre('10:00', '10:58'), 1.0); // 58 min → añade hora
+  assert.equal(Calc.horasEntre('08:10', '09:37'), 1.5); // 1h27m: 27 min → 0.5
+});
+
+test('minutosADecimo: bordes de los tramos del cuadro', () => {
+  assert.equal(Calc.minutosADecimo(2), 0.0);
+  assert.equal(Calc.minutosADecimo(3), 0.1);
+  assert.equal(Calc.minutosADecimo(20), 0.3);
+  assert.equal(Calc.minutosADecimo(21), 0.4);
+  assert.equal(Calc.minutosADecimo(57), 0.9);
+  assert.equal(Calc.minutosADecimo(58), 1.0);
+  assert.equal(Calc.minutosADecimo(60), 1.0);
+});
+
+test('minutosAHoras: horas enteras + décimo del tramo', () => {
+  assert.equal(Calc.minutosAHoras(60), 1.0);
+  assert.equal(Calc.minutosAHoras(80), 1.3);   // 1h20m
+  assert.equal(Calc.minutosAHoras(118), 2.0);  // 1h58m → añade hora
+  assert.equal(Calc.minutosAHoras(0), 0);
+});

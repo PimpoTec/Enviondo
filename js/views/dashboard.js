@@ -89,6 +89,16 @@ const ViewDashboard = {
       const fechaGrande = `${dia} ${MESES_CORTOS[Number(mes) - 1]}`;
       const metarId = `metar-${i}`;
       const tafId = `taf-${i}`;
+
+      // Datos derivados para el panel derecho.
+      const fechaLocal = Calc.parseFechaLocal(p.fecha);
+      const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      const diasFaltan = fechaLocal ? Math.round((fechaLocal - hoy) / 86400000) : null;
+      const cuenta = diasFaltan === null ? '' : diasFaltan <= 0 ? 'Hoy' : diasFaltan === 1 ? 'Mañana' : `En ${diasFaltan} días`;
+      const diaSemana = fechaLocal ? DIAS_SEMANA[fechaLocal.getDay()] : '';
+      const esLocal = p.desde && p.hasta && p.desde === p.hasta;
+      const prefLabel = obtenerPrefHorario() === 'local' ? 'hora local' : 'UTC';
+      const aeronaveTxt = p.aeronaves?.matricula ? `${p.aeronaves.matricula} — ${p.aeronaves.marca_modelo}` : 'Sin asignar';
       return `
         <div class="plan-card">
           <div class="plan-card-fecha">
@@ -103,18 +113,28 @@ const ViewDashboard = {
             ` : ''}
           </div>
           <div class="plan-card-detalle">
-            <p class="muted" style="margin:0">Aeronave</p>
-            <p style="margin:2px 0 10px;font-size:16px;font-weight:600">
-              ${p.aeronaves?.matricula ? `${p.aeronaves.matricula} — ${p.aeronaves.marca_modelo}` : 'Sin definir'}
-            </p>
-            ${p.desde && p.hasta ? `
-              <div class="plan-card-ruta">
-                <span class="mono">${p.desde}</span>
-                ${Icons.plane(16)}
-                <span class="mono">${p.hasta}</span>
-              </div>` : ''}
-            ${p.instructor_nombre || p.notas ? `<p class="muted" style="margin:8px 0 0">${[p.instructor_nombre && `Instructor: ${p.instructor_nombre}`, p.notas].filter(Boolean).join(' · ')}</p>` : ''}
-            <div class="btn-row" style="margin-top:10px">
+            <div class="plan-detalle-head">
+              <div>
+                <p class="muted" style="margin:0">Aeronave</p>
+                <p class="plan-aeronave">${aeronaveTxt}</p>
+              </div>
+              ${cuenta ? `<span class="plan-countdown">${Icons.clock(13)} ${cuenta}</span>` : ''}
+            </div>
+
+            ${p.desde && p.hasta ? (esLocal
+              ? `<div class="plan-card-ruta"><span class="mono">${p.desde}</span><span class="muted" style="font-size:12px;color:var(--text-muted)">vuelo local</span></div>`
+              : `<div class="plan-card-ruta"><span class="mono">${p.desde}</span>${Icons.plane(16)}<span class="mono">${p.hasta}</span></div>`) : ''}
+
+            <div class="plan-datos">
+              ${diaSemana ? `<div class="plan-dato"><span class="muted">Día</span><span>${diaSemana}</span></div>` : ''}
+              ${p.hora_prevista ? `<div class="plan-dato"><span class="muted">Hora</span><span class="mono">${p.hora_prevista.slice(0, 5)} ${prefLabel}</span></div>` : ''}
+              ${p.desde && p.hasta ? `<div class="plan-dato"><span class="muted">Tipo</span><span>${esLocal ? 'Local (sobre aeródromo)' : 'Travesía'}</span></div>` : ''}
+              ${p.instructor_nombre ? `<div class="plan-dato"><span class="muted">Instructor</span><span>${p.instructor_nombre}</span></div>` : ''}
+            </div>
+
+            ${p.notas ? `<p class="plan-notas">${Icons.tag('list', p.notas)}</p>` : ''}
+
+            <div class="btn-row plan-acciones">
               <button class="btn secondary" data-accion="volado" data-idx="${i}">Marcar como volado</button>
               <button class="btn ghost" data-accion="borrar" data-idx="${i}">Borrar</button>
             </div>
@@ -199,6 +219,7 @@ const ViewDashboard = {
 };
 
 const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 // METAR/TAF real del aeródromo de origen — servicio público de NOAA
 // (aviationweather.gov), sin API key. aviationweather.gov no manda headers
