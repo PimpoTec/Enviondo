@@ -3,6 +3,21 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 17 (ajustes al carrusel de "Próximo vuelo")
+- [x] Tarjetas centradas en el carrusel: `scroll-snap-align: center` +
+      padding lateral proporcional (`6%`) en `.plan-carrusel`, así cada
+      tarjeta "asoma" simétrico a izquierda y derecha en vez de pegarse
+      contra el borde izquierdo como antes (`scroll-snap-align: start`).
+- [x] Indicadores (`.plan-indicadores`) centrados y con el mismo ancho que
+      la tarjeta (88% / 380px en desktop), para que queden alineados
+      justo arriba del carrusel en vez de ocupar todo el ancho del card
+      contenedor.
+- [x] Orden de las secciones dentro de la tarjeta: "Aeronave" (matrícula,
+      ruta, etiquetas, notas) ahora va antes de METAR/TAF, no después.
+      Los botones de acción ("Marcar como volado" / borrar) se separaron
+      en su propia sección al final, para que sigan siendo lo último de
+      la tarjeta sin importar si hay METAR/TAF o no.
+
 ## Hecho — tanda 16 (carrusel horizontal para varios vuelos agendados)
 - [x] Si hay más de un vuelo agendado, ya no se apilan verticalmente — van en
       un carrusel horizontal con scroll-snap nativo (sin librerías): deslizás

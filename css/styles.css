@@ -190,7 +190,9 @@ main {
    sin librerías) en vez de apilados — deslizás y cada tarjeta encaja de a
    una, como una historia. Sangra hasta el borde de la card contenedora
    (-16px = su padding) para que la siguiente tarjeta "asome" en el borde. */
-.plan-indicadores { display: flex; gap: 5px; margin-bottom: 10px; }
+.plan-indicadores {
+  display: flex; gap: 5px; margin: 0 auto 10px; width: 88%; max-width: 420px;
+}
 .plan-indicador {
   flex: 1; height: 3px; border-radius: 2px; background: var(--border);
   transition: background .2s ease; cursor: pointer;
@@ -199,15 +201,18 @@ main {
 .plan-carrusel {
   display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
-  margin: 0 -16px; padding: 0 16px 4px;
+  margin: 0 -16px; padding: 0 6% 4px;
 }
 .plan-carrusel::-webkit-scrollbar { display: none; }
 .plan-card {
   background: var(--bg-elevated-2); border: 1px solid var(--border);
   border-radius: var(--radius); overflow: hidden;
-  scroll-snap-align: start; flex: 0 0 88%; max-width: 420px;
+  scroll-snap-align: center; flex: 0 0 88%; max-width: 420px;
 }
-@media (min-width: 560px) { .plan-card { flex-basis: 380px; } }
+@media (min-width: 560px) {
+  .plan-card { flex-basis: 380px; }
+  .plan-indicadores { width: 380px; }
+}
 .plan-seccion { padding: 14px 16px; }
 .plan-seccion + .plan-seccion { border-top: 1px solid var(--border); }
 .plan-label {

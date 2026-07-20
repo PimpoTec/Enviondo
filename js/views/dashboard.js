@@ -123,16 +123,6 @@ const ViewDashboard = {
             </div>
           </div>
 
-          ${/^[A-Z]{4}$/.test(p.desde || '') ? `
-          <div class="plan-seccion">
-            <p class="plan-label">METAR ${p.desde}</p>
-            <p id="${metarId}" class="plan-clima">Cargando…</p>
-          </div>
-          <div class="plan-seccion">
-            <p class="plan-label">TAF ${p.desde}</p>
-            <p id="${tafId}" class="plan-clima">Cargando…</p>
-          </div>` : ''}
-
           <div class="plan-seccion">
             <div class="plan-head-row">
               <p class="plan-label">Aeronave</p>
@@ -162,7 +152,19 @@ const ViewDashboard = {
             ${badges.length ? `<div class="plan-badges">${badges.map((b) => `<span class="plan-badge">${b}</span>`).join('')}</div>` : ''}
 
             ${p.notas ? `<p class="plan-notas">${Icons.tag('list', p.notas)}</p>` : ''}
+          </div>
 
+          ${/^[A-Z]{4}$/.test(p.desde || '') ? `
+          <div class="plan-seccion">
+            <p class="plan-label">METAR ${p.desde}</p>
+            <p id="${metarId}" class="plan-clima">Cargando…</p>
+          </div>
+          <div class="plan-seccion">
+            <p class="plan-label">TAF ${p.desde}</p>
+            <p id="${tafId}" class="plan-clima">Cargando…</p>
+          </div>` : ''}
+
+          <div class="plan-seccion">
             <div class="btn-row plan-acciones">
               <button class="btn secondary" data-accion="volado" data-idx="${i}">Marcar como volado</button>
               <button class="btn ghost" data-accion="borrar" data-idx="${i}">${Icons.trash(16)}</button>
