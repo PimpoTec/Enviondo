@@ -144,6 +144,8 @@ const ViewDashboard = {
     `;
     cont.style.display = 'block';
     document.getElementById('btn-guardar-programado').onclick = () => this._guardarProgramado();
+    Autocomplete.attachAerodromo(document.getElementById('pv-desde'));
+    Autocomplete.attachAerodromo(document.getElementById('pv-hasta'));
   },
 
   async _guardarProgramado() {

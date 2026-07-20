@@ -306,6 +306,8 @@ const ViewNuevoVuelo = {
   },
 
   _bindVuelo() {
+    Autocomplete.attachAerodromo(document.getElementById('f-desde'));
+    Autocomplete.attachAerodromo(document.getElementById('f-hasta'));
     document.getElementById('tg-local').onclick = () => this._setToggle('local');
     document.getElementById('tg-travesia').onclick = () => this._setToggle('travesia');
     document.getElementById('tg-piloto').onclick = () => this._setRol('piloto');
