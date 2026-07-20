@@ -112,7 +112,7 @@ header.topbar {
 .topbar-actions { display: flex; gap: 8px; align-items: center; }
 .icon-btn {
   border: none; background: var(--bg-subtle); color: var(--text-muted);
-  width: 36px; height: 36px; border-radius: var(--radius-sm); cursor: pointer;
+  width: 44px; height: 44px; border-radius: var(--radius-sm); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: transform .08s ease, background .15s ease, color .15s ease;
 }
