@@ -57,9 +57,21 @@ Marcá `[x]` a medida que se completan.
 - [x] **Tests**: `repartirModoRapido` mixto día/noche y `estadoVencimiento`
       (`tests/perfil.test.js`). 31 en verde.
 
+## Hecho — tanda 5 (Hoja ANAC 290/2012 en Excel)
+- [x] **Export "Hoja ANAC 290/2012 (.xlsx)"**: reproduce el formulario oficial
+      (grilla con bordes, encabezados combinados, anchos), 15 renglones por hoja,
+      totales por columna con fórmula viva que se arrastran a la hoja siguiente
+      (`='Hoja N'!...`), y **un archivo por año**. Motor: ExcelJS (CDN).
+      Módulo isomorfo `js/exportadorAnac.js` (probado en Node).
+- [x] **Datos del piloto** en Perfil (nombre, licencia, nº, legajo) para la
+      cabecera de la hoja. ⚠️ Requiere `sql/agregar_datos_piloto.sql`.
+      `getDatosPiloto` es tolerante si aún no se corrió (no rompe el Perfil).
+
 ## Pendiente / ideas a futuro
 - [ ] **Papelera** sigue solo en Perfil (aceptable: acción poco frecuente).
-- [ ] **PDF pixel-perfect** a la hoja 35,5×16,5 cm de ANAC 290/2012.
+- [ ] **Hoja ANAC**: si un vuelo se parte entre dos hojas por el corte de 15,
+      no pasa nada raro (cada uno es un renglón), pero se podría permitir elegir
+      el rango/año a exportar desde un selector, además de los filtros de fecha.
 - [ ] **Backfill** de `costo_congelado` en vuelos viejos en USD (no hay cómo
       saber la cotización histórica exacta; quedaría estimado).
 - [ ] Migrar el resto de `onclick` inline (bitácora, vencimientos) a

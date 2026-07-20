@@ -37,9 +37,10 @@ const ViewPerfil = {
 
   async render() {
     const main = document.getElementById('main-content');
-    const [cursosActivos, esAdmin, vencimientos, vuelos, papelera] = await Promise.all([
-      Repo.getCursosActivos(), Repo.esAdminApp(), Repo.listarVencimientos(), Repo.listarVuelos(), Repo.listarVuelosBorrados(),
+    const [cursosActivos, esAdmin, vencimientos, vuelos, papelera, datosPiloto] = await Promise.all([
+      Repo.getCursosActivos(), Repo.esAdminApp(), Repo.listarVencimientos(), Repo.listarVuelos(), Repo.listarVuelosBorrados(), Repo.getDatosPiloto(),
     ]);
+    this.datosPiloto = datosPiloto || {};
     this.cursosActivos = cursosActivos;
     this.esAdmin = esAdmin;
     // La vista de admin queda apagada por defecto: aunque seas el admin, la
@@ -101,8 +102,20 @@ const ViewPerfil = {
       <div id="bloque-licencias"></div>
 
       <div class="card">
+        <h2>${Icons.idCard(18)} Datos del piloto</h2>
+        <p class="muted" style="margin:0 0 10px">Se usan para completar la cabecera de la Hoja de Libro de Vuelo (ANAC 290/2012) cuando exportás.</p>
+        <div class="grid cols-4">
+          <div class="field"><label>Apellido y Nombre</label><input id="dp-nombre" value="${(this.datosPiloto.nombre_completo || '').replace(/"/g, '&quot;')}"></div>
+          <div class="field"><label>Licencia</label><input id="dp-licencia" value="${(this.datosPiloto.licencia || '').replace(/"/g, '&quot;')}" placeholder="PPA / PCA…"></div>
+          <div class="field"><label>Nº de licencia</label><input id="dp-lic-num" value="${(this.datosPiloto.licencia_numero || '').replace(/"/g, '&quot;')}"></div>
+          <div class="field"><label>Legajo Nº</label><input id="dp-legajo" value="${(this.datosPiloto.legajo || '').replace(/"/g, '&quot;')}"></div>
+        </div>
+        <button class="btn" id="btn-guardar-datos-piloto" style="margin-top:8px">Guardar datos</button>
+      </div>
+
+      <div class="card">
         <h2>${Icons.dollar(18)} Costos y exportación</h2>
-        <p class="muted" style="margin:0 0 10px">El resumen de costos de la carrera y las opciones para exportar el libro (Excel, PDF, backup) están en una sola pantalla.</p>
+        <p class="muted" style="margin:0 0 10px">El resumen de costos de la carrera y las opciones para exportar el libro (hoja ANAC, Excel, PDF, backup) están en una sola pantalla.</p>
         <div class="btn-row">
           <button class="btn secondary" onclick="Router.irA('exportar')">${Icons.tag('download', 'Ver costos y exportar')}</button>
         </div>
@@ -185,6 +198,7 @@ const ViewPerfil = {
     document.querySelectorAll('.p-curso-check').forEach((chk) => {
       chk.onchange = () => this._cambiarCursos();
     });
+    document.getElementById('btn-guardar-datos-piloto').onclick = () => this._guardarDatosPiloto();
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
     document.getElementById('btn-logout').onclick = () => Auth.cerrarSesion();
     if (this.cursosActivos.includes('PCA_HVI')) {
@@ -324,6 +338,20 @@ const ViewPerfil = {
     try {
       await Repo.guardarConfigLicencia({ id, minimo_horas: Calc.n(input.value) });
       this.render();
+    } catch (err) {
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
+    }
+  },
+
+  async _guardarDatosPiloto() {
+    try {
+      await Repo.setDatosPiloto({
+        nombre_completo: document.getElementById('dp-nombre').value.trim() || null,
+        licencia: document.getElementById('dp-licencia').value.trim() || null,
+        licencia_numero: document.getElementById('dp-lic-num').value.trim() || null,
+        legajo: document.getElementById('dp-legajo').value.trim() || null,
+      });
+      UI.toast('Datos del piloto guardados.', 'ok');
     } catch (err) {
       UI.toast('Error al guardar: ' + (err.message || err), 'error');
     }

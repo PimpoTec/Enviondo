@@ -80,11 +80,12 @@ const ViewExportar = {
         </div>
 
         <div class="btn-row" style="margin-top:10px">
-          <button class="btn" id="btn-export-xlsx">${Icons.tag('barChart', 'Excel (.xlsx)')}</button>
-          <button class="btn secondary" id="btn-export-pdf">${Icons.tag('print', 'PDF (formato 290/2012)')}</button>
+          <button class="btn" id="btn-export-anac">${Icons.tag('idCard', 'Hoja ANAC 290/2012 (.xlsx)')}</button>
+          <button class="btn secondary" id="btn-export-xlsx">${Icons.tag('barChart', 'Planilla simple (.xlsx)')}</button>
+          <button class="btn secondary" id="btn-export-pdf">${Icons.tag('print', 'PDF (columnas 290/2012)')}</button>
           <button class="btn secondary" id="btn-export-json">${Icons.tag('archive', 'Backup JSON completo')}</button>
         </div>
-        <p class="muted" style="margin-top:8px">El PDF pixel-perfect a la hoja de 35,5×16,5 cm queda como mejora futura; esta versión respeta el orden de columnas e imprime los totales acumulados al pie, lista para imprimir o guardar como PDF desde el navegador.</p>
+        <p class="muted" style="margin-top:8px">La <strong>Hoja ANAC</strong> reproduce el formulario oficial (35,5×16,5 cm): 15 renglones por hoja, totales que se arrastran a la siguiente y <strong>un archivo por año</strong>. Completá tus datos de piloto en Perfil para que salga la cabecera. La "planilla simple" es la misma info en una tabla plana para analizar.</p>
       </div>
 
       <div class="card">
@@ -95,6 +96,7 @@ const ViewExportar = {
       </div>
     `;
 
+    document.getElementById('btn-export-anac').onclick = () => this._exportarAnac();
     document.getElementById('btn-export-xlsx').onclick = () => this._exportarXlsx();
     document.getElementById('btn-export-pdf').onclick = () => this._exportarPdf();
     document.getElementById('btn-export-json').onclick = () => this._exportarJson();
@@ -159,6 +161,45 @@ const ViewExportar = {
       matricula: v.aeronaves?.matricula, marca_modelo: v.aeronaves?.marca_modelo,
       costo: Calc.costoRegistrado(v, v.aeronaves).monto,
     }));
+  },
+
+  async _exportarAnac() {
+    if (typeof ExcelJS === 'undefined') {
+      UI.toast('No se pudo cargar la librería de Excel (revisá tu conexión).', 'error');
+      return;
+    }
+    const btn = document.getElementById('btn-export-anac');
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = Icons.tag('download', 'Generando…');
+    try {
+      const [vuelos, datosPiloto] = await Promise.all([
+        Repo.listarVuelos(await this._filtros()), Repo.getDatosPiloto(),
+      ]);
+      if (!vuelos.length) { UI.toast('No hay vuelos con esos filtros.', 'warn'); return; }
+
+      const porAnio = ExportadorAnac.agruparPorAnio(vuelos);
+      const anios = Object.keys(porAnio).sort();
+      for (const anio of anios) {
+        const wb = ExportadorAnac.construirLibroAnual(ExcelJS, { anio, vuelos: porAnio[anio], datosPiloto });
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `libro-de-vuelo-${anio}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        // Pequeña pausa entre descargas para que el navegador no las bloquee.
+        if (anios.length > 1) await new Promise((r) => setTimeout(r, 400));
+      }
+      UI.toast(anios.length > 1 ? `Se generaron ${anios.length} archivos (uno por año).` : 'Hoja generada.', 'ok');
+    } catch (err) {
+      UI.toast('Error al generar la hoja: ' + (err.message || err), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
   },
 
   async _exportarXlsx() {

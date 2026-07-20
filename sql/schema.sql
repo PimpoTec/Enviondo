@@ -441,4 +441,13 @@ on conflict (curso_id, nombre_requisito) do nothing;
 alter table vuelos add column if not exists costo_congelado numeric(14,2);
 alter table vuelos add column if not exists cotizacion_usada numeric(12,2);
 
+-- ============================================================================
+-- DATOS DEL PILOTO — cabecera de la Hoja de Libro de Vuelo (ANAC 290/2012).
+-- Ver sql/agregar_datos_piloto.sql.
+-- ============================================================================
+alter table perfil_piloto add column if not exists nombre_completo text;
+alter table perfil_piloto add column if not exists licencia        text;
+alter table perfil_piloto add column if not exists licencia_numero text;
+alter table perfil_piloto add column if not exists legajo          text;
+
 -- Fin del esquema.

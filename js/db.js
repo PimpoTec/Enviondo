@@ -49,7 +49,7 @@ const Repo = {
   // legal hacia la licencia; un borrado accidental sin vuelta atrás es
   // demasiado costoso como para no tener red de seguridad.
   async listarVuelos(filtros = {}) {
-    let q = window.db.from('vuelos').select('*, aeronaves(matricula, marca_modelo, tarifa_hora_diurna, tarifa_hora_nocturna, moneda)')
+    let q = window.db.from('vuelos').select('*, aeronaves(matricula, marca_modelo, potencia, clase, tarifa_hora_diurna, tarifa_hora_nocturna, moneda)')
       .is('deleted_at', null).order('fecha', { ascending: false });
     if (filtros.desde) q = q.gte('fecha', filtros.desde);
     if (filtros.hasta) q = q.lte('fecha', filtros.hasta);
@@ -156,6 +156,23 @@ const Repo = {
     const user = await usuarioActual();
     const { error } = await window.db.from('perfil_piloto')
       .upsert({ user_id: user.id, hvi_sim_horas: horas, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error) throw error;
+  },
+
+  // ---- Datos del piloto (cabecera de la Hoja de Libro de Vuelo ANAC) ----
+  async getDatosPiloto() {
+    const user = await usuarioActual();
+    // Tolerante: si todavía no se corrió sql/agregar_datos_piloto.sql, las
+    // columnas no existen y devolvemos {} en vez de romper el Perfil.
+    const { data, error } = await window.db.from('perfil_piloto')
+      .select('nombre_completo, licencia, licencia_numero, legajo').eq('user_id', user.id).maybeSingle();
+    if (error) { console.warn('getDatosPiloto:', error.message); return {}; }
+    return data || {};
+  },
+  async setDatosPiloto(datos) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('perfil_piloto')
+      .upsert({ user_id: user.id, ...datos, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) throw error;
   },
 
