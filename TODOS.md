@@ -3,6 +3,24 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 8 (sensación de app lenta / botones "celestes")
+- [x] **Resaltado táctil nativo**: Android/Chrome pintaba un flash celeste
+      por defecto al tocar cualquier botón (el highlight táctil del sistema,
+      no algo del diseño). Se desactivó globalmente
+      (`-webkit-tap-highlight-color: transparent`) y se sumó feedback propio
+      donde faltaba (`.menu-item:active`).
+- [x] **`touch-action: manipulation`** en botones/links/inputs — saca el
+      delay de doble-tap-zoom en mobile.
+- [x] **Perfil hacía 6 consultas a Supabase en CADA click**, incluso para
+      cosas 100% locales (tema, huso horario, toggle de admin viven en
+      `localStorage`). Ahora esos tres toggles actualizan el DOM al toque,
+      sin ir a la red.
+- [x] **Cada sección de Perfil pedía los datos de las 6 juntas** aunque solo
+      usara 1 o 2 (ej. entrar a Preferencias no necesita vuelos, papelera ni
+      datos del piloto). Ahora cada sección hace solo las consultas que
+      realmente necesita — Preferencias 1, Papelera 1, Alertas 2,
+      Personales 2-3 (antes siempre 6).
+
 ## Hecho — tanda 7 (Perfil como menú interno)
 - [x] **Costos fuera de la barra inferior**: la barra vuelve a sus 4 íconos
       originales (Inicio, Bitácora, Aeronaves, Totales). Costos y Exportar ya

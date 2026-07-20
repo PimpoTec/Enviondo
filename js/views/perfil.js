@@ -44,6 +44,12 @@ const ViewPerfil = {
   hviSimHoras: null,
   datosPiloto: {},
 
+  // Cada sección pide solo los datos que realmente usa — antes render()
+  // hacía SIEMPRE las 6 consultas (cursos, admin, vencimientos, vuelos,
+  // papelera, datos del piloto) sin importar a qué sección iba, lo que hacía
+  // sentir lenta la navegación dentro de Perfil (ida y vuelta a Supabase por
+  // algo que ni se mostraba). Preferencias, por ejemplo, no necesita ni
+  // vuelos ni papelera ni datos del piloto.
   async render(params) {
     const main = document.getElementById('main-content');
 
@@ -54,21 +60,12 @@ const ViewPerfil = {
       const seccionPedida = params?.get('seccion');
       this.seccion = MENU_PERFIL.some((m) => m.id === seccionPedida && !m.ruta) ? seccionPedida : null;
     }
-
-    const [cursosActivos, esAdmin, vencimientos, vuelos, papelera, datosPiloto] = await Promise.all([
-      Repo.getCursosActivos(), Repo.esAdminApp(), Repo.listarVencimientos(), Repo.listarVuelos(), Repo.listarVuelosBorrados(), Repo.getDatosPiloto(),
-    ]);
-    this.datosPiloto = datosPiloto || {};
-    this.cursosActivos = cursosActivos;
-    this.esAdmin = esAdmin;
     // La vista de admin queda apagada por defecto: aunque seas el admin, la
     // app se ve como para un piloto normal hasta que la prendas vos mismo.
     this.mostrarAdmin = localStorage.getItem('admin_ui') === '1';
-    if (this.cursosActivos.includes('PCA_HVI')) {
-      this.hviSimHoras = await Repo.getHviSimHoras();
-    }
 
     if (!this.seccion) {
+      const [papelera, vencimientos] = await Promise.all([Repo.listarVuelosBorrados(), Repo.listarVencimientos()]);
       main.innerHTML = this._htmlMenu(papelera.length, vencimientos);
       this._bindMenu();
       return;
@@ -76,17 +73,24 @@ const ViewPerfil = {
 
     const volver = `<button class="btn ghost" id="btn-volver-perfil" style="margin-bottom:12px">← Perfil</button>`;
     if (this.seccion === 'personales') {
+      const [cursosActivos, datosPiloto] = await Promise.all([Repo.getCursosActivos(), Repo.getDatosPiloto()]);
+      this.cursosActivos = cursosActivos;
+      this.datosPiloto = datosPiloto || {};
+      if (this.cursosActivos.includes('PCA_HVI')) this.hviSimHoras = await Repo.getHviSimHoras();
       main.innerHTML = volver + this._htmlPersonales();
       this._bindPersonales();
     } else if (this.seccion === 'preferencias') {
+      this.esAdmin = await Repo.esAdminApp();
       main.innerHTML = volver + this._htmlPreferencias();
       this._bindPreferencias();
       if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
     } else if (this.seccion === 'alertas') {
+      const [vencimientos, vuelos] = await Promise.all([Repo.listarVencimientos(), Repo.listarVuelos()]);
       main.innerHTML = volver + this._htmlAlertas(vencimientos);
       this._bindAlertas();
       try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency:', err); }
     } else if (this.seccion === 'papelera') {
+      const papelera = await Repo.listarVuelosBorrados();
       main.innerHTML = volver + this._htmlPapelera(papelera);
       this._bindPapelera();
     }
@@ -275,14 +279,33 @@ const ViewPerfil = {
   },
 
   _bindPreferencias() {
+    // Tema, horario y el toggle de admin son preferencias 100% locales
+    // (localStorage) — no dependen de nada en Supabase. Actualizarlas con un
+    // this.render() completo dispararía de nuevo las 6 consultas de red del
+    // menú (cursos, vencimientos, vuelos, papelera, datos del piloto...) solo
+    // para prender un botón, y eso es lo que se siente "lento": cada toque
+    // esperando la vuelta del servidor para algo que es instantáneo. Acá se
+    // actualiza en el momento, sin tocar la red.
     document.querySelectorAll('#pref-tema button').forEach((b) => {
-      b.onclick = () => { setTema(b.dataset.valor); this.render(); };
+      b.onclick = () => {
+        setTema(b.dataset.valor);
+        document.querySelectorAll('#pref-tema button').forEach((x) => x.classList.toggle('active', x === b));
+      };
     });
     document.querySelectorAll('#pref-horario button').forEach((b) => {
-      b.onclick = () => { guardarPrefHorario(b.dataset.valor); this.render(); };
+      b.onclick = () => {
+        guardarPrefHorario(b.dataset.valor);
+        document.querySelectorAll('#pref-horario button').forEach((x) => x.classList.toggle('active', x === b));
+      };
     });
     document.querySelectorAll('#pref-admin button').forEach((b) => {
-      b.onclick = () => { localStorage.setItem('admin_ui', b.dataset.valor); this.render(); };
+      b.onclick = async () => {
+        localStorage.setItem('admin_ui', b.dataset.valor);
+        document.querySelectorAll('#pref-admin button').forEach((x) => x.classList.toggle('active', x === b));
+        this.mostrarAdmin = b.dataset.valor === '1';
+        if (this.mostrarAdmin) await this._renderPanelAdmin();
+        else document.getElementById('bloque-licencias').innerHTML = '';
+      };
     });
   },
 
