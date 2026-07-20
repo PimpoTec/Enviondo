@@ -3,6 +3,15 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 16 (carrusel horizontal para varios vuelos agendados)
+- [x] Si hay más de un vuelo agendado, ya no se apilan verticalmente — van en
+      un carrusel horizontal con scroll-snap nativo (sin librerías): deslizás
+      y cada tarjeta encaja de a una, como una historia de Instagram.
+- [x] Indicadores finitos arriba (uno por tarjeta) que muestran en cuál
+      estás — se prende solo con `IntersectionObserver`, sin timer/auto-
+      avance. Tocar un indicador salta directo a esa tarjeta.
+      Con un solo vuelo agendado no se muestran (no hace falta indicar nada).
+
 ## Hecho — tanda 15 (rediseño de la tarjeta "Próximo vuelo", según foto)
 - [x] Layout de una sola columna con secciones separadas por línea (antes era
       dos columnas lado a lado): Fecha programada → METAR/TAF → Aeronave.

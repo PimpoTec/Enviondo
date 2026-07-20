@@ -84,7 +84,7 @@ const ViewDashboard = {
     }
     const vista = programados.slice(0, 3);
     this._programadosVista = vista;
-    cont.innerHTML = vista.map((p, i) => {
+    const tarjetas = vista.map((p, i) => {
       const [anio, mes, dia] = p.fecha.split('-');
       const fechaGrande = `${dia} ${MESES_CORTOS[Number(mes) - 1]}`;
       const metarId = `metar-${i}`;
@@ -111,7 +111,7 @@ const ViewDashboard = {
       if (p.instructor_nombre) badges.push('Con instructor');
 
       return `
-        <div class="plan-card">
+        <div class="plan-card" data-idx="${i}">
           <div class="plan-seccion">
             <div class="plan-head-row">
               <div>
@@ -171,6 +171,15 @@ const ViewDashboard = {
         </div>`;
     }).join('');
 
+    // Varios vuelos agendados no se apilan uno debajo del otro — van en un
+    // carrusel horizontal con scroll-snap nativo (deslizás y cada tarjeta
+    // encaja de a una, como una historia). Los indicadores de arriba (solo
+    // si hay más de uno) muestran en cuál estás.
+    const indicadores = vista.length > 1
+      ? `<div class="plan-indicadores" id="plan-indicadores">${vista.map((_, idx) => `<span class="plan-indicador" data-idx="${idx}"></span>`).join('')}</div>`
+      : '';
+    cont.innerHTML = `${indicadores}<div class="plan-carrusel" id="plan-carrusel">${tarjetas}</div>`;
+
     // Delegación por índice: evita interpolar campos crudos (desde/hasta,
     // notas) dentro de un atributo onclick, que rompería con comillas.
     cont.querySelectorAll('button[data-accion]').forEach((b) => {
@@ -183,11 +192,34 @@ const ViewDashboard = {
       };
     });
 
+    if (vista.length > 1) this._bindCarruselProgramados();
+
     vista.forEach((p, i) => {
       if (/^[A-Z]{4}$/.test(p.desde || '')) {
         cargarMetar(p.desde, `metar-${i}`, 'metar');
         cargarMetar(p.desde, `taf-${i}`, 'taf');
       }
+    });
+  },
+
+  // Prende el indicador de la tarjeta que está más a la vista mientras se
+  // desliza el carrusel, y hace que tocar un indicador salte a esa tarjeta.
+  _bindCarruselProgramados() {
+    const carrusel = document.getElementById('plan-carrusel');
+    const tarjetas = carrusel.querySelectorAll('.plan-card');
+    const indicadores = document.querySelectorAll('#plan-indicadores .plan-indicador');
+
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const idx = Number(entry.target.dataset.idx);
+        indicadores.forEach((el, i) => el.classList.toggle('activo', i === idx));
+      });
+    }, { root: carrusel, threshold: 0.6 });
+    tarjetas.forEach((el) => obs.observe(el));
+
+    indicadores.forEach((el, idx) => {
+      el.onclick = () => tarjetas[idx]?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
     });
   },
 
