@@ -118,45 +118,26 @@ header.topbar {
 }
 .icon-btn:hover { background: var(--bg-elevated-2); color: var(--text); }
 
-/* ---------- Menú hamburguesa (drawer lateral, mobile y desktop) ---------- */
-.drawer-overlay {
-  display: none;
-  position: fixed; inset: 0; z-index: 40;
-  background: rgba(0, 0, 0, .55);
+/* ---------- Barra de navegación inferior ---------- */
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; justify-content: space-around;
+  background: var(--bg-elevated); border-top: 1px solid var(--border);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
 }
-.drawer-overlay.open { display: block; }
-.drawer-menu {
-  position: fixed; top: 0; left: 0; bottom: 0; z-index: 41;
-  width: 260px; max-width: 82vw;
-  background: var(--bg-elevated);
-  border-right: 1px solid var(--border);
-  box-shadow: 4px 0 24px rgba(0, 0, 0, .35);
-  padding: 14px 10px;
-  transform: translateX(-100%);
-  transition: transform .2s ease;
-  display: flex; flex-direction: column; gap: 2px;
-  overflow-y: auto;
-}
-.drawer-menu.open { transform: translateX(0); }
-.drawer-menu .drawer-titulo {
-  display: flex; align-items: center; gap: 8px;
-  font-weight: 700; font-size: 15px; padding: 8px 12px 14px;
-  border-bottom: 1px solid var(--border); margin-bottom: 8px;
-  color: var(--brand);
-}
-.drawer-menu button {
-  display: flex; align-items: center; gap: 12px;
+.bottom-nav button {
+  flex: 1; max-width: 96px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
   border: none; background: transparent; color: var(--text-muted);
-  padding: 12px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer;
-  text-align: left; width: 100%;
+  padding: 6px 4px; border-radius: var(--radius-sm); cursor: pointer;
 }
-.drawer-menu button .ic { width: 20px; display: flex; align-items: center; justify-content: center; color: inherit; }
-.drawer-menu button.active { background: var(--brand-weak); color: var(--brand); }
-.drawer-menu button:active { transform: scale(.97); }
+.bottom-nav button .lbl { font-size: 11px; font-weight: 600; }
+.bottom-nav button.active { color: var(--brand); }
+.bottom-nav button:active { transform: scale(.94); }
 
 main {
   flex: 1; width: 100%; max-width: 1080px; margin: 0 auto;
-  padding: 16px; padding-bottom: 32px;
+  padding: 16px; padding-bottom: calc(76px + env(safe-area-inset-bottom));
 }
 
 /* Card de costos siempre visible */
@@ -215,6 +196,26 @@ main {
 .progreso-bar { height: 6px; border-radius: 3px; background: var(--bg-subtle); border: 1px solid var(--border); overflow: hidden; }
 .progreso-bar > span { display: block; height: 100%; background: var(--brand-strong); box-shadow: var(--brand-glow); border-radius: 3px; transition: width .3s; }
 .progreso-bar.completo > span { background: var(--ok); box-shadow: none; }
+
+/* ---------- Card de próximo vuelo (fecha/METAR + aeronave/ruta) ---------- */
+.plan-card {
+  display: flex; border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; margin-bottom: 12px;
+}
+.plan-card-fecha {
+  width: 40%; min-width: 150px; background: var(--bg-elevated-2);
+  border-right: 1px solid var(--border); padding: 12px 14px;
+}
+.plan-card-detalle { flex: 1; padding: 12px 14px; }
+.plan-card-ruta {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 6px 0; color: var(--brand);
+}
+.plan-card-ruta .mono { font-family: var(--font-mono); font-size: 15px; color: var(--text); }
+@media (max-width: 480px) {
+  .plan-card { flex-direction: column; }
+  .plan-card-fecha { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+}
 
 /* ---------- Forms ---------- */
 label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }

@@ -25,9 +25,8 @@ function actualizarBannerOffline() {
 function inicializarIconosEstaticos() {
   document.getElementById('offline-banner-icon').innerHTML = Icons.wifiOff(16);
   document.getElementById('login-icon').innerHTML = Icons.plane(18);
-  document.getElementById('btn-menu').innerHTML = Icons.menu(20);
   document.getElementById('brand-icon').innerHTML = Icons.plane(20);
-  document.getElementById('btn-logout').innerHTML = Icons.logOut(18);
+  document.getElementById('btn-perfil').innerHTML = Icons.award(18);
 }
 
 function mostrarPanelLogin(panel) {
@@ -98,7 +97,7 @@ async function mostrarApp() {
   document.getElementById('vista-login').style.display = 'none';
   document.getElementById('vista-app').style.display = 'block';
 
-  document.getElementById('btn-logout').onclick = () => Auth.cerrarSesion();
+  document.getElementById('btn-perfil').onclick = () => Router.irA('perfil');
   document.getElementById('btn-theme').onclick = toggleTema;
 
   Router.construirNav();

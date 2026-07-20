@@ -13,6 +13,22 @@
 // inventarlo.
 const CLAVES_REQUISITO_DISPONIBLES = ['total', 'pic', 'travesia_pic', 'nocturnas', 'instrumentos', 'instrumentos_sim', 'aterrizajes_noche', 'remolques'];
 
+const LABELS_REQUISITO = {
+  total: 'Total', pic: 'Piloto al mando (PIC)', travesia_pic: 'Travesía como PIC',
+  nocturnas: 'Nocturnas', instrumentos: 'Instrumentos (real + capota)',
+  instrumentos_sim: 'Instrumentos en simulador (FSTD)',
+  aterrizajes_noche: 'Aterrizajes nocturnos', remolques: 'Remolques',
+};
+
+function estadoVencimiento(v) {
+  const hoy = new Date();
+  const fv = new Date(v.fecha_vencimiento + 'T00:00:00');
+  const dias = Math.round((fv - hoy) / 86400000);
+  if (dias < 0) return { estado: 'danger', icon: 'xCircle', texto: `Vencido hace ${Math.abs(dias)} días` };
+  if (dias <= (v.umbral_alerta_dias || 30)) return { estado: 'warn', icon: 'alertTriangle', texto: `Vence en ${dias} días` };
+  return { estado: 'ok', icon: 'checkCircle', texto: `Vigente (${dias} días)` };
+}
+
 const ViewPerfil = {
   cursosActivos: ['PPA'],
   esAdmin: false,
@@ -20,11 +36,26 @@ const ViewPerfil = {
 
   async render() {
     const main = document.getElementById('main-content');
-    [this.cursosActivos, this.esAdmin] = await Promise.all([Repo.getCursosActivos(), Repo.esAdminApp()]);
-    const [vencimientos] = await Promise.all([Repo.listarVencimientos()]);
+    const [cursosActivos, esAdmin, vencimientos, vuelos] = await Promise.all([
+      Repo.getCursosActivos(), Repo.esAdminApp(), Repo.listarVencimientos(), Repo.listarVuelos(),
+    ]);
+    this.cursosActivos = cursosActivos;
+    this.esAdmin = esAdmin;
+    const agg = agregarVuelos(vuelos);
     if (this.cursosActivos.includes('PCA_HVI')) {
       this.hviSimHoras = await Repo.getHviSimHoras();
     }
+
+    const configsPorCurso = await Promise.all(this.cursosActivos.map(async (cursoId) => {
+      let config = await Repo.listarConfigLicencia(cursoId);
+      if (cursoId === 'PCA_HVI' && this.hviSimHoras !== null && this.hviSimHoras !== undefined) {
+        config = config.filter((c) => c.nombre_requisito !== 'instrumentos').concat([
+          { nombre_requisito: 'instrumentos', minimo_horas: Calc.round2(40 - this.hviSimHoras) },
+          { nombre_requisito: 'instrumentos_sim', minimo_horas: this.hviSimHoras },
+        ]);
+      }
+      return { cursoId, curso: CURSOS.find((c) => c.id === cursoId), config };
+    }));
 
     main.innerHTML = `
       <div class="card">
@@ -44,7 +75,20 @@ const ViewPerfil = {
 
       ${this.cursosActivos.includes('PCA_HVI') ? this._htmlRepartoHvi() : ''}
 
+      <div class="card">
+        <h2>${Icons.award(18)} Detalle de progreso</h2>
+        <div id="barras-progreso"></div>
+      </div>
+
       <div id="bloque-licencias"></div>
+
+      <div class="card">
+        <h2>${Icons.dollar(18)} Costos y exportación</h2>
+        <div class="btn-row">
+          <button class="btn secondary" onclick="Router.irA('costos')">${Icons.tag('dollar', 'Ver costos de la carrera')}</button>
+          <button class="btn secondary" onclick="Router.irA('exportar')">${Icons.tag('download', 'Exportar libro de vuelo')}</button>
+        </div>
+      </div>
 
       <div class="card">
         <h2>${Icons.idCard(18)} Vencimientos</h2>
@@ -78,6 +122,13 @@ const ViewPerfil = {
             }).join('')}
           </tbody>
         </table></div>
+
+        <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
+        <div id="currency-lista"></div>
+      </div>
+
+      <div class="card">
+        <button class="btn ghost" id="btn-logout" style="width:100%;justify-content:center">${Icons.tag('logOut', 'Cerrar sesión')}</button>
       </div>
     `;
 
@@ -85,6 +136,7 @@ const ViewPerfil = {
       chk.onchange = () => this._cambiarCursos();
     });
     document.getElementById('btn-agregar-vencimiento').onclick = () => this._agregarVencimiento();
+    document.getElementById('btn-logout').onclick = () => Auth.cerrarSesion();
     if (this.cursosActivos.includes('PCA_HVI')) {
       document.getElementById('btn-guardar-hvi').onclick = () => this._guardarReparto();
       document.getElementById('hvi-sim').addEventListener('input', (e) => {
@@ -93,11 +145,10 @@ const ViewPerfil = {
       });
     }
 
-    if (this.esAdmin) {
-      await this._renderPanelAdmin();
-    } else {
-      await this._renderSoloLectura();
-    }
+    try { renderBarrasProgreso(configsPorCurso, agg); } catch (err) { console.error('Error renderizando progreso en Perfil:', err); }
+    try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency en Perfil:', err); }
+
+    if (this.esAdmin) await this._renderPanelAdmin();
   },
 
   // ---- Reparto instrumentos real/simulador para PCA_HVI (61.315(d)) ----
@@ -133,29 +184,6 @@ const ViewPerfil = {
     } catch (err) {
       alert('Error al guardar el reparto: ' + (err.message || err));
     }
-  },
-
-  // ---- Vista normal: mínimos de TODOS los cursos activos, de solo lectura ----
-  async _renderSoloLectura() {
-    const cont = document.getElementById('bloque-licencias');
-    const configsPorCurso = await Promise.all(
-      this.cursosActivos.map(async (cursoId) => ({ cursoId, config: await Repo.listarConfigLicencia(cursoId) }))
-    );
-    cont.innerHTML = `
-      <div class="card">
-        <h2>Mínimos de los cursos activos (referencial)</h2>
-        <p class="muted">${Icons.tag('alertTriangle', 'Estos valores son los mismos para todos y se actualizan cuando cambia la normativa. Confirmá siempre contra la RAAC vigente.')}</p>
-        ${configsPorCurso.map(({ cursoId, config }) => `
-          <h3 style="margin-top:14px">${CURSOS.find((c) => c.id === cursoId)?.label || cursoId}</h3>
-          <div class="table-wrap"><table>
-            <thead><tr><th>Requisito</th><th class="num">Mínimo</th></tr></thead>
-            <tbody>
-              ${config.map((c) => `<tr><td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td><td class="num">${c.minimo_horas}</td></tr>`).join('') || '<tr><td colspan="2" class="empty-state">Sin requisitos cargados para este curso.</td></tr>'}
-            </tbody>
-          </table></div>
-        `).join('')}
-      </div>
-    `;
   },
 
   // ---- Vista admin: TODOS los cursos con sus requisitos, editables ----
@@ -274,5 +302,53 @@ const ViewPerfil = {
     this.render();
   },
 };
+
+function renderBarrasProgreso(configsPorCurso, agg) {
+  const cont = document.getElementById('barras-progreso');
+  const conRequisitos = configsPorCurso.filter(({ config }) => config.length);
+  if (!conRequisitos.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para los cursos activos todavía.</p>'; return; }
+
+  cont.innerHTML = conRequisitos.map(({ cursoId, curso, config }) => {
+    const items = config.map((req) => {
+      const actual = req.nombre_requisito === 'nocturnas'
+        ? valorNocturnasAjustado(cursoId, agg, configsPorCurso)
+        : valorRequisito(req.nombre_requisito, agg);
+      const minimo = Calc.n(req.minimo_horas);
+      const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
+      const faltan = Math.max(0, Calc.round2(minimo - actual));
+      const esUnidad = req.nombre_requisito === 'aterrizajes_noche' || req.nombre_requisito === 'remolques';
+      return { req, actual, minimo, pct, faltan, esUnidad };
+    });
+
+    // Mayor % completado primero; entre los que ya están al 100%, el que
+    // tiene más horas/unidades voladas (cantidad) va primero.
+    items.sort((a, b) => b.pct - a.pct || (b.pct === 100 ? b.actual - a.actual : 0));
+
+    return `
+      ${conRequisitos.length > 1 ? `<h3 style="margin-top:14px">${curso?.label || cursoId}</h3>` : ''}
+      ${items.map(({ req, actual, minimo, pct, faltan, esUnidad }) => `
+        <div class="progreso-item">
+          <div class="pi-head">
+            <span class="nombre">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
+            <span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — ${faltan <= 0 ? 'completo' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
+          </div>
+          <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
+        </div>`).join('')}
+    `;
+  }).join('');
+}
+
+function renderCurrency(vuelos) {
+  const cont = document.getElementById('currency-lista');
+  const hace90 = new Date(); hace90.setDate(hace90.getDate() - 90);
+  const recientes = vuelos.filter((v) => new Date(v.fecha) >= hace90);
+  const aterrDia = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_dia), 0);
+  const aterrNoche = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_noche), 0);
+  const okDia = aterrDia >= 3, okNoche = aterrNoche >= 3;
+  cont.innerHTML = `
+    <div class="chip"><span class="badge ${okDia ? 'ok' : 'warn'}">${Icons[okDia ? 'checkCircle' : 'alertTriangle'](12)} ${aterrDia}/3</span> Despegues y aterrizajes (día, 90 días)</div>
+    <div class="chip"><span class="badge ${okNoche ? 'ok' : 'warn'}">${Icons[okNoche ? 'checkCircle' : 'alertTriangle'](12)} ${aterrNoche}/3</span> Ídem nocturno (90 días)</div>
+  `;
+}
 
 window.ViewPerfil = ViewPerfil;

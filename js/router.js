@@ -13,28 +13,22 @@ const RUTAS = [
   { id: 'exportar', label: 'Exportar', icon: 'download', render: () => ViewExportar.render() },
 ];
 
+// Solo estas 4 tienen ícono propio en la barra inferior — el resto
+// (nuevo vuelo, costos, exportar) se llega desde botones dentro de las
+// pantallas, y Perfil se llega desde el ícono del header.
+const RUTAS_NAV_INFERIOR = ['dashboard', 'bitacora', 'aeronaves', 'totales'];
+
 function construirNav() {
-  const drawer = document.getElementById('drawer-menu');
-  drawer.innerHTML = `<div class="drawer-titulo">${Icons.plane(18)} Libro de Vuelo</div>`;
-  for (const r of RUTAS) {
+  const nav = document.getElementById('bottom-nav');
+  nav.innerHTML = '';
+  for (const id of RUTAS_NAV_INFERIOR) {
+    const r = RUTAS.find((x) => x.id === id);
     const b = document.createElement('button');
     b.dataset.ruta = r.id;
-    b.innerHTML = `<span class="ic">${Icons[r.icon](18)}</span><span>${r.label}</span>`;
-    b.onclick = () => { window.location.hash = '#' + r.id; cerrarMenu(); };
-    drawer.appendChild(b);
+    b.innerHTML = `<span class="ic">${Icons[r.icon](20)}</span><span class="lbl">${r.label}</span>`;
+    b.onclick = () => { window.location.hash = '#' + r.id; };
+    nav.appendChild(b);
   }
-
-  document.getElementById('btn-menu').onclick = abrirMenu;
-  document.getElementById('drawer-overlay').onclick = cerrarMenu;
-}
-
-function abrirMenu() {
-  document.getElementById('drawer-menu').classList.add('open');
-  document.getElementById('drawer-overlay').classList.add('open');
-}
-function cerrarMenu() {
-  document.getElementById('drawer-menu').classList.remove('open');
-  document.getElementById('drawer-overlay').classList.remove('open');
 }
 
 async function navegar() {
@@ -43,7 +37,7 @@ async function navegar() {
   const params = new URLSearchParams(queryStr || '');
   const ruta = RUTAS.find((r) => r.id === rutaId) || RUTAS[0];
 
-  document.querySelectorAll('#drawer-menu button[data-ruta]').forEach((b) => {
+  document.querySelectorAll('#bottom-nav button[data-ruta]').forEach((b) => {
     b.classList.toggle('active', b.dataset.ruta === ruta.id);
   });
 

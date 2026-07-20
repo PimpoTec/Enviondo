@@ -90,21 +90,17 @@
   <!-- ---------- APP ---------- -->
   <div id="vista-app" style="display:none">
     <header class="topbar">
-      <div style="display:flex;align-items:center;gap:10px">
-        <button class="icon-btn" id="btn-menu" title="Menú"></button>
-        <div class="brand"><span class="icon" id="brand-icon"></span> Libro de Vuelo</div>
-      </div>
+      <div class="brand"><span class="icon" id="brand-icon"></span> Libro de Vuelo</div>
       <div class="topbar-actions">
         <button class="icon-btn" id="btn-theme" title="Cambiar tema"></button>
-        <button class="icon-btn" id="btn-logout" title="Cerrar sesión"></button>
+        <button class="icon-btn" id="btn-perfil" title="Perfil"></button>
       </div>
     </header>
 
     <main id="main-content"></main>
-  </div>
 
-  <div id="drawer-overlay" class="drawer-overlay"></div>
-  <nav id="drawer-menu" class="drawer-menu"></nav>
+    <nav id="bottom-nav" class="bottom-nav"></nav>
+  </div>
 </div>
 
 <!-- Supabase JS (CDN) -->

@@ -1,43 +1,22 @@
 // ============================================================================
-// VISTA: DASHBOARD
-// Orden de prioridad: 1) total de horas + progreso del curso activo (hero),
-// 2) último registro + CTA nuevo vuelo, 3) próximo vuelo agendado,
-// 4) detalle de progreso por requisito, 5) vencimientos y currency,
-// 6) últimos vuelos, 7) costos (secundario, al final).
+// VISTA: DASHBOARD — despejado a lo esencial: 1) total de horas + progreso
+// de licencia (hero), 2) botón nuevo vuelo, 3) próximo vuelo agendado (con
+// METAR real del aeródromo de origen). El resto (detalle de progreso,
+// vencimientos, últimos vuelos, costos) vive en Perfil, un tap más allá.
 // ============================================================================
-
-const LABELS_REQUISITO = {
-  total: 'Total', pic: 'Piloto al mando (PIC)', travesia_pic: 'Travesía como PIC',
-  nocturnas: 'Nocturnas', instrumentos: 'Instrumentos (real + capota)',
-  instrumentos_sim: 'Instrumentos en simulador (FSTD)',
-  aterrizajes_noche: 'Aterrizajes nocturnos', remolques: 'Remolques',
-};
-
-function estadoVencimiento(v) {
-  const hoy = new Date();
-  const fv = new Date(v.fecha_vencimiento + 'T00:00:00');
-  const dias = Math.round((fv - hoy) / 86400000);
-  if (dias < 0) return { estado: 'danger', icon: 'xCircle', texto: `Vencido hace ${Math.abs(dias)} días` };
-  if (dias <= (v.umbral_alerta_dias || 30)) return { estado: 'warn', icon: 'alertTriangle', texto: `Vence en ${dias} días` };
-  return { estado: 'ok', icon: 'checkCircle', texto: `Vigente (${dias} días)` };
-}
 
 const ViewDashboard = {
   aeronaves: [],
 
   async render() {
     const main = document.getElementById('main-content');
-    const [vuelos, cursosActivos, vencimientos, programados, aeronaves] = await Promise.all([
-      Repo.listarVuelos(), Repo.getCursosActivos(), Repo.listarVencimientos(),
+    const [vuelos, cursosActivos, programados, aeronaves] = await Promise.all([
+      Repo.listarVuelos(), Repo.getCursosActivos(),
       Repo.listarVuelosProgramados(), Repo.listarAeronaves(),
     ]);
     this.aeronaves = aeronaves;
     const agg = agregarVuelos(vuelos);
 
-    // El PCA+HVI reparte sus 40 hs de instrumentos entre real y simulador
-    // según lo que el piloto haya elegido en Perfil (no es un mínimo fijo
-    // igual para todos, así que no vive en la tabla global de requisitos).
-    let avisoHvi = '';
     const configsPorCurso = await Promise.all(cursosActivos.map(async (cursoId) => {
       let config = await Repo.listarConfigLicencia(cursoId);
       if (cursoId === 'PCA_HVI') {
@@ -47,14 +26,10 @@ const ViewDashboard = {
             { nombre_requisito: 'instrumentos', minimo_horas: Calc.round2(40 - simHoras) },
             { nombre_requisito: 'instrumentos_sim', minimo_horas: simHoras },
           ]);
-        } else {
-          avisoHvi = `<p class="muted">${Icons.tag('alertTriangle', 'Todavía no elegiste cómo repartir tus 40 hs de instrumentos entre real y simulador — <a href="#perfil">andá a Perfil</a> para configurarlo.')}</p>`;
         }
       }
       return { cursoId, curso: CURSOS.find((c) => c.id === cursoId), config };
     }));
-
-    const ultimo = vuelos[0];
 
     main.innerHTML = `
       <div class="card">
@@ -96,94 +71,58 @@ const ViewDashboard = {
         <div id="form-programado" style="display:none;margin-bottom:14px"></div>
         <div id="proximo-vuelo"></div>
       </div>
-
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">${Icons.award(18)} Detalle de progreso</h2>
-          <button class="btn ghost" onclick="Router.irA('perfil')">Cambiar curso →</button>
-        </div>
-        ${avisoHvi}
-        <div id="barras-progreso"></div>
-      </div>
-
-      <div class="card card-compact">
-        <h3>${Icons.list(16)} Último registro</h3>
-        ${ultimo
-          ? `<p style="margin:0;font-family:var(--font-mono)">${ultimo.aeronaves?.matricula || '—'}</p>
-             <p class="muted" style="margin:4px 0 0">${ultimo.desde} → ${ultimo.hasta} (${ultimo.tiempo_total} hs)</p>`
-          : `<p class="muted" style="margin:0">Todavía no cargaste ningún vuelo.</p>`}
-      </div>
-
-      <div class="card card-compact">
-        <h3>${Icons.idCard(16)} Vencimientos y experiencia reciente</h3>
-        <div id="vencimientos-lista" class="grid cols-4"></div>
-        <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
-        <div id="currency-lista"></div>
-      </div>
-
-      <div class="card card-compact">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h3 style="margin:0">${Icons.list(16)} Últimos vuelos</h3>
-          <button class="btn ghost" onclick="Router.irA('bitacora')">Ver todos →</button>
-        </div>
-        <div id="ultimos-vuelos"></div>
-      </div>
-
-      <div class="card card-compact" style="opacity:.85">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <h3 style="margin:0 0 2px">${Icons.dollar(16)} Costos</h3>
-            <span class="muted">Gastado hasta ahora: ${fmtMoneda(agg.costo_total)}</span>
-          </div>
-          <button class="btn ghost" onclick="Router.irA('costos')">Ver detalle →</button>
-        </div>
-      </div>
     `;
 
     document.getElementById('btn-mostrar-form-programado').onclick = () => this._toggleFormProgramado();
 
-    // Cada renderer corre aislado: si uno falla con un dato inesperado de
-    // esta cuenta puntual, no debe tirar abajo los botones ni el resto de
-    // las secciones (ya conectados arriba).
-    const pasos = [
-      () => renderHeroProgreso(configsPorCurso, agg),
-      () => renderBarrasProgreso(configsPorCurso, agg),
-      () => renderUltimosVuelos(vuelos.slice(0, 6)),
-      () => renderVencimientos(vencimientos),
-      () => renderCurrency(vuelos),
-      () => this._renderProximoVuelo(programados),
-    ];
-    for (const paso of pasos) {
-      try { paso(); } catch (err) { console.error('Error renderizando sección del dashboard:', err); }
-    }
+    try { renderHeroProgreso(configsPorCurso, agg); } catch (err) { console.error('Error renderizando progreso del dashboard:', err); }
+    try { this._renderProximoVuelo(programados); } catch (err) { console.error('Error renderizando próximo vuelo:', err); }
   },
 
   _renderProximoVuelo(programados) {
     const cont = document.getElementById('proximo-vuelo');
     if (!programados.length) {
-      cont.innerHTML = `<p class="muted">No tenés vuelos agendados. Usá "+ Agendar" para cargar el próximo.</p>`;
+      cont.innerHTML = `<p class="muted">No tenés vuelos agendados. Usá "Programar vuelo" para cargar el próximo.</p>`;
       return;
     }
-    cont.innerHTML = programados.slice(0, 3).map((p) => {
-      const dias = Math.round((new Date(p.fecha + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000);
-      const cuando = dias === 0 ? 'Hoy' : dias === 1 ? 'Mañana' : `En ${dias} días`;
+    cont.innerHTML = programados.slice(0, 3).map((p, i) => {
+      const [anio, mes, dia] = p.fecha.split('-');
+      const fechaGrande = `${dia} ${MESES_CORTOS[Number(mes) - 1]}`;
+      const metarId = `metar-${i}`;
       return `
-        <div class="progreso-item" style="border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px">
-          <div class="pi-head">
-            <span class="nombre">${fmtFecha(p.fecha)} ${p.hora_prevista ? '· ' + p.hora_prevista.slice(0, 5) : ''} — <span class="badge ok">${cuando}</span></span>
+        <div class="plan-card">
+          <div class="plan-card-fecha">
+            <p class="muted" style="margin:0">Fecha programada</p>
+            <p style="margin:2px 0 0;font-size:20px;font-weight:700">${fechaGrande}</p>
+            ${p.hora_prevista ? `<p style="margin:2px 0 0;font-family:var(--font-mono);color:var(--brand)">${p.hora_prevista.slice(0, 5)} UTC</p>` : ''}
+            ${/^[A-Z]{4}$/.test(p.desde || '') ? `
+              <p class="muted" style="margin:14px 0 0">METAR ${p.desde}</p>
+              <p id="${metarId}" class="muted" style="margin:2px 0 0;font-family:var(--font-mono);font-size:12px">Cargando…</p>
+            ` : ''}
           </div>
-          <div class="muted" style="margin:4px 0 8px">
-            ${p.aeronaves?.matricula ? p.aeronaves.matricula + ' — ' + p.aeronaves.marca_modelo : 'Aeronave sin definir'}
-            ${p.desde && p.hasta ? ` · ${p.desde} → ${p.hasta}` : ''}
-            ${p.instructor_nombre ? ` · Instructor: ${p.instructor_nombre}` : ''}
-            ${p.notas ? ` · ${p.notas}` : ''}
-          </div>
-          <div class="btn-row">
-            <button class="btn secondary" onclick="ViewDashboard._marcarComoVolado('${p.id}', '${p.aeronave_id || ''}', '${p.fecha}', '${p.desde || ''}', '${p.hasta || ''}')">Marcar como volado</button>
-            <button class="btn ghost" onclick="ViewDashboard._borrarProgramado('${p.id}')">Borrar</button>
+          <div class="plan-card-detalle">
+            <p class="muted" style="margin:0">Aeronave</p>
+            <p style="margin:2px 0 10px;font-size:16px;font-weight:600">
+              ${p.aeronaves?.matricula ? `${p.aeronaves.matricula} — ${p.aeronaves.marca_modelo}` : 'Sin definir'}
+            </p>
+            ${p.desde && p.hasta ? `
+              <div class="plan-card-ruta">
+                <span class="mono">${p.desde}</span>
+                ${Icons.plane(16)}
+                <span class="mono">${p.hasta}</span>
+              </div>` : ''}
+            ${p.instructor_nombre || p.notas ? `<p class="muted" style="margin:8px 0 0">${[p.instructor_nombre && `Instructor: ${p.instructor_nombre}`, p.notas].filter(Boolean).join(' · ')}</p>` : ''}
+            <div class="btn-row" style="margin-top:10px">
+              <button class="btn secondary" onclick="ViewDashboard._marcarComoVolado('${p.id}', '${p.aeronave_id || ''}', '${p.fecha}', '${p.desde || ''}', '${p.hasta || ''}')">Marcar como volado</button>
+              <button class="btn ghost" onclick="ViewDashboard._borrarProgramado('${p.id}')">Borrar</button>
+            </div>
           </div>
         </div>`;
     }).join('');
+
+    programados.slice(0, 3).forEach((p, i) => {
+      if (/^[A-Z]{4}$/.test(p.desde || '')) cargarMetar(p.desde, `metar-${i}`);
+    });
   },
 
   _toggleFormProgramado() {
@@ -241,6 +180,28 @@ const ViewDashboard = {
   },
 };
 
+const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+// METAR real del aeródromo de origen — servicio público de NOAA
+// (aviationweather.gov), sin API key. aviationweather.gov no manda headers
+// CORS, así que el pedido va a través de un proxy CORS público
+// (allorigins.win) para que el navegador no lo bloquee. Si falla (código
+// no existe, sin señal, el proxy caído), se muestra un aviso en vez de
+// romper el resto de la card.
+async function cargarMetar(icao, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  try {
+    const destino = encodeURIComponent(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=raw`);
+    const resp = await fetch(`https://api.allorigins.win/raw?url=${destino}`);
+    if (!resp.ok) throw new Error('sin respuesta');
+    const texto = (await resp.text()).trim();
+    el.textContent = texto || 'Sin METAR publicado para este aeródromo.';
+  } catch {
+    el.textContent = 'METAR no disponible.';
+  }
+}
+
 // Cuando "Habilitación de Vuelo Nocturno" (HAB_NOC) está activa junto a otro
 // curso que también pide horas nocturnas (ej. PCA pide 5), las horas
 // nocturnas voladas van primero a completar la habilitación (sus 3 hs) —
@@ -255,9 +216,9 @@ function valorNocturnasAjustado(cursoId, agg, configsPorCurso) {
   return Math.max(0, Calc.round2(agg.total_noche - minimoHabNoc));
 }
 
-// Promedia el progreso entre todos los cursos activos: cada curso aporta
-// el % de su requisito "principal" (total, o el primero si no tiene "total"
-// — ej. HAB_NOC solo pide nocturnas), y el anillo muestra el promedio simple.
+// Promedia el progreso entre todos los cursos activos, ponderado por
+// tamaño de requisito (ver comentario en la función), y lo pinta en el
+// anillo grande del hero.
 function renderHeroProgreso(configsPorCurso, agg) {
   const lista = document.getElementById('hero-cursos-lista');
   const bar = document.getElementById('hero-bar');
@@ -305,89 +266,6 @@ function renderHeroProgreso(configsPorCurso, agg) {
   bar.style.width = promedio + '%';
   pctLabel.textContent = porCurso.length > 1 ? `Progreso combinado: ${promedio}% completado` : `${promedio}% completado`;
   ring.style.strokeDashoffset = CIRC - (CIRC * promedio) / 100;
-}
-
-function renderBarrasProgreso(configsPorCurso, agg) {
-  const cont = document.getElementById('barras-progreso');
-  const conRequisitos = configsPorCurso.filter(({ config }) => config.length);
-  if (!conRequisitos.length) { cont.innerHTML = '<p class="muted">Sin requisitos configurados para los cursos activos todavía.</p>'; return; }
-
-  cont.innerHTML = conRequisitos.map(({ cursoId, curso, config }) => {
-    const items = config.map((req) => {
-      const actual = req.nombre_requisito === 'nocturnas'
-        ? valorNocturnasAjustado(cursoId, agg, configsPorCurso)
-        : valorRequisito(req.nombre_requisito, agg);
-      const minimo = Calc.n(req.minimo_horas);
-      const pct = minimo > 0 ? Math.min(100, Calc.round2((actual / minimo) * 100)) : 0;
-      const faltan = Math.max(0, Calc.round2(minimo - actual));
-      const esUnidad = req.nombre_requisito === 'aterrizajes_noche' || req.nombre_requisito === 'remolques';
-      return { req, actual, minimo, pct, faltan, esUnidad };
-    });
-
-    // Mayor % completado primero; entre los que ya están al 100%, el que
-    // tiene más horas/unidades voladas (cantidad) va primero.
-    items.sort((a, b) => b.pct - a.pct || (b.pct === 100 ? b.actual - a.actual : 0));
-
-    return `
-      ${conRequisitos.length > 1 ? `<h3 style="margin-top:14px">${curso?.label || cursoId}</h3>` : ''}
-      ${items.map(({ req, actual, minimo, pct, faltan, esUnidad }) => `
-        <div class="progreso-item">
-          <div class="pi-head">
-            <span class="nombre">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
-            <span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — ${faltan <= 0 ? 'completo' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</span>
-          </div>
-          <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
-        </div>`).join('')}
-    `;
-  }).join('');
-}
-
-function renderUltimosVuelos(vuelos) {
-  const cont = document.getElementById('ultimos-vuelos');
-  if (!vuelos.length) { cont.innerHTML = `<div class="empty-state">Todavía no cargaste ningún vuelo. <br><button class="btn" style="margin-top:10px" onclick="Router.irA('nuevo-vuelo')">Cargar el primero</button></div>`; return; }
-  cont.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Fecha</th><th>Ruta</th><th>Aeronave</th><th class="num">Tiempo</th><th></th></tr></thead>
-    <tbody>
-      ${vuelos.map((v) => `
-        <tr>
-          <td>${fmtFecha(v.fecha)}</td>
-          <td>${v.desde} → ${v.hasta}</td>
-          <td>${v.aeronaves?.matricula || '—'}</td>
-          <td class="num">${v.tiempo_total} hs</td>
-          <td><button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">${Icons.edit(16)}</button></td>
-        </tr>`).join('')}
-    </tbody>
-  </table></div>`;
-}
-
-function renderVencimientos(vencimientos) {
-  const cont = document.getElementById('vencimientos-lista');
-  if (!vencimientos.length) { cont.innerHTML = '<p class="muted">No cargaste vencimientos todavía. Andá a Perfil para agregar (CMA, habilitaciones, IFR…).</p>'; return; }
-  cont.innerHTML = vencimientos.map((v) => {
-    const est = estadoVencimiento(v);
-    return `
-      <div class="doc-card">
-        <div class="doc-head">
-          <span class="icon">${Icons.medical(18)}</span>
-          <span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span>
-        </div>
-        <p class="doc-tipo">${v.tipo}</p>
-        <p class="doc-fecha">${fmtFecha(v.fecha_vencimiento)}</p>
-      </div>`;
-  }).join('');
-}
-
-function renderCurrency(vuelos) {
-  const cont = document.getElementById('currency-lista');
-  const hace90 = new Date(); hace90.setDate(hace90.getDate() - 90);
-  const recientes = vuelos.filter((v) => new Date(v.fecha) >= hace90);
-  const aterrDia = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_dia), 0);
-  const aterrNoche = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_noche), 0);
-  const okDia = aterrDia >= 3, okNoche = aterrNoche >= 3;
-  cont.innerHTML = `
-    <div class="chip"><span class="badge ${okDia ? 'ok' : 'warn'}">${Icons[okDia ? 'checkCircle' : 'alertTriangle'](12)} ${aterrDia}/3</span> Despegues y aterrizajes (día, 90 días)</div>
-    <div class="chip"><span class="badge ${okNoche ? 'ok' : 'warn'}">${Icons[okNoche ? 'checkCircle' : 'alertTriangle'](12)} ${aterrNoche}/3</span> Ídem nocturno (90 días)</div>
-  `;
 }
 
 function fmtMoneda(x, moneda = 'ARS') {
