@@ -136,7 +136,8 @@ const ViewDashboard = {
 
             <div class="btn-row plan-acciones">
               <button class="btn secondary" data-accion="volado" data-idx="${i}">Marcar como volado</button>
-              <button class="btn ghost" data-accion="borrar" data-idx="${i}">Borrar</button>
+              <button class="btn ghost" data-accion="editar" data-idx="${i}">${Icons.edit(16)}</button>
+              <button class="btn ghost" data-accion="borrar" data-idx="${i}">${Icons.trash(16)}</button>
             </div>
           </div>
         </div>`;
@@ -149,6 +150,7 @@ const ViewDashboard = {
         const p = this._programadosVista[Number(b.dataset.idx)];
         if (!p) return;
         if (b.dataset.accion === 'volado') this._marcarComoVolado(p.id, p.aeronave_id, p.fecha, p.desde, p.hasta);
+        else if (b.dataset.accion === 'editar') this._toggleFormProgramado(p);
         else this._borrarProgramado(p.id);
       };
     });
@@ -161,35 +163,51 @@ const ViewDashboard = {
     });
   },
 
-  _toggleFormProgramado() {
+  // Mismo formulario para agendar uno nuevo o editar uno existente — si se
+  // pasa `editando` (el vuelo agendado completo), precarga todos los campos
+  // con lo que ya tenía y el botón guarda los cambios en vez de crear otro.
+  _toggleFormProgramado(editando) {
     const cont = document.getElementById('form-programado');
     const visible = cont.style.display !== 'none';
-    if (visible) { cont.style.display = 'none'; return; }
+    if (visible && !editando) { cont.style.display = 'none'; this._editandoProgramado = null; return; }
+
+    this._editandoProgramado = editando || null;
+    const p = editando || {};
     cont.innerHTML = `
       <div class="grid cols-2">
-        <div class="field"><label>Fecha</label><input type="date" id="pv-fecha" value="${new Date().toISOString().slice(0, 10)}"></div>
-        <div class="field"><label>${labelHora('Hora prevista')}</label><input type="time" id="pv-hora"></div>
+        <div class="field"><label>Fecha</label><input type="date" id="pv-fecha" value="${p.fecha || new Date().toISOString().slice(0, 10)}"></div>
+        <div class="field"><label>${labelHora('Hora prevista')}</label><input type="time" id="pv-hora" value="${(p.hora_prevista || '').slice(0, 5)}"></div>
         <div class="field"><label>Aeronave</label>
           <select id="pv-aeronave"><option value="">Sin definir</option>
-            ${this.aeronaves.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
+            ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === p.aeronave_id ? 'selected' : ''}>${a.matricula} — ${a.marca_modelo}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>Instructor</label><input type="text" id="pv-instructor"></div>
-        <div class="field"><label>Desde (OACI)</label><input type="text" id="pv-desde" maxlength="4" style="text-transform:uppercase"></div>
-        <div class="field"><label>Hasta (OACI)</label><input type="text" id="pv-hasta" maxlength="4" style="text-transform:uppercase"></div>
+        <div class="field"><label>Instructor</label><input type="text" id="pv-instructor" value="${(p.instructor_nombre || '').replace(/"/g, '&quot;')}"></div>
+        <div class="field"><label>Desde (OACI)</label><input type="text" id="pv-desde" maxlength="4" style="text-transform:uppercase" value="${p.desde || ''}"></div>
+        <div class="field"><label>Hasta (OACI)</label><input type="text" id="pv-hasta" maxlength="4" style="text-transform:uppercase" value="${p.hasta || ''}"></div>
         <div class="field">
           <label>Tipo de vuelo <span class="muted">(opcional)</span></label>
           <select id="pv-tipo">
             <option value="">Sin especificar — usa Local/Travesía según destino</option>
-            ${TIPOS_VUELO_PROGRAMADO.map(([c, label]) => `<option value="${c}">${label}</option>`).join('')}
+            ${TIPOS_VUELO_PROGRAMADO.map(([c, label]) => `<option value="${c}" ${c === p.tipo_vuelo ? 'selected' : ''}>${label}</option>`).join('')}
           </select>
         </div>
       </div>
-      <div class="field"><label>Notas</label><input type="text" id="pv-notas"></div>
-      <div class="btn-row"><button class="btn" id="btn-guardar-programado">Agendar</button></div>
+      <div class="field"><label>Notas</label><input type="text" id="pv-notas" value="${(p.notas || '').replace(/"/g, '&quot;')}"></div>
+      <div class="btn-row">
+        <button class="btn" id="btn-guardar-programado">${editando ? 'Guardar cambios' : 'Agendar'}</button>
+        ${editando ? '<button class="btn ghost" id="btn-cancelar-programado">Cancelar</button>' : ''}
+      </div>
     `;
     cont.style.display = 'block';
     document.getElementById('btn-guardar-programado').onclick = () => this._guardarProgramado();
+    if (editando) {
+      document.getElementById('btn-cancelar-programado').onclick = () => {
+        cont.style.display = 'none';
+        this._editandoProgramado = null;
+      };
+      cont.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
     Autocomplete.attachAerodromo(document.getElementById('pv-desde'));
     Autocomplete.attachAerodromo(document.getElementById('pv-hasta'));
   },
@@ -197,17 +215,24 @@ const ViewDashboard = {
   async _guardarProgramado() {
     const fecha = document.getElementById('pv-fecha').value;
     if (!fecha) { UI.toast('Elegí una fecha.', 'warn'); return; }
+    const payload = {
+      fecha,
+      hora_prevista: document.getElementById('pv-hora').value || null,
+      aeronave_id: document.getElementById('pv-aeronave').value || null,
+      desde: document.getElementById('pv-desde').value.trim().toUpperCase() || null,
+      hasta: document.getElementById('pv-hasta').value.trim().toUpperCase() || null,
+      instructor_nombre: document.getElementById('pv-instructor').value || null,
+      tipo_vuelo: document.getElementById('pv-tipo').value || null,
+      notas: document.getElementById('pv-notas').value || null,
+    };
     try {
-      await Repo.crearVueloProgramado({
-        fecha,
-        hora_prevista: document.getElementById('pv-hora').value || null,
-        aeronave_id: document.getElementById('pv-aeronave').value || null,
-        desde: document.getElementById('pv-desde').value.trim().toUpperCase() || null,
-        hasta: document.getElementById('pv-hasta').value.trim().toUpperCase() || null,
-        instructor_nombre: document.getElementById('pv-instructor').value || null,
-        tipo_vuelo: document.getElementById('pv-tipo').value || null,
-        notas: document.getElementById('pv-notas').value || null,
-      });
+      if (this._editandoProgramado) {
+        await Repo.actualizarVueloProgramado(this._editandoProgramado.id, payload);
+        UI.toast('Vuelo agendado actualizado.', 'ok');
+      } else {
+        await Repo.crearVueloProgramado(payload);
+      }
+      this._editandoProgramado = null;
       this.render();
     } catch (err) {
       UI.toast('Error al agendar: ' + (err.message || err), 'error');

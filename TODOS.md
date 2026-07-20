@@ -3,6 +3,14 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 14 (editar vuelos agendados)
+- [x] Botón "Editar" (ícono lápiz) en cada tarjeta de "Próximo vuelo", junto
+      a "Marcar como volado"/"Borrar". Abre el mismo formulario de
+      "Programar vuelo" con todos los campos precargados (fecha, hora,
+      aeronave, instructor, desde/hasta, tipo de vuelo, notas); el botón pasa
+      a decir "Guardar cambios" y actualiza el registro en vez de crear uno
+      nuevo. Nuevo `Repo.actualizarVueloProgramado`.
+
 ## Hecho — tanda 13 (tipo de vuelo agendado, opcional)
 - [x] **"Programar vuelo"**: nuevo campo opcional "Tipo de vuelo" (Vuelo
       Solo / Vuelo de Instrucción / Capota / Nocturno / Navegación / Examen).

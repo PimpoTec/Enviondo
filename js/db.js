@@ -149,6 +149,11 @@ const Repo = {
     if (error) throw error;
     Cache.invalidar('vuelos_programados');
   },
+  async actualizarVueloProgramado(id, cambios) {
+    const { error } = await window.db.from('vuelos_programados').update(cambios).eq('id', id);
+    if (error) throw error;
+    Cache.invalidar('vuelos_programados');
+  },
   async borrarVueloProgramado(id) {
     const { error } = await window.db.from('vuelos_programados').delete().eq('id', id);
     if (error) throw error;
