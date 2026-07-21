@@ -3,6 +3,27 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 26 (dataset oficial de aeródromos: local + OACI + IATA, cobertura 100%)
+- [x] `js/aerodromos.js` reconstruido desde el registro oficial que pasaste
+      (`aeropuertos_detalle.csv`, 693 aeródromos/helipuertos) — ahora cada
+      entrada tiene sus tres códigos por separado (`local`, `icao`,
+      `iata`) en vez de uno solo. Se conservan además 44 códigos OACI que
+      la app ya reconocía y no están en este registro (fuente anterior),
+      para no perder cobertura — total 737 aeródromos.
+- [x] Autocomplete (`js/autocomplete.js`): ahora busca por CUALQUIERA de
+      los tres códigos, no solo el canónico — tipeás "EZE" (local o IATA)
+      o "SAEZ" (OACI) y encontrás el mismo Ezeiza. La sugerencia muestra
+      los códigos alternativos entre paréntesis para confirmar que es el
+      correcto. Siempre se guarda el mismo código canónico (OACI si tiene,
+      si no el local) en `vuelos.desde/hasta` — así el mismo aeródromo no
+      queda partido en dos según con qué código lo hayas tipeado, y no se
+      rompen las estadísticas de rutas ni el mapa.
+- [x] `js/coordenadas.js` reconstruido con las coordenadas del mismo
+      registro oficial — **cobertura 100% (737/737)**, mejor que el 97%
+      de antes. Ojo: las columnas latitud/longitud del CSV venían
+      invertidas (confirmado cruzando contra el texto en grados/minutos/
+      segundos de las 693 filas) — ya corregido al importar.
+
 ## Hecho — tanda 25 (fix: tocar una ruta era casi imposible)
 - [x] El área tocable de una polyline de Leaflet es exactamente su grosor
       visual (2-7px según cuánto se voló) — casi imposible de acertar con
