@@ -3,6 +3,19 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 36 (avisos automáticos: "a veces sí, a veces no")
+- [x] Después de arreglar el timeout de pg_net (tanda 35), los avisos
+      seguían llegando de forma inconsistente — a veces sí, a veces no o
+      con demora larga. Causa: `webpush.sendNotification` se llamaba sin
+      especificar `urgency`, así que por default viaja con prioridad
+      normal — Android puede demorar bastante la entrega de mensajes de
+      prioridad normal si el celu está en modo Doze/ahorro de batería,
+      hasta que el sistema decida "despertar" solo.
+- [x] Arreglo: `{ urgency: 'high' }` en la llamada a
+      `webpush.sendNotification` (`mandarATodos`, usada tanto por el
+      botón de prueba como por el cron) — le pide al servicio de push
+      que salte esa espera y entregue de inmediato.
+
 ## Hecho — tanda 35 (diagnóstico: avisos automáticos no llegaban — timeout de pg_net)
 - [x] Reportado: el botón "Enviar notificación de prueba" funciona, pero
       los avisos automáticos (recordatorios, vencimientos, vuelos

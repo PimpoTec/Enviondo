@@ -75,7 +75,12 @@ async function mandarATodos(userId: string, payload: { title: string; body: stri
   let ultimoError = '';
   for (const s of subs ?? []) {
     try {
-      await webpush.sendNotification(s.subscription, JSON.stringify(payload));
+      // urgency:'high' — sin esto Android puede demorar la entrega (a veces
+      // varios minutos, a veces nada hasta que el sistema "despierte" solo)
+      // si el celu está en modo Doze/ahorro de batería, porque por default
+      // el push se manda con prioridad normal. Alta prioridad le pide al
+      // servicio de push (FCM) que salte esa espera.
+      await webpush.sendNotification(s.subscription, JSON.stringify(payload), { urgency: 'high' });
       enviados++;
     } catch (err: any) {
       // 404/410 = el navegador descartó esa suscripción (desinstaló la PWA,
