@@ -464,3 +464,83 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 }
 .rec-item .btn { padding: 4px 8px; }
 .rec-item-texto { display: flex; align-items: center; gap: 6px; }
+
+/* ---------- Mapa de rutas: instrumental de cabina ("glass cockpit") ----------
+   Paneles translúcidos con blur, glow naranja en marcadores/líneas activas,
+   mismos tokens de color que el resto de la app (nada de Tailwind/paleta
+   nueva) — ver DESIGN.md. */
+.mapa-wrap {
+  position: relative; height: 420px; border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--bg-subtle); margin-top: 4px;
+}
+.mapa-wrap .leaflet-container { background: var(--bg-subtle); font-family: var(--font); }
+.mapa-wrap .leaflet-tile { filter: grayscale(0.35) brightness(0.55) contrast(1.05); }
+:root[data-theme="light"] .mapa-wrap .leaflet-tile { filter: none; }
+
+.mapa-panel {
+  background: rgba(28, 30, 35, 0.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow);
+}
+:root[data-theme="light"] .mapa-panel { background: rgba(255, 255, 255, 0.78); }
+
+.mapa-wrap .leaflet-control-zoom { border: none; margin: 10px 10px 0 0; }
+.mapa-wrap .leaflet-control-zoom a {
+  background: rgba(28, 30, 35, 0.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: var(--brand); border: 1px solid var(--border) !important; width: 30px; height: 30px; line-height: 30px;
+}
+:root[data-theme="light"] .mapa-wrap .leaflet-control-zoom a { background: rgba(255, 255, 255, 0.78); }
+.mapa-wrap .leaflet-control-zoom a:first-child { border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important; }
+.mapa-wrap .leaflet-control-zoom a:last-child { border-radius: 0 0 var(--radius-sm) var(--radius-sm) !important; border-top: none !important; }
+
+.mapa-btn-recentrar {
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; margin-top: 6px !important;
+}
+.mapa-btn-recentrar:hover { color: var(--brand); }
+.mapa-btn-recentrar .icon { width: 15px; height: 15px; }
+
+.mapa-etiqueta.leaflet-tooltip {
+  background: rgba(20, 21, 25, 0.82); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 2px 7px; font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: .02em; box-shadow: none; white-space: nowrap;
+}
+:root[data-theme="light"] .mapa-etiqueta.leaflet-tooltip { background: rgba(255, 255, 255, 0.85); }
+.mapa-etiqueta.leaflet-tooltip::before { display: none; }
+
+.mapa-marcador-punto {
+  position: absolute; border-radius: 50%; background: var(--brand-strong);
+  border: 2px solid rgba(255, 255, 255, .3); box-shadow: var(--brand-glow);
+}
+.mapa-marcador-ping {
+  position: absolute; border-radius: 50%; background: var(--brand); opacity: .4;
+  animation: mapa-ping 2.2s cubic-bezier(0, 0, .2, 1) infinite;
+}
+@keyframes mapa-ping {
+  0% { transform: scale(.6); opacity: .5; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+.mapa-ruta-linea { cursor: pointer; }
+
+.mapa-ficha-ruta {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  width: calc(100% - 20px); max-width: 420px; z-index: 1000; padding: 12px 14px;
+  display: none;
+}
+.mapa-ficha-ruta.visible { display: block; }
+.mapa-ficha-ruta-head {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px;
+}
+.mapa-ficha-ruta-head h4 {
+  margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--brand); font-weight: 700; font-family: var(--font-mono);
+}
+.mapa-ficha-ruta button { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; display: flex; }
+.mapa-ficha-ruta button:hover { color: var(--text); }
+.mapa-ficha-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mapa-ficha-stats .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); display: block; margin-bottom: 2px; }
+.mapa-ficha-stats .val { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.mapa-ficha-stats .val .unidad { font-size: 10px; color: var(--text-muted); font-weight: 500; margin-left: 2px; }
+.mapa-ficha-aeronaves { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }

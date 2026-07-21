@@ -27,16 +27,42 @@ function calcularFrecuenciaAerodromos(vuelos) {
 
 // Rutas más voladas — A-B y B-A cuentan como la misma ruta (no importa la
 // dirección del vuelo para el ranking). Ordenadas de más a menos frecuente.
+// Incluye las matrículas que hicieron esa ruta (para la ficha del mapa al
+// tocarla) y la duración media (promedio de tiempo_total de esos vuelos).
 function calcularRutasFrecuentes(vuelos) {
   const map = {};
   for (const v of vuelos) {
     if (!v.desde || !v.hasta) continue;
     const key = [v.desde, v.hasta].sort().join('|');
-    if (!map[key]) map[key] = { desde: v.desde, hasta: v.hasta, count: 0, horas: 0 };
+    if (!map[key]) map[key] = { desde: v.desde, hasta: v.hasta, count: 0, horas: 0, matriculas: new Set() };
     map[key].count++;
     map[key].horas = Calc.round2(map[key].horas + Calc.n(v.tiempo_total));
+    if (v.aeronaves?.matricula) map[key].matriculas.add(v.aeronaves.matricula);
   }
-  return Object.values(map).sort((a, b) => b.count - a.count);
+  return Object.values(map)
+    .map((r) => ({ ...r, matriculas: [...r.matriculas], duracionMedia: Calc.round2(r.horas / r.count) }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// Distancia en línea recta (círculo máximo) entre dos puntos, en km —
+// fórmula de haversine. No es la distancia realmente volada (eso depende
+// de la ruta/viento real), es una referencia.
+function distanciaKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+// "1.75" (hs.décimos) → "01:45", para mostrar la duración media como
+// horas:minutos, más legible que el decimal en la ficha del mapa.
+function fmtDuracionHhMm(horasDecimal) {
+  const totalMin = Math.round(horasDecimal * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 const ViewTotales = {
@@ -105,9 +131,12 @@ const ViewTotales = {
       </div>
 
       ${vuelos.length ? `
-      <div class="card">
+      <div class="card" style="padding:16px 16px 12px">
         <h2>${Icons.mapPin(18)} Mapa de rutas</h2>
-        <div id="mapa-rutas" style="height:320px;border-radius:var(--radius-sm);overflow:hidden;background:var(--bg-subtle)"></div>
+        <div class="mapa-wrap" id="mapa-wrap">
+          <div id="mapa-rutas" style="width:100%;height:100%"></div>
+          <div class="mapa-ficha-ruta" id="mapa-ficha-ruta"></div>
+        </div>
         <p class="muted" id="mapa-rutas-nota" style="margin:8px 0 0"></p>
       </div>
 
@@ -185,19 +214,28 @@ function stat(label, valor, sufijo = ' hs') {
   return `<div class="stat"><div class="num">${(valor ?? 0)}${sufijo}</div><div class="lbl">${label}</div></div>`;
 }
 
-// Mapa real (Leaflet + OpenStreetMap) con un marcador por aeródromo volado
-// — tamaño según cuántas veces lo usaste — y líneas entre los pares de
-// travesía. Cubre 831 de los ~857 aeródromos del dataset (ver
-// js/coordenadas.js, cruzado contra dos fuentes públicas) — los ~26 que
-// quedan sin coordenada se listan aparte en vez de dibujar una ubicación
-// inventada.
-function renderMapaRutas(vuelos) {
+// Mapa "glass cockpit" (Leaflet + OpenStreetMap): marcador por aeródromo
+// volado (tamaño según frecuencia), etiquetas que aparecen según el zoom
+// (alejado = solo los más transitados, para no amontonar texto) y líneas
+// de ruta que al tocarlas muestran una ficha con distancia, duración media
+// y qué aeronaves la volaron. Cubre 831 de los ~857 aeródromos del
+// dataset (ver js/coordenadas.js) — los que quedan sin coordenada se
+// listan aparte en vez de dibujar una ubicación inventada.
+//
+// El script de Leaflet se carga `defer` desde un CDN — si esta función
+// corre ANTES de que termine de bajar (ej. primera carga en una conexión
+// lenta), `L` todavía no existe. En vez de rendirse al toque, reintenta
+// cada 250ms durante 5s — cubre la carrera sin bloquear nada si carga rápido.
+function renderMapaRutas(vuelos, intentos = 0) {
   const cont = document.getElementById('mapa-rutas');
-  const nota = document.getElementById('mapa-rutas-nota');
+  if (!cont) return; // se navegó fuera de Totales mientras tanto
   if (typeof L === 'undefined') {
+    if (intentos < 20) { setTimeout(() => renderMapaRutas(vuelos, intentos + 1), 250); return; }
     cont.innerHTML = '<p class="muted" style="padding:12px;margin:0">No se pudo cargar el mapa (revisá tu conexión).</p>';
     return;
   }
+
+  const nota = document.getElementById('mapa-rutas-nota');
   const frecuencia = calcularFrecuenciaAerodromos(vuelos);
   const codigos = Object.keys(frecuencia);
   const coordenadas = window.COORDENADAS_AERODROMO || {};
@@ -209,38 +247,120 @@ function renderMapaRutas(vuelos) {
     return;
   }
 
-  const map = L.map(cont, { scrollWheelZoom: false }).setView([-38.5, -63.5], 4);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 18,
-  }).addTo(map);
+  const map = L.map(cont, { scrollWheelZoom: false, zoomControl: false, attributionControl: false }).setView([-38.5, -63.5], 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+  L.control.attribution({ prefix: false, position: 'bottomleft' }).addAttribution('© OpenStreetMap').addTo(map);
+  L.control.zoom({ position: 'topright' }).addTo(map);
 
-  // Líneas primero (van debajo de los marcadores).
-  calcularRutasFrecuentes(vuelos).forEach((r) => {
+  // Botón "recentrar" propio (equivalente al "mi ubicación" del mockup,
+  // pero acá no hay GPS: vuelve a encuadrar todos los aeródromos volados).
+  const BotonRecentrar = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const btn = L.DomUtil.create('div', 'mapa-btn-recentrar mapa-panel');
+      btn.innerHTML = Icons.mapPin(16);
+      L.DomEvent.on(btn, 'click', (e) => { L.DomEvent.stop(e); encuadrarTodo(); });
+      return btn;
+    },
+  });
+  map.addControl(new BotonRecentrar());
+
+  const ficha = document.getElementById('mapa-ficha-ruta');
+  const rutas = calcularRutasFrecuentes(vuelos);
+
+  // Líneas primero (van debajo de los marcadores). Cada una es tocable:
+  // abre la ficha con los datos reales de esa ruta.
+  rutas.forEach((r) => {
     if (r.desde === r.hasta) return;
     const a = coordenadas[r.desde], b = coordenadas[r.hasta];
     if (!a || !b) return;
-    L.polyline([a, b], { color: '#ffb86b', weight: Math.min(1 + r.count * 0.4, 5), opacity: 0.55 }).addTo(map);
+    const linea = L.polyline([a, b], {
+      className: 'mapa-ruta-linea', color: '#ff9f1c', weight: Math.min(2 + r.count * 0.6, 7), opacity: 0.6,
+    }).addTo(map);
+    linea.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      mostrarFichaRuta(ficha, r, distanciaKm(a[0], a[1], b[0], b[1]));
+    });
   });
 
   const maxFrec = Math.max(...conCoords.map((c) => frecuencia[c]));
+  const marcadores = {};
   const bounds = [];
   conCoords.forEach((c) => {
     const punto = coordenadas[c];
     bounds.push(punto);
-    const radio = 5 + (frecuencia[c] / maxFrec) * 14;
+    const radio = 4 + (frecuencia[c] / maxFrec) * 10;
     const aero = (window.AERODROMOS || []).find((a) => a.code === c);
-    L.circleMarker(punto, { radius: radio, color: '#ffb86b', weight: 1.5, fillColor: '#ffb86b', fillOpacity: 0.55 })
+    const icono = L.divIcon({
+      className: '', html: `<div class="mapa-marcador-ping" style="width:${radio * 2.4}px;height:${radio * 2.4}px;margin:${-radio * 1.2}px 0 0 ${-radio * 1.2}px"></div><div class="mapa-marcador-punto" style="width:${radio * 2}px;height:${radio * 2}px;margin:${-radio}px 0 0 ${-radio}px"></div>`,
+      iconSize: [0, 0],
+    });
+    const marker = L.marker(punto, { icon: icono })
       .addTo(map)
+      .bindTooltip(c, { permanent: true, direction: 'top', offset: [0, -radio - 2], className: 'mapa-etiqueta' })
       .bindPopup(`<strong>${c}</strong>${aero ? ' — ' + aero.nombre : ''}<br>${frecuencia[c]} vuelo(s)`);
+    marcadores[c] = marker;
   });
 
-  if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
-  else map.setView(bounds[0], 9);
+  // Alejado: solo se ven las etiquetas de los aeródromos más transitados
+  // (si no, a nivel país queda todo tapado de texto). Al acercar zoom,
+  // aparecen más — a partir de cierto nivel, todas. Además de la cantidad
+  // por zoom, se descarta una etiqueta si cae a menos de DIST_MIN_PX de
+  // otra ya aceptada (ej. dos aeródromos del mismo AMBA se pisan cuando el
+  // mapa está encuadrado para mostrar todo el país) — siempre gana el más
+  // transitado de los dos, nunca el que salió primero en el objeto.
+  const DIST_MIN_PX = 34;
+  const ordenPorFrecuencia = [...conCoords].sort((a, b) => frecuencia[b] - frecuencia[a]);
+  function actualizarEtiquetas() {
+    const zoom = map.getZoom();
+    const topN = zoom <= 5 ? 5 : zoom <= 7 ? 15 : Infinity;
+    const candidatos = ordenPorFrecuencia.slice(0, topN);
+    const aceptados = new Set();
+    const puntosAceptados = [];
+    candidatos.forEach((c) => {
+      const punto = map.latLngToContainerPoint(marcadores[c].getLatLng());
+      const choca = puntosAceptados.some((p) => Math.hypot(p.x - punto.x, p.y - punto.y) < DIST_MIN_PX);
+      if (!choca) { aceptados.add(c); puntosAceptados.push(punto); }
+    });
+    Object.entries(marcadores).forEach(([c, marker]) => {
+      if (aceptados.has(c)) marker.openTooltip(); else marker.closeTooltip();
+    });
+  }
+  map.on('zoomend', actualizarEtiquetas);
+  map.on('click', () => ficha.classList.remove('visible'));
+
+  function encuadrarTodo() {
+    if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
+    else map.setView(bounds[0], 9);
+  }
+  encuadrarTodo();
+  actualizarEtiquetas();
 
   nota.textContent = sinCoords.length
     ? `${sinCoords.length} aeródromo(s) con código local (sin OACI reconocido) no se muestran en el mapa: ${sinCoords.join(', ')}.`
     : '';
+}
+
+// Ficha flotante con los datos REALES de la ruta tocada — nada de datos de
+// relleno: distancia en línea recta (haversine), duración media (promedio
+// de tiempo_total de esos vuelos) y qué matrículas la volaron.
+function mostrarFichaRuta(ficha, ruta, distancia) {
+  ficha.innerHTML = `
+    <div class="mapa-ficha-ruta-head">
+      <h4>${ruta.desde} ${ruta.desde === ruta.hasta ? '' : '↔ ' + ruta.hasta}</h4>
+      <button aria-label="Cerrar">${Icons.xCircle(16)}</button>
+    </div>
+    <div class="mapa-ficha-stats">
+      <div><span class="lbl">Distancia</span><span class="val">${distancia}<span class="unidad">km</span></span></div>
+      <div><span class="lbl">Duración media</span><span class="val">${fmtDuracionHhMm(ruta.duracionMedia)}<span class="unidad">hs</span></span></div>
+      <div><span class="lbl">Vuelos</span><span class="val">${ruta.count}</span></div>
+    </div>
+    <div class="mapa-ficha-aeronaves">
+      ${ruta.matriculas.length ? `Aeronaves: ${ruta.matriculas.join(', ')}` : 'Sin aeronave registrada en estos vuelos.'}
+    </div>
+  `;
+  ficha.classList.add('visible');
+  ficha.querySelector('button').onclick = () => ficha.classList.remove('visible');
 }
 
 window.ViewTotales = ViewTotales;

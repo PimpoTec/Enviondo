@@ -3,6 +3,34 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 23 (mapa de rutas: rediseño "glass cockpit" + interactivo)
+- [x] **Bug real corregido**: el mapa a veces no cargaba ("revisá tu
+      conexión") por una carrera de tiempos — `renderMapaRutas()` corría
+      antes de que terminara de bajar el script `defer` de Leaflet. Ahora
+      reintenta cada 250ms hasta 5s antes de rendirse. De paso, CDN
+      cambiado de unpkg a jsdelivr (el mismo que ya usás para xlsx/exceljs).
+- [x] Rediseño visual completo siguiendo el mockup que pasaste: paneles
+      translúcidos con blur ("glass panel"), marcadores con animación de
+      ping + glow naranja, controles de zoom y botón de recentrar
+      flotantes con el mismo estilo. Todo con los tokens reales de
+      `css/styles.css` (`--brand`, `--brand-glow`, etc.) — no se metió
+      Tailwind ni una paleta nueva, es la misma identidad "Avionics
+      Professional" que ya tenía la app.
+- [x] Etiquetas según zoom: alejado (país completo) solo se ven los 5
+      aeródromos más transitados; acercando aparecen más, hasta mostrarlos
+      todos. Además, si dos etiquetas quedan a menos de 34px una de otra
+      (ej. dos aeródromos del mismo AMBA vistos desde lejos), se oculta la
+      del menos transitado en vez de superponerse ilegibles.
+- [x] Tocar una ruta (línea entre dos aeródromos) abre una ficha con datos
+      reales de esa ruta: distancia en línea recta (haversine), duración
+      media (promedio real de tiempo_total), cantidad de vuelos y qué
+      matrículas la volaron — nada de datos de relleno.
+      `calcularRutasFrecuentes` ahora también junta las matrículas y
+      calcula la duración media; `distanciaKm`/`fmtDuracionHhMm` (NEW,
+      con tests). Verificado con Playwright + Leaflet real (sin conexión
+      a los tiles desde este entorno, pero la lógica de clicks/etiquetas
+      corrió contra la librería real y dio los números esperados).
+
 ## Hecho — tanda 22 (mapa de rutas: cobertura 97%, no solo los OACI)
 - [x] `js/coordenadas.js` ampliado de 162 a **831 de 857 aeródromos (97%)**.
       El dato que faltaba: OurAirports (la misma fuente ya usada para
