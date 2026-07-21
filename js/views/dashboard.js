@@ -280,9 +280,19 @@ const ViewDashboard = {
       dates = `${soloFecha(inicio)}/${soloFecha(fin)}`;
     }
 
-    const params = new URLSearchParams({ action: 'TEMPLATE', text: titulo, dates, details: detalles });
-    if (ruta) params.set('location', ruta);
-    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+    // OJO: `dates` se arma a mano (no con URLSearchParams) porque la "/"
+    // entre el inicio y el fin tiene que viajar LITERAL en la URL — el
+    // endpoint de Google no la decodifica bien si llega como %2F (codificarla
+    // hacía que Google descartara todo el rango y creara un evento de 30 min
+    // por default, ignorando los horarios cargados).
+    const partes = [
+      'action=TEMPLATE',
+      `text=${encodeURIComponent(titulo)}`,
+      `dates=${dates}`,
+      `details=${encodeURIComponent(detalles)}`,
+    ];
+    if (ruta) partes.push(`location=${encodeURIComponent(ruta)}`);
+    return `https://calendar.google.com/calendar/render?${partes.join('&')}`;
   },
 
   // Mismo formulario para agendar uno nuevo o editar uno existente — si se

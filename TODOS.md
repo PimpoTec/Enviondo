@@ -3,6 +3,30 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 40 (fix: el evento de calendario salía de 30 min, ignorando los horarios)
+- [x] Reportado: al agregar un vuelo agendado a Google Calendar (tanda
+      39), el evento salía siempre de 30 min, sin respetar el horario
+      previsto/de arribo cargado. Causa: `_urlCalendarioProgramado`
+      armaba la URL con `URLSearchParams`, que codifica automáticamente
+      la "/" entre el inicio y el fin del parámetro `dates` como `%2F` —
+      el endpoint de Google Calendar no la decodifica bien ahí, descarta
+      el rango completo (formato "inválido" desde su punto de vista) y
+      cae al evento rápido de 30 min por default, aunque el resto de los
+      datos (título, ubicación) sí llegaban bien.
+- [x] Arreglo: la URL se arma a mano para poder dejar esa "/" literal sin
+      codificar en `dates` (síntoma y arreglo confirmados por búsqueda —
+      es un gotcha documentado de este endpoint), mientras el resto de
+      los campos (texto, detalles, ubicación) se siguen codificando con
+      `encodeURIComponent` normalmente. Los 5 tests de la tanda 39 siguen
+      en verde sin cambios (`URL`/`.searchParams` decodifican la "/" al
+      leer, esté codificada o no, así que no hacía falta tocarlos).
+- [x] Confirmado (ya estaba anduviendo así desde la tanda 39, doble
+      chequeo a pedido): la hora cargada se interpreta según la
+      preferencia de huso horario vigente (UTC u Hora local) y se
+      convierte a UTC real antes de mandarla — Google Calendar la
+      traduce solo a la zona horaria de quien abre el link, sin importar
+      con qué preferencia se cargó originalmente.
+
 ## Hecho — tanda 39 (agregar vuelo agendado a Google Calendar, sin OAuth)
 - [x] A pedido: opción simple, sin ninguna configuración externa (se
       evaluó la alternativa con OAuth real — ver conversación — y se
