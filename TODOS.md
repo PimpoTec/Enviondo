@@ -3,6 +3,21 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 37 (recordatorio de fecha/hora puntual llegaba casi una hora tarde)
+- [x] Reportado: recordatorio puesto para "hoy a las 19:24" no llegó. El
+      cron (tandas 35-36) corría cada una hora en punto (`0 * * * *`) —
+      un recordatorio de fecha/hora puntual solo se revisa cuando corre
+      el cron, así que uno puesto para las 19:24 recién lo agarraba el
+      tick de las 20:00, casi una hora después. No es un bug de entrega,
+      es la granularidad del cron.
+- [x] Arreglo: intervalo bajado a cada 5 minutos (`*/5 * * * *`) — el
+      atraso máximo para un recordatorio puntual baja de ~1h a ~5min.
+      Actualizado el template de `sql/agregar_notificaciones_push.sql`
+      (con `cron.alter_job(... schedule := ...)` para cambiar solo el
+      intervalo de un cron ya programado) y el README (sección 8).
+      Costo de invocaciones extra insignificante para una app de un solo
+      usuario (~8.600/mes contra las 500.000 gratis de Supabase).
+
 ## Hecho — tanda 36 (avisos automáticos: "a veces sí, a veces no")
 - [x] Después de arreglar el timeout de pg_net (tanda 35), los avisos
       seguían llegando de forma inconsistente — a veces sí, a veces no o

@@ -211,8 +211,10 @@ configurar el servidor en vez de romperse.
 
 6. Para que los avisos se disparen SOLOS (sin este paso, solo funciona el
    botón "Enviar notificación de prueba"): descomentá y completá el bloque
-   final de `sql/agregar_notificaciones_push.sql` (programa un cron por
-   hora con `pg_cron` que llama a la función) y corré ese bloque también.
+   final de `sql/agregar_notificaciones_push.sql` (programa un cron cada 5
+   minutos con `pg_cron` que llama a la función — así un recordatorio de
+   fecha/hora puntual no espera casi una hora de más) y corré ese bloque
+   también.
 
 7. Entrá a **Perfil → Notificaciones** en la app, tocá **Activar
    notificaciones** (te va a pedir permiso del navegador) y probá con

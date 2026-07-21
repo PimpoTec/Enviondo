@@ -65,21 +65,30 @@ create policy "notif_config_update_own" on notif_config for update using (auth.u
 -- ----------------------------------------------------------------------------
 -- CRON (opcional, para que los avisos se disparen solos): pg_cron + pg_net
 -- ya vienen habilitadas en todo proyecto Supabase. Esto programa un pedido
--- HTTP a la Edge Function cada una hora, autenticado con un secreto propio
+-- HTTP a la Edge Function cada 5 minutos, autenticado con un secreto propio
 -- (no la service_role key, para no dejarla pegada en texto plano acá) que
 -- la función valida contra su variable de entorno CRON_SECRET.
 --
+-- ¿Por qué cada 5 minutos y no cada hora? Los recordatorios de tipo
+-- "fecha y hora puntual" solo se revisan cuando corre el cron — con un
+-- schedule de '0 * * * *' (una vez por hora, en punto), uno puesto para
+-- las 19:24 recién lo agarra el tick de las 20:00, casi una hora tarde.
+-- Con '*/5 * * * *' el atraso máximo baja a ~5 minutos. Para una app de
+-- un solo usuario el costo es insignificante (Supabase incluye 500.000
+-- invocaciones/mes gratis; cada 5 min son ~8.600/mes). Si preferís
+-- ahorrar invocaciones y no te importa la demora, usá '0 * * * *' en el
+-- schedule de abajo.
+--
 -- OJO con timeout_milliseconds: pg_net espera 5000ms (5s) por default antes
--- de cortar la conexión y descartar la respuesta. La función se invoca una
--- sola vez por hora, así que muy probablemente arranca "fría" cada vez
--- (cold start) — cargar `web-push` + `@supabase/supabase-js` vía `npm:` en
--- Deno más el trabajo real del cron fácil supera esos 5s (visto en
--- producción: ~4.9s y corta). Si eso pasa, pg_cron/pg_net van a mostrar el
--- job como "succeeded" en cron.job_run_details (solo confirma que se
--- LANZÓ el pedido) pero net._http_response va a tener status_code null y
--- error_msg "Timeout of 5000 ms reached" — y ningún aviso llega, aunque el
--- botón "Enviar notificación de prueba" (que no pasa por acá) funcione
--- bien. Por eso 30s de margen acá abajo.
+-- de cortar la conexión y descartar la respuesta. Si la Edge Function
+-- arranca "fría" (cold start: cargar `web-push` + `@supabase/supabase-js`
+-- vía `npm:` en Deno) más el trabajo real del cron, puede superar esos 5s
+-- fácil (visto en producción: ~4.9s y corta). Si eso pasa, pg_cron/pg_net
+-- van a mostrar el job como "succeeded" en cron.job_run_details (solo
+-- confirma que se LANZÓ el pedido) pero net._http_response va a tener
+-- status_code null y error_msg "Timeout of 5000 ms reached" — y ningún
+-- aviso llega, aunque el botón "Enviar notificación de prueba" (que no
+-- pasa por acá) funcione bien. Por eso 30s de margen acá abajo.
 --
 -- Reemplazá los dos placeholders y corré esto DESPUÉS de:
 --   1) desplegar supabase/functions/notificaciones-push
@@ -91,7 +100,7 @@ create policy "notif_config_update_own" on notif_config for update using (auth.u
 --
 -- select cron.schedule(
 --   'notificaciones-push-hourly',
---   '0 * * * *',
+--   '*/5 * * * *',
 --   $$
 --   select net.http_post(
 --     url := 'https://TU-PROYECTO.supabase.co/functions/v1/notificaciones-push',
@@ -103,6 +112,13 @@ create policy "notif_config_update_own" on notif_config for update using (auth.u
 -- );
 --
 -- Para desprogramarlo: select cron.unschedule('notificaciones-push-hourly');
+--
+-- Para cambiarle SOLO el intervalo a un cron que ya tenías programado
+-- (por ejemplo, pasar de cada hora a cada 5 minutos sin recrearlo):
+-- select cron.alter_job(
+--   job_id := (select jobid from cron.job where jobname = 'notificaciones-push-hourly'),
+--   schedule := '*/5 * * * *'
+-- );
 --
 -- Para subirle el timeout a un cron que ya tenías programado (sin volver a
 -- crearlo de cero), reemplazá el mismo placeholder de CRON_SECRET acá:
