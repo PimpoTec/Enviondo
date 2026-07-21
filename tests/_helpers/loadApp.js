@@ -11,6 +11,8 @@ function loadApp(paths) {
   const sandbox = {};
   sandbox.window = sandbox;
   sandbox.console = console;
+  sandbox.URL = URL;
+  sandbox.URLSearchParams = URLSearchParams;
   vm.createContext(sandbox);
   for (const p of paths) {
     const code = fs.readFileSync(p, 'utf8');

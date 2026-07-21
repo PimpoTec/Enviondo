@@ -168,6 +168,7 @@ const ViewDashboard = {
             <div class="plan-acciones">
               <button class="btn secondary" data-accion="volado" data-idx="${i}">Marcar como volado</button>
               <div class="plan-acciones-iconos">
+                <button class="btn ghost" data-accion="calendario" data-idx="${i}" title="Agregar a Google Calendar">${Icons.calendar(16)}</button>
                 <button class="btn ghost" data-accion="recordatorios" data-idx="${i}" title="Recordatorios">${Icons.bell(16)}</button>
                 <button class="btn ghost" data-accion="borrar" data-idx="${i}" title="Borrar">${Icons.trash(16)}</button>
               </div>
@@ -193,7 +194,9 @@ const ViewDashboard = {
         if (!p) return;
         if (b.dataset.accion === 'volado') this._marcarComoVolado(p.id, p.aeronave_id, p.fecha, p.desde, p.hasta);
         else if (b.dataset.accion === 'editar') this._toggleFormProgramado(p);
-        else if (b.dataset.accion === 'recordatorios') {
+        else if (b.dataset.accion === 'calendario') {
+          window.open(this._urlCalendarioProgramado(p), '_blank');
+        } else if (b.dataset.accion === 'recordatorios') {
           RecordatoriosUI.abrir({
             eventoTipo: 'vuelo_programado',
             eventoId: p.id,
@@ -232,6 +235,54 @@ const ViewDashboard = {
     indicadores.forEach((el, idx) => {
       el.onclick = () => tarjetas[idx]?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
     });
+  },
+
+  // Arma un link de "Agregar a Google Calendar" con el evento ya completado
+  // (un toque de "Guardar" del lado del usuario) — sin OAuth ni cuenta para
+  // vincular, usa la que ya esté abierta en el navegador/celu. `hora_prevista`
+  // se cargó según la preferencia de huso horario vigente al crear el vuelo
+  // agendado (ver labelHora/obtenerPrefHorario), así que se interpreta con
+  // la preferencia ACTUAL para pasarla a UTC real — Google Calendar la
+  // traduce solo a la zona horaria de quien lo abre.
+  _urlCalendarioProgramado(p) {
+    const matricula = p.aeronaves?.matricula || this.aeronaves.find((a) => a.id === p.aeronave_id)?.matricula || '';
+    const esLocal = p.desde && p.hasta && p.desde === p.hasta;
+    const ruta = p.desde ? (esLocal || !p.hasta ? p.desde : `${p.desde} → ${p.hasta}`) : '';
+    const titulo = `Vuelo${matricula ? ' ' + matricula : ''}${ruta ? ' — ' + ruta : ''}`;
+    const detalles = [
+      p.instructor_nombre ? `Instructor: ${p.instructor_nombre}` : '',
+      p.notas || '',
+    ].filter(Boolean).join('\n');
+
+    const utcDeCampo = (hhmm) => {
+      const [hh, mm] = hhmm.slice(0, 5).split(':').map(Number);
+      if (obtenerPrefHorario() === 'local') {
+        const d = Calc.parseFechaLocal(p.fecha);
+        d.setHours(hh, mm, 0, 0);
+        return d;
+      }
+      return new Date(`${p.fecha}T${hhmm.slice(0, 5)}:00Z`);
+    };
+    const fmtUtc = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+
+    let dates;
+    if (p.hora_prevista) {
+      const inicio = utcDeCampo(p.hora_prevista);
+      const fin = p.hora_finalizacion ? utcDeCampo(p.hora_finalizacion) : new Date(inicio.getTime() + 3600000);
+      dates = `${fmtUtc(inicio)}/${fmtUtc(fin > inicio ? fin : new Date(inicio.getTime() + 3600000))}`;
+    } else {
+      // Sin hora prevista: evento de todo el día. Formato Google Calendar
+      // para todo el día es fecha de inicio / fecha del día SIGUIENTE.
+      const soloFecha = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+      const inicio = Calc.parseFechaLocal(p.fecha);
+      const fin = new Date(inicio);
+      fin.setDate(fin.getDate() + 1);
+      dates = `${soloFecha(inicio)}/${soloFecha(fin)}`;
+    }
+
+    const params = new URLSearchParams({ action: 'TEMPLATE', text: titulo, dates, details: detalles });
+    if (ruta) params.set('location', ruta);
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
   },
 
   // Mismo formulario para agendar uno nuevo o editar uno existente — si se
@@ -317,6 +368,9 @@ const ViewDashboard = {
       this._editandoProgramado = null;
       this.render();
       if (esNuevo) {
+        const alCalendario = await UI.confirmar('¿Agregar este vuelo a tu Google Calendar?', { ok: 'Sí, agregar', cancel: 'No' });
+        if (alCalendario) window.open(this._urlCalendarioProgramado({ ...payload, id }), '_blank');
+
         const crear = await UI.confirmar('¿Deseás crear notificaciones para este vuelo?', { ok: 'Sí, crear', cancel: 'No' });
         if (crear) {
           RecordatoriosUI.abrir({

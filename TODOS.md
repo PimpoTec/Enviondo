@@ -3,6 +3,32 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 39 (agregar vuelo agendado a Google Calendar, sin OAuth)
+- [x] A pedido: opción simple, sin ninguna configuración externa (se
+      evaluó la alternativa con OAuth real — ver conversación — y se
+      eligió esta por menor costo/mantenimiento para una app personal).
+      Nuevo botón de calendario (ícono, junto a Recordatorios/Borrar) en
+      cada tarjeta de "Próximo vuelo", y se ofrece automáticamente al
+      agendar un vuelo nuevo (mismo patrón que "¿Deseás crear
+      notificaciones?"). Abre un link `calendar.google.com/.../render`
+      con el evento ya completado (matrícula, ruta, horario, instructor,
+      notas) — un toque de "Guardar" del lado del usuario. Sin cuenta
+      para "vincular": usa la que ya esté abierta en el navegador/celu.
+- [x] `hora_prevista`/`hora_finalizacion` se cargan según la preferencia
+      de huso horario vigente al agendar (UTC u Hora local — ver
+      `labelHora`/`obtenerPrefHorario`), así que se interpretan con esa
+      preferencia ACTUAL antes de pasarlas a UTC real para Google
+      Calendar (que las traduce solo a la zona horaria de quien abre el
+      link). Sin hora prevista, evento de todo el día.
+- [x] 5 tests nuevos (`tests/dashboard.test.js`) para
+      `_urlCalendarioProgramado`: hora prevista + fin por default (1h),
+      hora de finalización explícita, preferencia "Hora local" (ART,
+      UTC-3) convertida bien a UTC, evento de todo el día sin hora, y
+      vuelo local (mismo aeródromo) sin flecha en la ubicación. Hubo que
+      agregar `URL`/`URLSearchParams` al sandbox de
+      `tests/_helpers/loadApp.js` (no vienen por default en un
+      `vm.createContext` vacío).
+
 ## Hecho — tanda 38 (costo de vuelos viejos, coordenadas de LAD-2968)
 - [x] Vuelos cargados directo en Supabase (fuera de la app) quedan con
       `costo_congelado` en 0 en vez de null — `costoRegistrado` lo toma
