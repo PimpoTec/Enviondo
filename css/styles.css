@@ -285,6 +285,13 @@ main {
 
 /* ---------- Ficha de vuelo estilo "tarjeta de embarque" (Bitácora, fila de
    detalle al tocar un vuelo) ---------- */
+/* El <td colspan> de esta fila (display:block, ver más abajo) se achica al
+   ancho de la ficha en vez de estirarse a lo ancho de la tabla — sin
+   espacio de sobra, `margin:auto` no tiene nada para repartir y queda
+   pegada al borde izquierdo. Ancho y centrado reales se calculan a mano
+   en bitacora.js (_bindDetalleVuelo) contra el ancho visible de
+   .table-wrap — esto es solo el valor por default antes de que corra. */
+.ticket { width: 100%; max-width: 420px; }
 .ticket-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .ticket-fecha { text-align: right; }
 .ticket-lbl {

@@ -3,6 +3,24 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 33 (ficha de vuelo descentrada en la tabla de Bitácora)
+- [x] Bug reportado con foto: la ficha de tanda 32 quedaba pegada al borde
+      izquierdo de la fila en vez de centrada, con un montón de espacio
+      vacío a la derecha en compu (y algo similar en celu). Causa: la
+      tabla de Bitácora es más ancha que la pantalla y scrollea de costado
+      (`.table-wrap { overflow-x: auto }`); el `<td colspan>` de la ficha
+      (con `display:block` para no forzar el ancho de toda la tabla — ver
+      tanda 31) se achica al ancho de la propia ficha en vez de estirarse
+      a lo ancho de la fila, así que `margin:auto` no tenía espacio de
+      sobra para repartir y centrar.
+- [x] Arreglado calculando ancho y margen a mano en JS
+      (`_bindDetalleVuelo`) contra el ancho realmente visible de
+      `.table-wrap`, y reseteando el scroll horizontal de la tabla a 0 al
+      abrir la ficha (si había quedado scrolleada de antes, el centrado
+      quedaba corrido). Verificado con Playwright en 390px (celu) y
+      1440px (compu), con y sin scroll horizontal previo — centrado exacto
+      en los dos, sin overflow.
+
 ## Hecho — tanda 32 (ficha de vuelo estilo "tarjeta de embarque" en Bitácora)
 - [x] Rediseño de la ficha de detalle (tanda 31) a pedido: ahora sigue el
       estilo boarding-pass de la referencia — matrícula y fecha arriba,

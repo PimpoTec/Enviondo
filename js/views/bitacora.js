@@ -160,9 +160,16 @@ const ViewBitacora = {
       tr.onclick = (e) => {
         if (e.target.closest('button')) return;
         const id = tr.dataset.id;
-        this.filaDetalle = this.filaDetalle === id ? null : id;
+        const abriendo = this.filaDetalle !== id;
+        this.filaDetalle = abriendo ? id : null;
         this.filaEditando = null;
         this._renderFilas(this.filasActuales);
+        // La tabla scrollea de costado (más columnas que ancho de pantalla) —
+        // si quedó scrolleada de una vista anterior, la ficha (centrada
+        // dentro de la fila, no del viewport) se ve descentrada/cortada.
+        // La volvemos al inicio al abrir para que el centrado coincida con
+        // lo que se ve en pantalla.
+        if (abriendo) document.querySelector('.table-wrap').scrollLeft = 0;
       };
     });
     tbody.querySelectorAll('button[data-accion="toggle-edicion"]').forEach((b) => {
@@ -265,6 +272,20 @@ const ViewBitacora = {
         this._renderFilas(this.filasActuales);
       };
     });
+    // El <td colspan> de esta fila se achica al ancho de la ficha (no al de
+    // la tabla completa, que puede ser mucho más ancha que la pantalla) —
+    // con `margin:auto` no le queda espacio de sobra para centrarse, y un
+    // ancho en vw se mide contra el viewport entero, no contra lo que
+    // .table-wrap deja disponible (que es menos, por el padding de la
+    // card). Se calculan ancho y margen a mano contra ese espacio real.
+    const wrap = document.querySelector('.table-wrap');
+    const ticket = document.querySelector('.ticket');
+    if (wrap && ticket) {
+      const disponible = wrap.clientWidth - 20; // padding horizontal del <td> (14px 10px)
+      const ancho = Math.min(420, disponible);
+      ticket.style.width = ancho + 'px';
+      ticket.style.marginLeft = Math.max(0, (disponible - ancho) / 2) + 'px';
+    }
   },
 
   // Edición rápida sin salir de la Bitácora — a propósito NO toca los
