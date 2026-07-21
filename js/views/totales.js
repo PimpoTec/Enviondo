@@ -276,8 +276,15 @@ function renderMapaRutas(vuelos, intentos = 0) {
   }
 
   const map = L.map(cont, { scrollWheelZoom: false, zoomControl: false, attributionControl: false }).setView([-38.5, -63.5], 4);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
-  L.control.attribution({ prefix: false, position: 'bottomleft' }).addAttribution('© OpenStreetMap').addTo(map);
+  // Tiles oscuros de verdad (CartoDB Dark Matter) en vez de filtrar con CSS
+  // el mapa clarito de OpenStreetMap — antes quedaba grisáceo/lavado, esto
+  // es un basemap pensado para tema oscuro desde el vamos.
+  const tilesOscuros = temaActual() !== 'light';
+  const tileUrl = tilesOscuros
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+  L.tileLayer(tileUrl, { maxZoom: 19, subdomains: 'abcd' }).addTo(map);
+  L.control.attribution({ prefix: false, position: 'bottomleft' }).addAttribution('© OpenStreetMap © CARTO').addTo(map);
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   // Botón "recentrar" propio (equivalente al "mi ubicación" del mockup,

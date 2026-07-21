@@ -3,6 +3,37 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 31 (mapa con tema oscuro real, ficha de vuelo en Bitácora, bottom-nav)
+- [x] Mapa de rutas (Totales): las tiles ahora son CartoDB Dark Matter/Light
+      de verdad (según el tema activo) en vez de tiles claros de OSM con un
+      filtro CSS de grises encima — se veía lavado/con poco contraste,
+      sobre todo con etiquetas cerca (ej. SDL/SADL en AMBA).
+- [x] Bitácora: tocar una fila (fuera de los botones de acción) abre una
+      "ficha de check-in" de solo lectura con lo importante de un vistazo —
+      ruta con ciudades, aeronave, horario UTC, tiempo total, día/noche,
+      PIC, aterrizajes, distancia en NM y costo — sin tener que entrar a
+      edición. Nuevo estado `filaDetalle`, mutuamente excluyente con
+      `filaEditando` (abrir uno cierra el otro).
+- [x] Bug encontrado en la verificación de la ficha nueva: el grid de
+      estadísticas (`grid cols-4`, mínimo 140px por columna) vive adentro
+      de un `<td colspan>` de una tabla con layout automático — eso forzaba
+      la tabla entera a ~800-1100px de ancho y la mitad de los datos
+      (tiempo total, día/noche, PIC, costo) quedaban solo alcanzables
+      scrolleando de costado, texto contrario al pedido de "verlo de
+      un vistazo". Arreglado con una clase propia (`detalle-vuelo-stats`,
+      `minmax(0,1fr)`, 2 columnas en mobile / 4 en pantallas más anchas) y
+      sacando el `<td>` del cálculo de ancho de la tabla (`display:block`).
+- [x] Bug reportado: al hacer scroll hacia abajo, el mapa tapaba la barra
+      de navegación inferior. La barra fija no tenía capa de composición
+      propia, así que el navegador podía pintarla mal (por debajo del
+      mapa, que tiene una animación de "ping" corriendo sin parar) durante
+      el scroll en mobile. Arreglado dándole su propia capa
+      (`transform: translateZ(0)`), subiendo su z-index muy por encima de
+      cualquier elemento del mapa, y conteniendo el z-index interno del
+      mapa (controles de Leaflet, ficha de ruta) en su propio contexto de
+      apilamiento (`.mapa-wrap { z-index: 0 }`) para que nunca compita
+      contra elementos fijos de la página.
+
 ## Hecho — tanda 30 (distancia del mapa en NM en vez de km)
 - [x] La ficha de ruta del mapa (Totales) mostraba la distancia en km —
       ahora en millas náuticas (NM), la unidad estándar de aviación.

@@ -107,10 +107,15 @@ header.topbar {
 
 /* ---------- Barra de navegación inferior ---------- */
 .bottom-nav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1200;
   display: flex; justify-content: space-around;
   background: var(--bg-elevated); border-top: 1px solid var(--border);
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  /* Capa de composición propia: sin esto, el mapa (con su animación de ping
+     corriendo sin parar) puede hacer que el navegador recalcule mal el
+     orden de pintado durante el scroll en mobile y la barra fija quede
+     tapada un instante por debajo del mapa. */
+  transform: translateZ(0); will-change: transform;
 }
 .bottom-nav button {
   flex: 1; max-width: 96px;
@@ -339,10 +344,28 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 
 /* Panel de edición rápida de la Bitácora: una fila que se abre debajo de
    la que se está editando, con los campos administrativos nomás (no los
-   tiempos de vuelo — ver comentario en bitacora.js). */
-.fila-edicion-inline td, .fila-edicion-inline:hover td {
-  white-space: normal; background: var(--bg-subtle); padding: 14px 10px;
+   tiempos de vuelo — ver comentario en bitacora.js). Misma base visual
+   para la ficha de solo lectura (fila-detalle-vuelo) que se abre al tocar
+   la fila. */
+.fila-vuelo { cursor: pointer; }
+.fila-edicion-inline td, .fila-edicion-inline:hover td,
+.fila-detalle-vuelo td, .fila-detalle-vuelo:hover td {
+  /* display:block: un <td> normal mide su ancho "deseado" a partir del
+     contenido (min-content) ANTES de que el grid de adentro pueda achicarse
+     — con contenido ancho (ej. "13:00–13:35") eso hacía crecer la tabla
+     entera a ~800px y el resto de las columnas quedaban solo alcanzables
+     scrolleando de costado. Sacándolo del algoritmo de ancho de la tabla,
+     pasa a ocupar el ancho real de la fila (igual que las demás celdas). */
+  display: block; white-space: normal; background: var(--bg-subtle); padding: 14px 10px;
 }
+
+/* .grid.cols-4 usa minmax(140px, 1fr): adentro de un <td colspan> eso obliga
+   a la tabla entera a crecer a ~1100px (8 stats × 140px) y el resto de las
+   columnas quedan solo accesibles haciendo scroll horizontal — justo lo
+   opuesto a "ver los datos de un vistazo". minmax(0, 1fr) no impone un piso
+   de ancho, así que se achica según el espacio real disponible. */
+.detalle-vuelo-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 480px) { .detalle-vuelo-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 .badge {
   display: inline-flex; align-items: center; gap: 4px;
@@ -482,12 +505,14 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
    mismos tokens de color que el resto de la app (nada de Tailwind/paleta
    nueva) — ver DESIGN.md. */
 .mapa-wrap {
-  position: relative; height: 420px; border-radius: var(--radius-sm);
+  position: relative; z-index: 0; height: 420px; border-radius: var(--radius-sm);
   overflow: hidden; background: var(--bg-subtle); margin-top: 4px;
+  /* position:relative solo NO crea contexto de apilamiento propio — sin el
+     z-index de acá, los controles de Leaflet y la ficha de ruta (z-index
+     1000 puertas adentro) compiten directo contra elementos fijos de la
+     página (ej. bottom-nav) en vez de quedar contenidos en este panel. */
 }
 .mapa-wrap .leaflet-container { background: var(--bg-subtle); font-family: var(--font); }
-.mapa-wrap .leaflet-tile { filter: grayscale(0.35) brightness(0.55) contrast(1.05); }
-:root[data-theme="light"] .mapa-wrap .leaflet-tile { filter: none; }
 
 .mapa-panel {
   background: rgba(28, 30, 35, 0.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);

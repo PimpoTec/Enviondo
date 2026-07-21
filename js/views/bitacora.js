@@ -15,6 +15,7 @@ const ViewBitacora = {
   aeronaves: [],
   orden: { campo: 'fecha', asc: false },
   filaEditando: null, // id del vuelo con el panel de edición rápida abierto
+  filaDetalle: null, // id del vuelo con la ficha de vista rápida abierta (mutuamente excluyente con filaEditando)
 
   // El filtro vive en la URL (#bitacora?desde=...&aeronave=...), no solo en
   // memoria — si el navegador descarga la pestaña en segundo plano (pasa
@@ -133,7 +134,7 @@ const ViewBitacora = {
       return;
     }
     tbody.innerHTML = vuelos.map((v) => `
-      <tr>
+      <tr class="fila-vuelo" data-id="${v.id}">
         <td>${fmtFecha(v.fecha)}</td>
         <td>${v.desde} → ${v.hasta}</td>
         <td>${v.aeronaves?.matricula || '—'}</td>
@@ -145,18 +146,107 @@ const ViewBitacora = {
         <td class="num">${(() => { const c = Calc.costoRegistrado(v, v.aeronaves); return fmtMoneda(c.monto, c.moneda); })()}</td>
         <td>
           <button class="btn ghost" data-accion="toggle-edicion" data-id="${v.id}" title="Edición rápida">${Icons.edit(16)}</button>
-          <button class="btn ghost" onclick="ViewBitacora._borrar('${v.id}')">${Icons.trash(16)}</button>
+          <button class="btn ghost" data-accion="borrar" data-id="${v.id}" title="Borrar">${Icons.trash(16)}</button>
         </td>
       </tr>
       ${this.filaEditando === v.id ? this._filaEdicionInline(v) : ''}
+      ${this.filaDetalle === v.id ? this._filaDetalleVuelo(v) : ''}
     `).join('');
-    tbody.querySelectorAll('button[data-accion="toggle-edicion"]').forEach((b) => {
-      b.onclick = () => {
-        this.filaEditando = this.filaEditando === b.dataset.id ? null : b.dataset.id;
+
+    // Tocar la fila (en cualquier parte que no sea un botón de acción) abre
+    // una ficha de solo lectura con los datos importantes del vuelo, sin
+    // tener que entrar al modo edición para verlos.
+    tbody.querySelectorAll('tr.fila-vuelo').forEach((tr) => {
+      tr.onclick = (e) => {
+        if (e.target.closest('button')) return;
+        const id = tr.dataset.id;
+        this.filaDetalle = this.filaDetalle === id ? null : id;
+        this.filaEditando = null;
         this._renderFilas(this.filasActuales);
       };
     });
+    tbody.querySelectorAll('button[data-accion="toggle-edicion"]').forEach((b) => {
+      b.onclick = () => {
+        this.filaEditando = this.filaEditando === b.dataset.id ? null : b.dataset.id;
+        this.filaDetalle = null;
+        this._renderFilas(this.filasActuales);
+      };
+    });
+    tbody.querySelectorAll('button[data-accion="borrar"]').forEach((b) => {
+      b.onclick = () => this._borrar(b.dataset.id);
+    });
     if (this.filaEditando) this._bindEdicionInline(this.filaEditando);
+    if (this.filaDetalle) this._bindDetalleVuelo();
+  },
+
+  // Ficha de solo lectura ("check-in") con los datos importantes del
+  // vuelo — ruta con ciudades, aeronave, horarios, tiempos, distancia
+  // (línea recta, si se conocen las coordenadas de los dos aeródromos) y
+  // costo. Para corregir algo, "Edición rápida" abre el panel editable en
+  // el lugar de esta misma ficha.
+  _filaDetalleVuelo(v) {
+    const esLocal = v.desde === v.hasta;
+    const ciudadDesde = typeof ciudadDeAerodromo === 'function' ? ciudadDeAerodromo(v.desde) : '';
+    const ciudadHasta = typeof ciudadDeAerodromo === 'function' ? ciudadDeAerodromo(v.hasta) : '';
+
+    let distanciaTxt = null;
+    if (!esLocal && window.CODIGO_CANONICO && window.COORDENADAS_AERODROMO && typeof distanciaNm === 'function') {
+      const codDesde = window.CODIGO_CANONICO[v.desde] || v.desde;
+      const codHasta = window.CODIGO_CANONICO[v.hasta] || v.hasta;
+      const a = window.COORDENADAS_AERODROMO[codDesde], b = window.COORDENADAS_AERODROMO[codHasta];
+      if (a && b) distanciaTxt = `${distanciaNm(a[0], a[1], b[0], b[1])} nm`;
+    }
+
+    const costo = Calc.costoRegistrado(v, v.aeronaves);
+    const horario = (v.hora_salida_utc || v.hora_llegada_utc)
+      ? `${(v.hora_salida_utc || '—').slice(0, 5)}–${(v.hora_llegada_utc || '—').slice(0, 5)}`
+      : '—';
+
+    return `
+      <tr class="fila-detalle-vuelo">
+        <td colspan="10">
+          <div class="detalle-vuelo">
+            <div class="plan-ruta">
+              <div class="plan-ruta-punto">
+                <span class="plan-ruta-codigo">${v.desde}</span>
+                <span class="plan-ruta-ciudad">${ciudadDesde || (esLocal ? 'Vuelo local' : '—')}</span>
+              </div>
+              ${esLocal ? '' : `
+              <div class="plan-ruta-linea">${Icons.plane(16)}</div>
+              <div class="plan-ruta-punto derecha">
+                <span class="plan-ruta-codigo">${v.hasta}</span>
+                <span class="plan-ruta-ciudad">${ciudadHasta || '—'}</span>
+              </div>`}
+            </div>
+            <div class="grid detalle-vuelo-stats" style="margin-top:16px">
+              <div class="stat"><div class="num">${v.aeronaves?.matricula || '—'}</div><div class="lbl">Aeronave</div></div>
+              <div class="stat"><div class="num">${horario}</div><div class="lbl">Horario UTC</div></div>
+              <div class="stat"><div class="num">${v.tiempo_total} hs</div><div class="lbl">Tiempo total</div></div>
+              <div class="stat"><div class="num">${v.total_dia} / ${v.total_noche}</div><div class="lbl">Día / Noche</div></div>
+              <div class="stat"><div class="num">${v.total_pic} hs</div><div class="lbl">PIC</div></div>
+              <div class="stat"><div class="num">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</div><div class="lbl">Aterrizajes</div></div>
+              ${distanciaTxt ? `<div class="stat"><div class="num">${distanciaTxt}</div><div class="lbl">Distancia</div></div>` : ''}
+              <div class="stat"><div class="num">${fmtMoneda(costo.monto, costo.moneda)}</div><div class="lbl">Costo</div></div>
+            </div>
+            ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', v.observaciones)}</p>` : ''}
+            <div class="btn-row" style="margin-top:14px">
+              <button class="btn secondary" data-accion="editar-desde-detalle" data-id="${v.id}">${Icons.tag('edit', 'Edición rápida')}</button>
+              <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar todo</button>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+  },
+
+  _bindDetalleVuelo() {
+    document.querySelectorAll('button[data-accion="editar-desde-detalle"]').forEach((b) => {
+      b.onclick = () => {
+        this.filaEditando = b.dataset.id;
+        this.filaDetalle = null;
+        this._renderFilas(this.filasActuales);
+      };
+    });
   },
 
   // Edición rápida sin salir de la Bitácora — a propósito NO toca los
