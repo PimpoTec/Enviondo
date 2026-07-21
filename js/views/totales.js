@@ -187,10 +187,9 @@ function stat(label, valor, sufijo = ' hs') {
 
 // Mapa real (Leaflet + OpenStreetMap) con un marcador por aeródromo volado
 // — tamaño según cuántas veces lo usaste — y líneas entre los pares de
-// travesía. Solo cubre aeródromos con código OACI reconocido (162 de los
-// ~857 del dataset, ver js/coordenadas.js) — el resto son aeroclubes/pistas
-// con código local nomás, sin una fuente pública confiable para
-// geocodificarlos; se listan aparte en vez de dibujar una ubicación
+// travesía. Cubre 831 de los ~857 aeródromos del dataset (ver
+// js/coordenadas.js, cruzado contra dos fuentes públicas) — los ~26 que
+// quedan sin coordenada se listan aparte en vez de dibujar una ubicación
 // inventada.
 function renderMapaRutas(vuelos) {
   const cont = document.getElementById('mapa-rutas');

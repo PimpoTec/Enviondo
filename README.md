@@ -259,8 +259,7 @@ Notificaciones) — esto es aditivo, no rompe lo que ya tenías andando.
 - Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
   `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está
   confirmado; el resto cae a una abreviación armada, no al código oficial.
-- El mapa de rutas (Totales) solo ubica aeródromos con código OACI
-  reconocido (162 de los ~857 del dataset, cruzados contra una fuente
-  pública — ver `js/coordenadas.js`). Los aeroclubes/pistas con código
-  local nomás quedan sin geocodificar: no hay una fuente pública confiable
-  para ubicarlos sin arriesgarse a un punto inventado.
+- El mapa de rutas (Totales) ubica 831 de los ~857 aeródromos del dataset
+  (97% — ver `js/coordenadas.js`, cruzado contra dos fuentes públicas). Los
+  ~26 que quedan sin coordenada no aparecen en ninguna de las dos con ese
+  código; se listan aparte en vez de un punto inventado.

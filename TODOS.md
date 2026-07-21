@@ -3,6 +3,16 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 22 (mapa de rutas: cobertura 97%, no solo los OACI)
+- [x] `js/coordenadas.js` ampliado de 162 a **831 de 857 aeródromos (97%)**.
+      El dato que faltaba: OurAirports (la misma fuente ya usada para
+      armar `aerodromos.js`) también publica coordenadas para los
+      aeródromos de código LOCAL (no solo los OACI), vía su campo
+      `local_code` — cruzando por ahí en vez de solo por ICAO se resolvió
+      casi todo el dataset de una. Quedan 26 aeródromos sin coordenada
+      (no aparecen en ninguna de las dos fuentes con ese código) — se
+      siguen listando aparte en el mapa, sin inventarles ubicación.
+
 ## Hecho — tanda 21 (P0/P1 del análisis: papelera en schema.sql, edición inline, PDF pixel-perfect, mapa de rutas)
 - [x] **P0** — `sql/agregar_papelera_vuelos.sql` (columna `deleted_at`) ya
       estaba fuera de `schema.sql`, el único archivo de migración en esa
