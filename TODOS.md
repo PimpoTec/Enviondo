@@ -3,6 +3,35 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 38 (costo de vuelos viejos, coordenadas de LAD-2968)
+- [x] Vuelos cargados directo en Supabase (fuera de la app) quedan con
+      `costo_congelado` en 0 en vez de null — `costoRegistrado` lo toma
+      como "congelado a $0" válido y nunca recalcula con la tarifa
+      actual, aunque se cargue bien en Aeronaves. A pedido explícito, NO
+      se toca ese dato viejo (backfillear con la tarifa de hoy podría ser
+      un monto incorrecto y generar más confusión que dejarlo en 0).
+- [x] En cambio, para vuelos NUEVOS con fecha de más de un mes de atraso
+      (`nuevoVuelo.js`, tanto el formulario normal como el de turno de
+      adiestrador/simulador): antes de guardar, se pregunta si la tarifa
+      vigente de la aeronave es la misma que la de ese momento, o si hay
+      que cargar un valor especial — así no se congela en silencio un
+      costo que puede no ser el que realmente se pagó. Si se cierra el
+      diálogo sin elegir, o se cancela/deja vacío el monto especial, NO
+      se guarda solo (hay que resolver la pregunta primero).
+      Agregados `UI.elegir()` (n botones a elección, no solo Aceptar/
+      Cancelar) y `UI.prompt()` (input numérico propio, sin el prompt()
+      nativo) a `js/ui.js`, mismo patrón visual que `UI.confirmar()`.
+- [x] Coordenadas de **LAD-2968** (Córdoba) conseguidas por el usuario:
+      33°07.532'S 62°04.656'O → `[-33.1255, -62.0776]`. Agregado a
+      `js/aerodromos.js` (nombre "Lugar apto Nº 2968") y
+      `js/coordenadas.js` — quedaba pendiente desde la tanda 28 (no se
+      había podido conseguir por WebFetch/WebSearch, bloqueados en las
+      fuentes oficiales).
+- [x] Aclarado: el filtro de fecha "Desde/Hasta" de Exportar YA aplica a
+      la Hoja ANAC (no solo a la planilla simple) — no era un gap real,
+      la entrada de "Pendiente / ideas a futuro" de más abajo ya lo decía
+      pero quedó confuso en la conversación. Sin cambios de código.
+
 ## Hecho — tanda 37 (recordatorio de fecha/hora puntual llegaba casi una hora tarde)
 - [x] Reportado: recordatorio puesto para "hoy a las 19:24" no llegó. El
       cron (tandas 35-36) corría cada una hora en punto (`0 * * * *`) —
@@ -631,8 +660,10 @@ Perfil estabas) se pierde, como si nunca hubiera estado.
 
 ## Pendiente / ideas a futuro
 - [ ] **Papelera** sigue solo en Perfil (aceptable: acción poco frecuente).
-- [ ] **Hoja ANAC**: se podría permitir elegir el rango/año a exportar desde
-      un selector, además de los filtros de fecha ya existentes.
+- [ ] **Hoja ANAC**: el rango de fechas YA se puede elegir (filtros
+      Desde/Hasta de Exportar, se aplican a las 4 opciones de export) —
+      lo que falta, si hiciera falta más, es un selector de año directo
+      en vez de tener que poner las dos fechas a mano.
 - [ ] **Backfill** de `costo_congelado` en vuelos viejos en USD (no hay cómo
       saber la cotización histórica exacta; quedaría estimado).
 - [ ] Migrar el resto de `onclick` inline (bitácora, vencimientos) a

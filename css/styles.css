@@ -531,6 +531,11 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 .modal-msg { margin: 0 0 18px; font-size: 14px; line-height: 1.5; white-space: pre-line; }
 .modal-acciones { display: flex; gap: 10px; justify-content: flex-end; }
 .modal-acciones .btn { min-width: 96px; justify-content: center; }
+/* UI.elegir(): varios caminos en vez de solo Aceptar/Cancelar, uno debajo
+   del otro (a diferencia de UI.confirmar(), que va en una sola fila). */
+.modal-acciones-col { flex-direction: column; }
+.modal-acciones-col .btn { width: 100%; }
+.modal-input { margin-bottom: 18px; }
 
 /* ---------- Recordatorios (dentro del modal ancho) ---------- */
 .rec-item {

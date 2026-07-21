@@ -569,14 +569,45 @@ const ViewNuevoVuelo = {
       if (!ok) return;
     }
 
+    // Un vuelo cargado con más de un mes de atraso puede haber costado
+    // distinto a la tarifa VIGENTE hoy de la aeronave (la que se usa para
+    // congelar el costo — ver _calcularCongelado): si la tarifa cambió
+    // desde entonces, guardarlo con la de ahora sería un costo incorrecto
+    // y silencioso. Para vuelos nuevos (no edición) se pregunta antes de
+    // guardar en vez de asumir cualquiera de las dos opciones.
+    const aeronave = this.aeronaves.find((a) => a.id === aeronave_id);
+    let costoEspecial = null;
+    if (!this.editId && fecha) {
+      const dias = Math.round((new Date() - Calc.parseFechaLocal(fecha)) / 86400000);
+      if (dias > 30) {
+        const eleccion = await UI.elegir(
+          `Este vuelo es del ${fmtFecha(fecha)}, hace más de un mes. ¿La tarifa de ${aeronave?.matricula || 'la aeronave'} era la misma que la cargada ahora, o pagaste un valor distinto?`,
+          [
+            { label: 'Usar la tarifa actual', valor: 'actual' },
+            { label: 'Cargar un valor especial', valor: 'especial' },
+          ],
+        );
+        if (!eleccion) return; // cerró el diálogo sin elegir: no se guarda solo
+        if (eleccion === 'especial') {
+          const monto = await UI.prompt('¿Cuánto costó este vuelo (en pesos)?', { placeholder: 'Monto en ARS' });
+          if (monto == null) return; // canceló o dejó vacío: tampoco se guarda solo
+          costoEspecial = monto;
+        }
+      }
+    }
+
     const btn = document.getElementById('btn-guardar-vuelo');
     btn.disabled = true;
     btn.textContent = 'Guardando…';
     try {
-      const aeronave = this.aeronaves.find((a) => a.id === aeronave_id);
-      const congelado = await this._calcularCongelado(campos, aeronave, this.editVuelo);
-      campos.costo_congelado = congelado.costo_congelado;
-      campos.cotizacion_usada = congelado.cotizacion_usada;
+      if (costoEspecial != null) {
+        campos.costo_congelado = Calc.round2(costoEspecial);
+        campos.cotizacion_usada = null;
+      } else {
+        const congelado = await this._calcularCongelado(campos, aeronave, this.editVuelo);
+        campos.costo_congelado = congelado.costo_congelado;
+        campos.cotizacion_usada = congelado.cotizacion_usada;
+      }
 
       if (this.editId) {
         await Repo.actualizarVuelo(this.editId, campos);
@@ -771,14 +802,39 @@ const ViewNuevoVuelo = {
       observaciones: ['Turno de adiestrador terrestre', notasUsuario].filter(Boolean).join(' — '),
     };
 
+    const aeronave = this.aeronaves.find((a) => a.id === aeronave_id);
+    let costoEspecial = null;
+    if (!this.editId && fecha) {
+      const dias = Math.round((new Date() - Calc.parseFechaLocal(fecha)) / 86400000);
+      if (dias > 30) {
+        const eleccion = await UI.elegir(
+          `Este turno es del ${fmtFecha(fecha)}, hace más de un mes. ¿La tarifa de ${aeronave?.matricula || 'el simulador'} era la misma que la cargada ahora, o pagaste un valor distinto?`,
+          [
+            { label: 'Usar la tarifa actual', valor: 'actual' },
+            { label: 'Cargar un valor especial', valor: 'especial' },
+          ],
+        );
+        if (!eleccion) return;
+        if (eleccion === 'especial') {
+          const monto = await UI.prompt('¿Cuánto costó este turno (en pesos)?', { placeholder: 'Monto en ARS' });
+          if (monto == null) return;
+          costoEspecial = monto;
+        }
+      }
+    }
+
     const btn = document.getElementById('btn-guardar-adiestrador');
     btn.disabled = true;
     btn.textContent = 'Guardando…';
     try {
-      const aeronave = this.aeronaves.find((a) => a.id === aeronave_id);
-      const congelado = await this._calcularCongelado(campos, aeronave, this.editVuelo);
-      campos.costo_congelado = congelado.costo_congelado;
-      campos.cotizacion_usada = congelado.cotizacion_usada;
+      if (costoEspecial != null) {
+        campos.costo_congelado = Calc.round2(costoEspecial);
+        campos.cotizacion_usada = null;
+      } else {
+        const congelado = await this._calcularCongelado(campos, aeronave, this.editVuelo);
+        campos.costo_congelado = congelado.costo_congelado;
+        campos.cotizacion_usada = congelado.cotizacion_usada;
+      }
 
       if (this.editId) {
         await Repo.actualizarVuelo(this.editId, campos);

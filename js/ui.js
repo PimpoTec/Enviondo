@@ -67,6 +67,84 @@ const UI = (() => {
     });
   }
 
+  // Como confirmar(), pero con N botones en vez de solo Aceptar/Cancelar —
+  // para cuando hay más de dos caminos posibles (ej. "usar tarifa actual" /
+  // "cargar un valor especial"). `botones`: [{label, valor}, ...]. Devuelve
+  // el `valor` del botón elegido, o null si se cierra sin elegir (Escape,
+  // click afuera).
+  function elegir(mensaje, botones) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-box" role="dialog" aria-modal="true">
+          <p class="modal-msg">${mensaje}</p>
+          <div class="modal-acciones modal-acciones-col">
+            ${botones.map((b, i) => `<button class="btn ${i === 0 ? '' : 'secondary'}" data-i="${i}">${b.label}</button>`).join('')}
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('visible'));
+
+      const cerrar = (val) => {
+        overlay.classList.remove('visible');
+        setTimeout(() => overlay.remove(), 180);
+        document.removeEventListener('keydown', onKey);
+        resolve(val);
+      };
+      overlay.querySelectorAll('[data-i]').forEach((btn) => {
+        btn.onclick = () => cerrar(botones[Number(btn.dataset.i)].valor);
+      });
+      overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cerrar(null); });
+      const onKey = (e) => { if (e.key === 'Escape') cerrar(null); };
+      document.addEventListener('keydown', onKey);
+      overlay.querySelector('[data-i]').focus();
+    });
+  }
+
+  // Pide un valor numérico (ej. un monto en ARS) con un input propio en vez
+  // del prompt() nativo del navegador. Devuelve el número, o null si se
+  // cancela o queda vacío.
+  function prompt(mensaje, opciones = {}) {
+    const { placeholder = '', ok = 'Continuar', cancel = 'Cancelar' } = opciones;
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-box" role="dialog" aria-modal="true">
+          <p class="modal-msg">${mensaje}</p>
+          <input type="number" step="0.01" min="0" class="modal-input" placeholder="${placeholder}" />
+          <div class="modal-acciones">
+            <button class="btn secondary" data-r="0">${cancel}</button>
+            <button class="btn" data-r="1">${ok}</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('visible'));
+      const input = overlay.querySelector('.modal-input');
+
+      const cerrar = (val) => {
+        overlay.classList.remove('visible');
+        setTimeout(() => overlay.remove(), 180);
+        document.removeEventListener('keydown', onKey);
+        resolve(val);
+      };
+      const aceptar = () => {
+        const n = Number(input.value);
+        cerrar(input.value !== '' && Number.isFinite(n) && n >= 0 ? n : null);
+      };
+      overlay.querySelector('[data-r="1"]').onclick = aceptar;
+      overlay.querySelector('[data-r="0"]').onclick = () => cerrar(null);
+      overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cerrar(null); });
+      const onKey = (e) => {
+        if (e.key === 'Escape') cerrar(null);
+        else if (e.key === 'Enter') aceptar();
+      };
+      document.addEventListener('keydown', onKey);
+      input.focus();
+    });
+  }
+
   // Skeleton de carga que solo aparece si el trabajo tarda más de `delayMs`
   // — para transiciones instantáneas no hay parpadeo de "cargando", y para
   // las que sí tardan, el esqueleto aparece rápido para dar feedback real de
@@ -83,7 +161,7 @@ const UI = (() => {
     return () => clearTimeout(t);
   }
 
-  return { toast, confirmar, skeletonDiferido };
+  return { toast, confirmar, elegir, prompt, skeletonDiferido };
 })();
 
 window.UI = UI;
