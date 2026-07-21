@@ -3,6 +3,23 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 35 (diagnóstico: avisos automáticos no llegaban — timeout de pg_net)
+- [x] Reportado: el botón "Enviar notificación de prueba" funciona, pero
+      los avisos automáticos (recordatorios, vencimientos, vuelos
+      programados) nunca llegan. Diagnosticado en vivo contra el proyecto
+      real: el cron (`pg_cron`) SÍ estaba programado y corriendo cada
+      hora, pero `pg_net` corta la conexión a los 5000ms por default y la
+      Edge Function (cold start + imports `npm:`) tardaba ~4.9s y se
+      pasaba — `cron.job_run_details` decía "succeeded" igual (solo
+      confirma que se lanzó el pedido), pero `net._http_response` tenía
+      `status_code` null y `error_msg` "Timeout of 5000 ms reached".
+- [x] Arreglo: subir `timeout_milliseconds` a 30000 en el `net.http_post`
+      del cron. Actualizado el template de
+      `sql/agregar_notificaciones_push.sql` (con `cron.alter_job` para
+      quien ya tenga el cron viejo programado) y el README (sección 8)
+      con este síntoma exacto, para que no haga falta repetir todo el
+      diagnóstico la próxima vez.
+
 ## Hecho — tanda 34 (3 detalles de la ficha de vuelo: ruta descentrada, local sin ciudad, TERR)
 - [x] El ícono de avión entre los dos códigos no quedaba centrado de
       verdad cuando un nombre de ciudad era mucho más largo que el otro

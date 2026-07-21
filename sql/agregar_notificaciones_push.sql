@@ -69,6 +69,18 @@ create policy "notif_config_update_own" on notif_config for update using (auth.u
 -- (no la service_role key, para no dejarla pegada en texto plano acá) que
 -- la función valida contra su variable de entorno CRON_SECRET.
 --
+-- OJO con timeout_milliseconds: pg_net espera 5000ms (5s) por default antes
+-- de cortar la conexión y descartar la respuesta. La función se invoca una
+-- sola vez por hora, así que muy probablemente arranca "fría" cada vez
+-- (cold start) — cargar `web-push` + `@supabase/supabase-js` vía `npm:` en
+-- Deno más el trabajo real del cron fácil supera esos 5s (visto en
+-- producción: ~4.9s y corta). Si eso pasa, pg_cron/pg_net van a mostrar el
+-- job como "succeeded" en cron.job_run_details (solo confirma que se
+-- LANZÓ el pedido) pero net._http_response va a tener status_code null y
+-- error_msg "Timeout of 5000 ms reached" — y ningún aviso llega, aunque el
+-- botón "Enviar notificación de prueba" (que no pasa por acá) funcione
+-- bien. Por eso 30s de margen acá abajo.
+--
 -- Reemplazá los dos placeholders y corré esto DESPUÉS de:
 --   1) desplegar supabase/functions/notificaciones-push
 --   2) fijar el secreto:
@@ -84,9 +96,24 @@ create policy "notif_config_update_own" on notif_config for update using (auth.u
 --   select net.http_post(
 --     url := 'https://TU-PROYECTO.supabase.co/functions/v1/notificaciones-push',
 --     headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer TU-CRON-SECRET'),
---     body := jsonb_build_object('modo', 'cron')
+--     body := jsonb_build_object('modo', 'cron'),
+--     timeout_milliseconds := 30000
 --   );
 --   $$
 -- );
 --
 -- Para desprogramarlo: select cron.unschedule('notificaciones-push-hourly');
+--
+-- Para subirle el timeout a un cron que ya tenías programado (sin volver a
+-- crearlo de cero), reemplazá el mismo placeholder de CRON_SECRET acá:
+-- select cron.alter_job(
+--   job_id := (select jobid from cron.job where jobname = 'notificaciones-push-hourly'),
+--   command := $$
+--   select net.http_post(
+--     url := 'https://TU-PROYECTO.supabase.co/functions/v1/notificaciones-push',
+--     headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer TU-CRON-SECRET'),
+--     body := jsonb_build_object('modo', 'cron'),
+--     timeout_milliseconds := 30000
+--   );
+--   $$
+-- );

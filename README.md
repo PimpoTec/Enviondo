@@ -228,6 +228,18 @@ para el detalle de cada una):
 - Si pediste permiso y tocaste "Bloquear" sin querer, hay que reactivarlo
   a mano desde la configuración del sitio en el navegador — la app no
   puede volver a preguntar sola.
+- **El botón de prueba anda pero los avisos automáticos no llegan nunca**:
+  visto en producción, causa casi segura es que `pg_net` corta a los 5s
+  por default y la función (cold start + `npm:` imports) tarda un poco
+  más. Se confirma así — `cron.job_run_details` va a decir "succeeded"
+  igual (solo indica que se lanzó el pedido), pero:
+  ```sql
+  select status_code, error_msg from net._http_response order by created desc limit 5;
+  ```
+  va a mostrar `status_code` null y `error_msg` con "Timeout of 5000 ms
+  reached". Se arregla subiendo `timeout_milliseconds` a 30000 en el
+  `cron.schedule` (ver el comentario en
+  `sql/agregar_notificaciones_push.sql`, sección CRON).
 
 ### 8.1) Recordatorios personalizados (varios avisos por evento)
 
