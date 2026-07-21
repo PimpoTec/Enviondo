@@ -11,13 +11,25 @@
 const GRUPO_EXPERIENCIA = ['pic', 'travesia_pic', 'aterrizajes_noche', 'remolques'];
 const GRUPO_INSTRUMENTAL = ['total', 'instrumentos', 'instrumentos_sim', 'nocturnas'];
 
+// Un mismo aeródromo puede estar guardado en vuelos.desde/hasta con
+// cualquiera de sus tres códigos (local, OACI o IATA) — depende de cómo
+// se haya tipeado esa vez, incluso de antes de que la app distinguiera
+// los tres. Sin normalizar, "MOR" y "SADM" (Morón local/OACI) contarían
+// como dos aeródromos distintos y partirían las estadísticas al medio.
+// window.CODIGO_CANONICO (js/aerodromos.js) resuelve cualquiera de los
+// tres al código canónico; si no lo reconoce, se usa tal cual vino.
+function normalizarCodigoAerodromo(code) {
+  if (!code) return code;
+  return (window.CODIGO_CANONICO && window.CODIGO_CANONICO[code]) || code;
+}
+
 // Cuántas veces aparece cada aeródromo (como origen o destino) en la
 // bitácora. Pura, sin DOM — la usa tanto el mapa como para decidir el
 // tamaño de cada marcador.
 function calcularFrecuenciaAerodromos(vuelos) {
   const map = {};
   for (const v of vuelos) {
-    for (const code of new Set([v.desde, v.hasta])) {
+    for (const code of new Set([normalizarCodigoAerodromo(v.desde), normalizarCodigoAerodromo(v.hasta)])) {
       if (!code) continue;
       map[code] = (map[code] || 0) + 1;
     }
@@ -33,8 +45,10 @@ function calcularRutasFrecuentes(vuelos) {
   const map = {};
   for (const v of vuelos) {
     if (!v.desde || !v.hasta) continue;
-    const key = [v.desde, v.hasta].sort().join('|');
-    if (!map[key]) map[key] = { desde: v.desde, hasta: v.hasta, count: 0, horas: 0, matriculas: new Set() };
+    const desde = normalizarCodigoAerodromo(v.desde);
+    const hasta = normalizarCodigoAerodromo(v.hasta);
+    const key = [desde, hasta].sort().join('|');
+    if (!map[key]) map[key] = { desde, hasta, count: 0, horas: 0, matriculas: new Set() };
     map[key].count++;
     map[key].horas = Calc.round2(map[key].horas + Calc.n(v.tiempo_total));
     if (v.aeronaves?.matricula) map[key].matriculas.add(v.aeronaves.matricula);

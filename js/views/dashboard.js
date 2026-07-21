@@ -390,7 +390,11 @@ function labelTipoVueloProgramado(codigo) {
 // autocomplete de aeródromos — para mostrar "PALOMAR" debajo de "SADP".
 function ciudadDeAerodromo(code) {
   if (!code) return '';
-  const a = (window.AERODROMOS || []).find((x) => x.code === code);
+  // Un vuelo programado puede tener guardado el local/OACI/IATA según
+  // cómo se haya tipeado — se normaliza al código canónico antes de
+  // buscar (ver window.CODIGO_CANONICO en js/aerodromos.js).
+  const canonico = (window.CODIGO_CANONICO && window.CODIGO_CANONICO[code]) || code;
+  const a = (window.AERODROMOS || []).find((x) => x.code === canonico);
   return a?.ciudad || '';
 }
 

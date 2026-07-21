@@ -83,3 +83,30 @@ test('fmtDuracionHhMm: convierte horas.décimos a HH:MM', () => {
   assert.equal(fmtDuracionHhMm(0.5), '00:30');
   assert.equal(fmtDuracionHhMm(2), '02:00');
 });
+
+// ---- Normalización de código (local/OACI/IATA → canónico) — evita que un
+// mismo aeródromo quede partido en dos en las estadísticas según con qué
+// código haya quedado guardado cada vuelo (ver window.CODIGO_CANONICO). ----
+
+test('calcularFrecuenciaAerodromos: normaliza el código local al canónico (OACI) antes de contar', () => {
+  window.CODIGO_CANONICO = { MOR: 'SADM' };
+  const f = calcularFrecuenciaAerodromos([vuelo('SADF', 'MOR'), vuelo('SADF', 'SADM')]);
+  assert.equal(f.SADM, 2); // "MOR" y "SADM" cuentan como el mismo aeródromo
+  assert.equal(f.MOR, undefined);
+  delete window.CODIGO_CANONICO;
+});
+
+test('calcularRutasFrecuentes: junta la misma ruta aunque un vuelo use el código local y otro el OACI', () => {
+  window.CODIGO_CANONICO = { MOR: 'SADM' };
+  const vuelos = [vuelo('SADF', 'MOR', 1), vuelo('SADF', 'SADM', 1)];
+  const rutas = calcularRutasFrecuentes(vuelos);
+  assert.equal(rutas.length, 1);
+  assert.equal(rutas[0].count, 2);
+  delete window.CODIGO_CANONICO;
+});
+
+test('calcularFrecuenciaAerodromos: sin CODIGO_CANONICO (o código desconocido), usa el código tal cual', () => {
+  const f = calcularFrecuenciaAerodromos([vuelo('SADF', 'ZZZZ')]);
+  assert.equal(f.ZZZZ, 1);
+  assert.equal(f.SADF, 1);
+});

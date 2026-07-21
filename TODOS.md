@@ -3,6 +3,20 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 27 (fix: rutas "perdidas" tras el dataset nuevo — MOR, PTA, SNT, etc.)
+- [x] **Causa real**: el registro oficial reconoce OACI para varios
+      aeródromos que la fuente anterior no sabía que lo tenían (ej. Morón
+      local "MOR" → ahora se sabe que es "SADM"). Su código canónico
+      cambió de local a OACI — los vuelos ya cargados con el código viejo
+      ("MOR") dejaron de encontrar coincidencia en el mapa.
+- [x] `window.CODIGO_CANONICO` (NEW, en `js/aerodromos.js`): alias de
+      local/OACI/IATA → código canónico, para los 928 códigos del
+      dataset. `calcularFrecuenciaAerodromos`/`calcularRutasFrecuentes`
+      (Totales) y `ciudadDeAerodromo` (Dashboard) normalizan por acá antes
+      de agrupar/buscar — así un vuelo guardado como "MOR" y otro como
+      "SADM" cuentan como el mismo aeródromo/ruta, sin importar con qué
+      código haya quedado cada uno. Con tests.
+
 ## Hecho — tanda 26 (dataset oficial de aeródromos: local + OACI + IATA, cobertura 100%)
 - [x] `js/aerodromos.js` reconstruido desde el registro oficial que pasaste
       (`aeropuertos_detalle.csv`, 693 aeródromos/helipuertos) — ahora cada
