@@ -3,6 +3,19 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 34 (3 detalles de la ficha de vuelo: ruta descentrada, local sin ciudad, TERR)
+- [x] El ícono de avión entre los dos códigos no quedaba centrado de
+      verdad cuando un nombre de ciudad era mucho más largo que el otro
+      (ej. "CAPITÁN SARMIENTO" vs "SAN FERNANDO") — los dos lados
+      ocupaban solo lo que su contenido necesitaba, corriendo el ícono
+      hacia el lado más corto. Ahora ambos lados tienen el mismo ancho
+      (`flex: 1 1 0`), así que el ícono queda siempre en el medio real.
+- [x] Vuelo local (mismo aeródromo de origen y destino): el lado derecho
+      quedaba en blanco en vez de repetir el nombre de la ciudad.
+- [x] Vuelos con TERR/TERR (turno de adiestrador terrestre/simulador, no
+      es un aeródromo real) mostraban "TERR ↔ TERR" en la ruta, confuso.
+      Ahora en su lugar dice "SIMULADOR" con la matrícula del equipo.
+
 ## Hecho — tanda 33 (ficha de vuelo descentrada en la tabla de Bitácora)
 - [x] Bug reportado con foto: la ficha de tanda 32 quedaba pegada al borde
       izquierdo de la fila en vez de centrada, con un montón de espacio

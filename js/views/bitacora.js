@@ -209,6 +209,29 @@ const ViewBitacora = {
     const llegada = v.hora_llegada_utc ? v.hora_llegada_utc.slice(0, 5) : '—';
     const finalidad = (FINALIDADES_VUELO.find(([f]) => f === v.finalidad_vuelo) || [v.finalidad_vuelo])[0] || '—';
     const tag = `${finalidad} · ${Calc.n(v.total_noche) > 0 ? 'NOCTURNO' : 'DIURNO'}`;
+    // TERR/TERR es el marcador de turno de adiestrador terrestre (simulador),
+    // no un aeródromo real (ver normalizarCodigoAerodromo en totales.js) —
+    // mostrar "TERR ↔ TERR" ahí sería confuso, así que en su lugar va
+    // "SIMULADOR" con la matrícula del equipo (el mismo campo aeronave).
+    const esTerr = v.desde === 'TERR' && v.hasta === 'TERR';
+    const rutaHtml = esTerr
+      ? `<div class="ticket-punto centro">
+          <p class="ticket-codigo">SIMULADOR</p>
+          <p class="ticket-ciudad">${v.aeronaves?.matricula || '—'}</p>
+          <span class="ticket-tag">${tag}</span>
+        </div>`
+      : `<div class="ticket-punto">
+          <p class="ticket-codigo">${v.desde}</p>
+          <p class="ticket-ciudad">${ciudadDesde || '—'}</p>
+        </div>
+        <div class="ticket-medio">
+          <div class="ticket-avion">${Icons.plane(16)}</div>
+          <span class="ticket-tag">${tag}</span>
+        </div>
+        <div class="ticket-punto derecha">
+          <p class="ticket-codigo">${v.hasta}</p>
+          <p class="ticket-ciudad">${esLocal ? (ciudadDesde || '—') : (ciudadHasta || '—')}</p>
+        </div>`;
 
     return `
       <tr class="fila-detalle-vuelo">
@@ -225,20 +248,7 @@ const ViewBitacora = {
               </div>
             </div>
 
-            <div class="ticket-ruta">
-              <div class="ticket-punto">
-                <p class="ticket-codigo">${v.desde}</p>
-                <p class="ticket-ciudad">${ciudadDesde || (esLocal ? 'Vuelo local' : '—')}</p>
-              </div>
-              <div class="ticket-medio">
-                <div class="ticket-avion">${Icons.plane(16)}</div>
-                <span class="ticket-tag">${tag}</span>
-              </div>
-              <div class="ticket-punto derecha">
-                <p class="ticket-codigo">${esLocal ? v.desde : v.hasta}</p>
-                <p class="ticket-ciudad">${esLocal ? '' : (ciudadHasta || '—')}</p>
-              </div>
-            </div>
+            <div class="ticket-ruta">${rutaHtml}</div>
 
             <div class="ticket-perforado"></div>
 

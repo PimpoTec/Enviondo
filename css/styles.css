@@ -301,9 +301,13 @@ main {
 .ticket-flightno { margin: 3px 0 0; font-family: var(--font-mono); font-weight: 700; font-size: 16px; color: var(--brand); }
 .ticket-fecha-valor { margin: 3px 0 0; font-weight: 700; font-size: 14px; }
 
-.ticket-ruta { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
-.ticket-punto { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ticket-ruta { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; }
+/* flex:1 en los dos lados (mismo ancho aunque el nombre de una ciudad sea
+   mucho más largo que el otro) para que el ícono del medio quede centrado
+   de verdad, en vez de correrse hacia el lado del texto más corto. */
+.ticket-punto { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 0; }
 .ticket-punto.derecha { align-items: flex-end; text-align: right; }
+.ticket-punto.centro { align-items: center; text-align: center; gap: 6px; }
 .ticket-codigo { margin: 0; font-family: var(--font-mono); font-weight: 800; font-size: 26px; line-height: 1; letter-spacing: -.01em; }
 .ticket-ciudad {
   margin: 0; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em;
