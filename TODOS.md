@@ -3,6 +3,15 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 29 (progreso de licencia más claro: horas hechas vs. faltantes)
+- [x] Cada requisito venía como una sola línea corrida ("184.5 hs / 200 hs
+      — faltan 15.5 hs") que en pantalla angosta se cortaba mal y costaba
+      leer de un vistazo. Ahora son piezas separadas: el número llevado en
+      grande y destacado ("184.5 hs de 200 hs"), y una etiqueta bien
+      visible a la derecha del nombre ("Faltan 15.5 hs" o "Completo") en
+      vez de texto corrido — responde directo las dos preguntas ("¿cuánto
+      llevo?" / "¿cuánto falta?") sin tener que parsear una oración.
+
 ## Hecho — tanda 28 (correcciones puntuales al dataset de aeródromos)
 - [x] **TERR** (marcador de turno de adiestrador/simulador, no es un
       aeródromo real) ya no cuenta para nada del mapa — antes aparecía en

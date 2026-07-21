@@ -191,17 +191,26 @@ function calcularItemsRequisito(cursoId, config, agg, configsPorCurso) {
   return items;
 }
 
+// Antes iba todo en una sola línea de texto corrido ("184.5 hs / 200 hs —
+// faltan 15.5 hs"), que en un renglón angosto de celular se cortaba mal y
+// costaba leer de un vistazo cuánto llevás y cuánto falta. Ahora son 3
+// piezas separadas: el nombre + una etiqueta de estado bien visible
+// (Completo / Faltan X hs), y aparte, en grande, "llevado de meta".
 function htmlItemsRequisito(items) {
-  return items.map(({ req, actual, minimo, pct, faltan, esUnidad }) => `
+  return items.map(({ req, actual, minimo, pct, faltan, esUnidad }) => {
+    const unidad = esUnidad ? '' : ' hs';
+    return `
     <div class="progreso-item">
       <div class="pi-head">
-        <span class="nombre" style="text-transform:uppercase;letter-spacing:.02em;font-size:12px">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
+        <span class="nombre">${LABELS_REQUISITO[req.nombre_requisito] || req.nombre_requisito}</span>
         ${faltan <= 0
           ? '<span class="badge ok">Completo</span>'
-          : `<span class="faltan">${actual}${esUnidad ? '' : ' hs'} / ${minimo}${esUnidad ? '' : ' hs'} — faltan ${faltan}${esUnidad ? '' : ' hs'}</span>`}
+          : `<span class="badge neutral">Faltan ${faltan}${unidad}</span>`}
       </div>
+      <p class="pi-cifras"><span class="pi-actual">${actual}${unidad}</span><span class="pi-de">de ${minimo}${unidad}</span></p>
       <div class="progreso-bar ${faltan <= 0 ? 'completo' : ''}"><span style="width:${pct}%"></span></div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderDetalleProgreso(configsPorCurso, agg) {
