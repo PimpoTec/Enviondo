@@ -283,6 +283,44 @@ main {
 .plan-acciones-iconos { display: flex; gap: 8px; flex: 0 0 auto; }
 .plan-acciones-iconos .btn { padding: 8px 10px; }
 
+/* ---------- Ficha de vuelo estilo "tarjeta de embarque" (Bitácora, fila de
+   detalle al tocar un vuelo) ---------- */
+.ticket-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.ticket-fecha { text-align: right; }
+.ticket-lbl {
+  margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-muted); font-weight: 700;
+}
+.ticket-flightno { margin: 3px 0 0; font-family: var(--font-mono); font-weight: 700; font-size: 16px; color: var(--brand); }
+.ticket-fecha-valor { margin: 3px 0 0; font-weight: 700; font-size: 14px; }
+
+.ticket-ruta { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+.ticket-punto { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ticket-punto.derecha { align-items: flex-end; text-align: right; }
+.ticket-codigo { margin: 0; font-family: var(--font-mono); font-weight: 800; font-size: 26px; line-height: 1; letter-spacing: -.01em; }
+.ticket-ciudad {
+  margin: 0; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;
+}
+.ticket-medio { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; padding: 0 4px; }
+.ticket-avion {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--brand-weak); color: var(--brand);
+}
+.ticket-tag {
+  background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border);
+  border-radius: 20px; padding: 2px 8px; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
+}
+
+.ticket-perforado { height: 1px; margin: 18px 0; border-top: 1px dashed var(--border); }
+
+.ticket-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
+.ticket-dato:nth-child(even) { text-align: right; }
+.ticket-val { margin: 3px 0 0; font-family: var(--font-mono); font-weight: 700; font-size: 15px; }
+.ticket-val.brand { color: var(--brand); }
+
 /* ---------- Forms ---------- */
 label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
 input, select, textarea {
@@ -358,14 +396,6 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
      pasa a ocupar el ancho real de la fila (igual que las demás celdas). */
   display: block; white-space: normal; background: var(--bg-subtle); padding: 14px 10px;
 }
-
-/* .grid.cols-4 usa minmax(140px, 1fr): adentro de un <td colspan> eso obliga
-   a la tabla entera a crecer a ~1100px (8 stats × 140px) y el resto de las
-   columnas quedan solo accesibles haciendo scroll horizontal — justo lo
-   opuesto a "ver los datos de un vistazo". minmax(0, 1fr) no impone un piso
-   de ancho, así que se achica según el espacio real disponible. */
-.detalle-vuelo-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (min-width: 480px) { .detalle-vuelo-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 .badge {
   display: inline-flex; align-items: center; gap: 4px;

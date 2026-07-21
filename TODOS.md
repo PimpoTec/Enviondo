@@ -3,6 +3,15 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 32 (ficha de vuelo estilo "tarjeta de embarque" en Bitácora)
+- [x] Rediseño de la ficha de detalle (tanda 31) a pedido: ahora sigue el
+      estilo boarding-pass de la referencia — matrícula y fecha arriba,
+      códigos de aeródromo grandes con un ícono de avión en círculo y un
+      tag (finalidad · diurno/nocturno) en el medio, separador punteado, y
+      una grilla de 2 columnas con salida/llegada UTC, duración, modelo,
+      PIC, aterrizajes, distancia (NM) y costo. Clases nuevas
+      `.ticket-*`; se sacó `.detalle-vuelo-stats` (quedó sin uso).
+
 ## Hecho — tanda 31 (mapa con tema oscuro real, ficha de vuelo en Bitácora, bottom-nav)
 - [x] Mapa de rutas (Totales): las tiles ahora son CartoDB Dark Matter/Light
       de verdad (según el tema activo) en vez de tiles claros de OSM con un

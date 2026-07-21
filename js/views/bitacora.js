@@ -198,36 +198,54 @@ const ViewBitacora = {
     }
 
     const costo = Calc.costoRegistrado(v, v.aeronaves);
-    const horario = (v.hora_salida_utc || v.hora_llegada_utc)
-      ? `${(v.hora_salida_utc || '—').slice(0, 5)}–${(v.hora_llegada_utc || '—').slice(0, 5)}`
-      : '—';
+    const salida = v.hora_salida_utc ? v.hora_salida_utc.slice(0, 5) : '—';
+    const llegada = v.hora_llegada_utc ? v.hora_llegada_utc.slice(0, 5) : '—';
+    const finalidad = (FINALIDADES_VUELO.find(([f]) => f === v.finalidad_vuelo) || [v.finalidad_vuelo])[0] || '—';
+    const tag = `${finalidad} · ${Calc.n(v.total_noche) > 0 ? 'NOCTURNO' : 'DIURNO'}`;
 
     return `
       <tr class="fila-detalle-vuelo">
         <td colspan="10">
-          <div class="detalle-vuelo">
-            <div class="plan-ruta">
-              <div class="plan-ruta-punto">
-                <span class="plan-ruta-codigo">${v.desde}</span>
-                <span class="plan-ruta-ciudad">${ciudadDesde || (esLocal ? 'Vuelo local' : '—')}</span>
+          <div class="ticket">
+            <div class="ticket-head">
+              <div>
+                <p class="ticket-lbl">Matrícula</p>
+                <p class="ticket-flightno">${v.aeronaves?.matricula || '—'}</p>
               </div>
-              ${esLocal ? '' : `
-              <div class="plan-ruta-linea">${Icons.plane(16)}</div>
-              <div class="plan-ruta-punto derecha">
-                <span class="plan-ruta-codigo">${v.hasta}</span>
-                <span class="plan-ruta-ciudad">${ciudadHasta || '—'}</span>
-              </div>`}
+              <div class="ticket-fecha">
+                <p class="ticket-lbl">Fecha</p>
+                <p class="ticket-fecha-valor">${fmtFecha(v.fecha)}</p>
+              </div>
             </div>
-            <div class="grid detalle-vuelo-stats" style="margin-top:16px">
-              <div class="stat"><div class="num">${v.aeronaves?.matricula || '—'}</div><div class="lbl">Aeronave</div></div>
-              <div class="stat"><div class="num">${horario}</div><div class="lbl">Horario UTC</div></div>
-              <div class="stat"><div class="num">${v.tiempo_total} hs</div><div class="lbl">Tiempo total</div></div>
-              <div class="stat"><div class="num">${v.total_dia} / ${v.total_noche}</div><div class="lbl">Día / Noche</div></div>
-              <div class="stat"><div class="num">${v.total_pic} hs</div><div class="lbl">PIC</div></div>
-              <div class="stat"><div class="num">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</div><div class="lbl">Aterrizajes</div></div>
-              ${distanciaTxt ? `<div class="stat"><div class="num">${distanciaTxt}</div><div class="lbl">Distancia</div></div>` : ''}
-              <div class="stat"><div class="num">${fmtMoneda(costo.monto, costo.moneda)}</div><div class="lbl">Costo</div></div>
+
+            <div class="ticket-ruta">
+              <div class="ticket-punto">
+                <p class="ticket-codigo">${v.desde}</p>
+                <p class="ticket-ciudad">${ciudadDesde || (esLocal ? 'Vuelo local' : '—')}</p>
+              </div>
+              <div class="ticket-medio">
+                <div class="ticket-avion">${Icons.plane(16)}</div>
+                <span class="ticket-tag">${tag}</span>
+              </div>
+              <div class="ticket-punto derecha">
+                <p class="ticket-codigo">${esLocal ? v.desde : v.hasta}</p>
+                <p class="ticket-ciudad">${esLocal ? '' : (ciudadHasta || '—')}</p>
+              </div>
             </div>
+
+            <div class="ticket-perforado"></div>
+
+            <div class="ticket-datos">
+              <div class="ticket-dato"><p class="ticket-lbl">Salida UTC</p><p class="ticket-val">${salida}</p></div>
+              <div class="ticket-dato"><p class="ticket-lbl">Llegada UTC</p><p class="ticket-val">${llegada}</p></div>
+              <div class="ticket-dato"><p class="ticket-lbl">Duración</p><p class="ticket-val brand">${v.tiempo_total} hs</p></div>
+              <div class="ticket-dato"><p class="ticket-lbl">Modelo</p><p class="ticket-val">${v.aeronaves?.marca_modelo || '—'}</p></div>
+              <div class="ticket-dato"><p class="ticket-lbl">PIC</p><p class="ticket-val">${v.total_pic} hs</p></div>
+              <div class="ticket-dato"><p class="ticket-lbl">Aterrizajes</p><p class="ticket-val">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</p></div>
+              ${distanciaTxt ? `<div class="ticket-dato"><p class="ticket-lbl">Distancia</p><p class="ticket-val">${distanciaTxt}</p></div>` : ''}
+              <div class="ticket-dato"><p class="ticket-lbl">Costo</p><p class="ticket-val">${fmtMoneda(costo.monto, costo.moneda)}</p></div>
+            </div>
+
             ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', v.observaciones)}</p>` : ''}
             <div class="btn-row" style="margin-top:14px">
               <button class="btn secondary" data-accion="editar-desde-detalle" data-id="${v.id}">${Icons.tag('edit', 'Edición rápida')}</button>
