@@ -3,6 +3,44 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 21 (P0/P1 del análisis: papelera en schema.sql, edición inline, PDF pixel-perfect, mapa de rutas)
+- [x] **P0** — `sql/agregar_papelera_vuelos.sql` (columna `deleted_at`) ya
+      estaba fuera de `schema.sql`, el único archivo de migración en esa
+      situación. Ahora está en el lugar cronológico que le corresponde,
+      junto a las demás actualizaciones de `vuelos`.
+- [x] **P1** — Edición inline en Bitácora: el ícono de lápiz abre un panel
+      debajo de la fila con los datos administrativos (fecha, ruta,
+      finalidad, aterrizajes, observaciones) para corregir sin salir de la
+      pantalla. A propósito NO toca los tiempos de vuelo ahí (los 8
+      buckets del libro ANAC) — reconstruirlos a ciegas desde un total
+      podría pisar mal una carga con piloto+copiloto o local+travesía
+      mixto; para eso sigue estando "Editar todo" (el formulario completo).
+- [x] **P1** — PDF pixel-perfect: `ExportadorAnac.construirLibroAnualHtml`
+      (NEW) reusa la MISMA plantilla (`SPEC`: celdas, merges, anchos,
+      extraída del .xls oficial) y el mismo cálculo de arrastre de totales
+      que el Excel, pero arma HTML dimensionado al tamaño físico real del
+      papel (35,5 × 16,5 cm exactos, vía `@page`) en vez de una tabla
+      genérica. Se abre en una pestaña e imprime — "Guardar como PDF" ya
+      sale con las medidas correctas. Verificado visualmente (Playwright):
+      arrastre de totales entre hojas correcto, tamaño de página exacto.
+- [x] **P1** — Mapa de rutas (Totales, NEW): Leaflet + OpenStreetMap (CDN),
+      un marcador por aeródromo volado (tamaño según frecuencia) y líneas
+      entre pares de travesía, más una tabla de "rutas más voladas".
+      `js/coordenadas.js` (NEW) tiene lat/lon para 162 de los ~857
+      aeródromos del dataset — los que tienen código OACI, cruzados contra
+      una fuente pública (mwgg/Airports, dominio público). Los que solo
+      tienen código local (aeroclubes/pistas chicas, la mayoría del
+      dataset) se listan aparte como "sin coordenadas" en vez de
+      inventarles una ubicación.
+- [x] Corregido un dato inexacto en el README ("hoy se muestra un ranking
+      de rutas") — esa función no existía, era aspiracional de un análisis
+      anterior; ya no hace falta la aclaración porque el mapa está hecho.
+
+Quedan pendientes del análisis original: los códigos ANAC reales para
+multimotor/reactor/turbohélice/aeroaplicador (necesito que los pases vos,
+no se pueden inventar) y separar `perfil.js`/`nuevoVuelo.js` en módulos si
+siguen creciendo (P2, sin apuro).
+
 ## Hecho — tanda 20 (ícono de notificación en Android + layout de botones)
 - [x] `icons/badge-192.png` (NEW): silueta blanca del avión de papel sobre
       fondo transparente, generada a partir de `icons/icon.svg`. Android

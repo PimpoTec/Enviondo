@@ -264,9 +264,150 @@
     return map;
   }
 
+  // ==========================================================================
+  // PDF PIXEL-FIEL (vía impresión del navegador) — misma plantilla (SPEC) y
+  // mismo cálculo de arrastre de totales que el Excel de arriba, para que
+  // los dos formatos siempre coincidan en los números. La diferencia es que
+  // acá se genera HTML dimensionado al tamaño FÍSICO real del papel
+  // (35.5 × 16.5 cm, ver SPEC.cells fila 26) en vez de una hoja de cálculo.
+  // ==========================================================================
+  const PAGINA_MM = { ancho: 355, alto: 165, margen: 5 };
+  const FILAS_SPEC = 31; // filas 1..31 (1-indexadas en el Excel) = 0..30 acá
+  const COLS_SPEC = 33;
+
+  // Alto relativo de cada fila (0-indexada) — reproduce estilar() del Excel
+  // (filas normales 15, recuadros de "Total horas de vuelo" más altos).
+  function pesoFila(r) {
+    if (r === 9) return 42;
+    if (r === 24) return 34;
+    return 15;
+  }
+
+  // Convierte SPEC.merges en una grilla [fila][col] para saber, al recorrer
+  // celda por celda, cuál es el rowspan/colspan de una celda "ancla" y
+  // cuáles quedan cubiertas (no se emiten como <td> aparte).
+  function construirGrillaMerge(merges, filas, cols) {
+    const grilla = Array.from({ length: filas }, () => Array(cols).fill(null));
+    for (const [rlo, rhi, clo, chi] of merges) {
+      grilla[rlo][clo] = { rowspan: rhi - rlo, colspan: chi - clo };
+      for (let r = rlo; r < rhi; r++) {
+        for (let c = clo; c < chi; c++) {
+          if (r === rlo && c === clo) continue;
+          grilla[r][c] = { oculta: true };
+        }
+      }
+    }
+    return grilla;
+  }
+
+  // Misma cuenta que construirHoja() (arrastre de totales de columna +
+  // total de horas de vuelo acumulado), pero devuelve HTML en vez de
+  // escribir celdas de ExcelJS — el PDF no tiene fórmulas vivas entre
+  // hojas, así que cada página lleva el número ya calculado.
+  function construirHojaHtml({ grupo, indice, datosPiloto, anio, carryPorColumna, grandPrev }) {
+    const grilla = construirGrillaMerge(SPEC.merges, FILAS_SPEC, COLS_SPEC);
+    const texto = Array.from({ length: FILAS_SPEC }, () => Array(COLS_SPEC).fill(''));
+
+    for (const [r, c, t] of SPEC.cells) texto[r][c] = String(t);
+    if (datosPiloto) {
+      texto[2][3] = datosPiloto.nombre_completo || '';
+      texto[2][12] = datosPiloto.licencia || '';
+      texto[1][20] = datosPiloto.licencia_numero || '';
+      texto[2][26] = datosPiloto.legajo || '';
+    }
+    if (anio) texto[3][1] = 'AÑO ' + anio;
+
+    grupo.forEach((v, i) => {
+      const fila = XLS_PRIMER_DATO + i;
+      for (let c = 1; c <= 29; c++) {
+        const val = valorCelda(c, v);
+        if (val !== '' && val !== undefined) texto[fila][c] = String(val);
+      }
+    });
+
+    const sumaPagina = sumarColumnas(grupo);
+    for (const c of COLS_ACUM) {
+      // El PDF no tiene fórmulas vivas entre hojas: acá "carryPorColumna"
+      // ya viene con el número real acumulado hasta ANTES de esta página
+      // (sea el arrastre histórico real, en la primera página, o la suma
+      // corrida de las páginas anteriores del mismo archivo).
+      const previo = carryPorColumna?.[c] || 0;
+      if (previo) texto[XLS_TOT_ANT][c] = String(previo);
+      const siguiente = Math.round((previo + (sumaPagina[c] || 0)) * 100) / 100;
+      texto[XLS_TOT_SIG][c] = String(siguiente);
+    }
+
+    const grandPag = grupo.reduce((s, v) => s + tiempoTotalVuelo(v), 0);
+    const grandNext = Math.round((grandPrev + grandPag) * 100) / 100;
+    texto[9][32] = `TOTAL HS. VUELO\nPÁG. ANTERIOR\n${Math.round(grandPrev * 100) / 100}`;
+    texto[24][32] = `TOTAL HS. VUELO\nPÁG. SIGUIENTE\n${grandNext}`;
+
+    const anchoUnidades = Object.values(SPEC.widths).reduce((a, b) => a + b, 0);
+    const colgroup = Array.from({ length: COLS_SPEC }, (_, c) => {
+      const pct = (SPEC.widths[c] / anchoUnidades) * 100;
+      return `<col style="width:${pct.toFixed(3)}%">`;
+    }).join('');
+
+    const pesoTotal = Array.from({ length: FILAS_SPEC }, (_, r) => pesoFila(r)).reduce((a, b) => a + b, 0);
+    const altoUtilMm = PAGINA_MM.alto - PAGINA_MM.margen * 2;
+
+    let filasHtml = '';
+    for (let r = 0; r < FILAS_SPEC; r++) {
+      const alturaMm = (pesoFila(r) / pesoTotal) * altoUtilMm;
+      const esCabecera = r >= 3 && r <= 8;
+      const esTotales = r === 9 || r === 25;
+      const esFilaDato = r >= 10 && r <= 24;
+      let celdas = '';
+      for (let c = 0; c < COLS_SPEC; c++) {
+        const info = grilla[r][c];
+        if (info?.oculta) continue;
+        const rowspan = info?.rowspan || 1;
+        const colspan = info?.colspan || 1;
+        const val = texto[r][c] || '';
+        const esTextoLargo = esFilaDato && (c === 4 || c === 7);
+        const clases = [
+          esCabecera ? 'cab' : '',
+          esTotales ? 'tot' : '',
+          esTextoLargo ? 'izq' : '',
+          !esTextoLargo && /^-?[\d.,]+$/.test(val) ? 'num' : '',
+        ].filter(Boolean).join(' ');
+        celdas += `<td${rowspan > 1 ? ` rowspan="${rowspan}"` : ''}${colspan > 1 ? ` colspan="${colspan}"` : ''}${clases ? ` class="${clases}"` : ''}>${val.replace(/\n/g, '<br>')}</td>`;
+      }
+      filasHtml += `<tr style="height:${alturaMm.toFixed(3)}mm">${celdas}</tr>`;
+    }
+
+    return {
+      html: `<div class="hoja"><table><colgroup>${colgroup}</colgroup><tbody>${filasHtml}</tbody></table></div>`,
+      grandNext, sumaPagina,
+    };
+  }
+
+  // Igual que construirLibroAnual, pero arma un array de páginas HTML en
+  // vez de un workbook — mismo arrastre entre hojas y entre años.
+  function construirLibroAnualHtml({ anio, vuelos, datosPiloto, carryInicial }) {
+    const ordenados = [...vuelos].sort((a, b) =>
+      a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : (a.hora_salida_utc || '').localeCompare(b.hora_salida_utc || ''));
+    const paginas = enTrozos(ordenados, FILAS_POR_HOJA);
+
+    const carryPorColumna = Object.assign({}, carryInicial?.porColumna);
+    let grandPrev = carryInicial?.grandTotal || 0;
+    const paginasHtml = [];
+    paginas.forEach((grupo, indice) => {
+      const { html, grandNext, sumaPagina } = construirHojaHtml({
+        grupo, indice, datosPiloto, anio, carryPorColumna, grandPrev,
+      });
+      paginasHtml.push(html);
+      grandPrev = grandNext;
+      for (const c of COLS_ACUM) carryPorColumna[c] = Math.round(((carryPorColumna[c] || 0) + (sumaPagina[c] || 0)) * 100) / 100;
+    });
+
+    return { paginasHtml, estadoFinal: { porColumna: carryPorColumna, grandTotal: grandPrev } };
+  }
+
   const ExportadorAnac = {
     construirLibroAnual, agruparPorAnio, sumarColumnas, formatearRuta,
     valorCelda, colLetra, CLASE_ABREV, COLS_ACUM, FILAS_POR_HOJA, SPEC,
+    construirLibroAnualHtml, PAGINA_MM,
   };
 
   if (typeof window !== 'undefined') window.ExportadorAnac = ExportadorAnac;

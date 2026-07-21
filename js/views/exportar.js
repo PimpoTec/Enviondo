@@ -202,37 +202,76 @@ const ViewExportar = {
     XLSX.writeFile(wb, `libro-de-vuelo-${new Date().toISOString().slice(0, 10)}.xlsx`);
   },
 
+  // PDF pixel-fiel al tamaño físico real del papel (35.5 × 16.5 cm),
+  // reusando la misma plantilla (SPEC) y el mismo cálculo de arrastre de
+  // totales que el exportador de Excel (ExportadorAnac.construirLibroAnualHtml)
+  // — así los dos formatos siempre coinciden en los números. Se abre en una
+  // pestaña nueva y dispara la impresión del navegador (elegís "Guardar
+  // como PDF" en el diálogo); @page ya viene dimensionado al papel real,
+  // así que no hace falta tocar nada en ese diálogo.
   async _exportarPdf() {
-    const filas = await this._filasPlanas();
-    if (!filas.length) { UI.toast('No hay vuelos con esos filtros.', 'warn'); return; }
-    const agg = agregarVuelos(filas.map((f) => ({ ...f, aeronaves: { tarifa_hora_diurna: 0, tarifa_hora_nocturna: 0 } })));
-    const ventana = window.open('', '_blank');
-    ventana.document.write(`
-      <html><head><title>Hoja de Libro de Vuelo — Res. ANAC 290/2012</title>
-      <style>
-        body{font-family:Arial,sans-serif;font-size:10px;margin:12px}
-        h1{font-size:14px}
-        table{width:100%;border-collapse:collapse}
-        th,td{border:1px solid #999;padding:3px 4px;white-space:nowrap}
-        th{background:#eee}
-        tfoot td{font-weight:bold;background:#f5f5f5}
-      </style></head><body>
-      <h1>Hoja de Libro de Vuelo de Pilotos — Res. ANAC 290/2012</h1>
-      <table>
-        <thead><tr>${COLUMNAS_290.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead>
-        <tbody>
-          ${filas.map((f) => `<tr>${COLUMNAS_290.map(([k]) => `<td>${f[k] ?? ''}</td>`).join('')}</tr>`).join('')}
-        </tbody>
-        <tfoot>
-          <tr><td colspan="16">Totales del período</td>
-            <td colspan="15">Total: ${agg.tiempo_total} hs · PIC: ${agg.total_pic} hs · Día: ${agg.total_dia} hs · Noche: ${agg.total_noche} hs · Travesía: ${agg.total_travesia} hs</td>
-          </tr>
-        </tfoot>
-      </table>
-      <script>window.print();</script>
-      </body></html>
-    `);
-    ventana.document.close();
+    const btn = document.getElementById('btn-export-pdf');
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = Icons.tag('download', 'Generando…');
+    try {
+      const filtros = await this._filtros();
+      const [vuelos, datosPiloto] = await Promise.all([Repo.listarVuelos(filtros), Repo.getDatosPiloto()]);
+      if (!vuelos.length) { UI.toast('No hay vuelos con esos filtros.', 'warn'); return; }
+
+      // Mismo arrastre real que el Excel: todo lo volado ANTES del primer
+      // vuelo exportado, para que "exportar desde tal fecha" no arranque en 0.
+      const fechaMinima = vuelos.reduce((min, v) => (v.fecha < min ? v.fecha : min), vuelos[0].fecha);
+      const anteriores = await Repo.listarVuelos({
+        hasta: this._diaAnterior(fechaMinima), aeronave_id: filtros.aeronave_id, finalidad_vuelo: filtros.finalidad_vuelo,
+      });
+      let carry = {
+        porColumna: ExportadorAnac.sumarColumnas(anteriores),
+        grandTotal: Calc.round2(anteriores.reduce((s, v) => s + Calc.n(v.tiempo_total), 0)),
+      };
+
+      const porAnio = ExportadorAnac.agruparPorAnio(vuelos);
+      const anios = Object.keys(porAnio).sort();
+      let paginasHtml = [];
+      for (const anio of anios) {
+        const resultado = ExportadorAnac.construirLibroAnualHtml({ anio, vuelos: porAnio[anio], datosPiloto, carryInicial: carry });
+        paginasHtml = paginasHtml.concat(resultado.paginasHtml);
+        carry = resultado.estadoFinal; // el año siguiente sigue acumulando, no resetea
+      }
+
+      const { ancho, alto, margen } = ExportadorAnac.PAGINA_MM;
+      const ventana = window.open('', '_blank');
+      ventana.document.write(`
+        <html><head><title>Hoja de Libro de Vuelo — Res. ANAC 290/2012</title>
+        <style>
+          @page { size: ${ancho}mm ${alto}mm; margin: 0; }
+          * { box-sizing: border-box; }
+          body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
+          .hoja { width: ${ancho}mm; height: ${alto}mm; padding: ${margen}mm; page-break-after: always; }
+          .hoja:last-child { page-break-after: auto; }
+          table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; }
+          td { border: 1px solid #000; padding: 0 2px; overflow: hidden; text-align: center; vertical-align: middle;
+               font-size: 6.5pt; line-height: 1.05; }
+          td.cab { font-size: 5.3pt; font-weight: bold; }
+          td.tot { font-weight: bold; }
+          td.num { font-family: 'Courier New', monospace; }
+          td.izq { text-align: left; }
+          @media screen {
+            body { background: #999; }
+            .hoja { background: #fff; margin: 10px auto; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+          }
+        </style></head><body>
+        ${paginasHtml.join('')}
+        <script>window.onload = () => window.print();</script>
+        </body></html>
+      `);
+      ventana.document.close();
+    } catch (err) {
+      UI.toast('Error al generar el PDF: ' + (err.message || err), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
   },
 
   async _exportarJson() {

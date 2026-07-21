@@ -256,9 +256,11 @@ Notificaciones) — esto es aditivo, no rompe lo que ya tenías andando.
 
 ## 9) Qué falta / mejoras futuras
 
-- PDF pixel-perfect a la hoja física de 35,5 × 16,5 cm (hoy exporta un PDF
-  tabular vía impresión del navegador, con el mismo orden de columnas, pero
-  no calca las medidas exactas del formulario papel).
-- Mapa geográfico real de rutas (hoy se muestra un ranking de rutas más
-  voladas; falta geocodificar los códigos OACI a lat/lon para el mapa).
-- Edición inline completa en la Bitácora (hoy se edita reabriendo el vuelo).
+- Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
+  `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está
+  confirmado; el resto cae a una abreviación armada, no al código oficial.
+- El mapa de rutas (Totales) solo ubica aeródromos con código OACI
+  reconocido (162 de los ~857 del dataset, cruzados contra una fuente
+  pública — ver `js/coordenadas.js`). Los aeroclubes/pistas con código
+  local nomás quedan sin geocodificar: no hay una fuente pública confiable
+  para ubicarlos sin arriesgarse a un punto inventado.

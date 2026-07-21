@@ -72,3 +72,53 @@ test('agruparPorAnio: agrupa por el año de la fecha', () => {
   const porAnio = ExportadorAnac.agruparPorAnio(vuelos);
   assert.deepEqual(Object.keys(porAnio).sort(), ['2025', '2026']);
 });
+
+// ---- PDF pixel-fiel (construirLibroAnualHtml) — misma plantilla y mismo
+// arrastre que el Excel, sin depender de ExcelJS (es puro HTML/string). ----
+
+test('construirLibroAnualHtml: pocos vuelos entran en una sola hoja', () => {
+  const vuelos = [vueloBase(), vueloBase({ fecha: '2025-03-06' })];
+  const { paginasHtml } = ExportadorAnac.construirLibroAnualHtml({
+    anio: '2025', vuelos, datosPiloto: null, carryInicial: null,
+  });
+  assert.equal(paginasHtml.length, 1);
+  assert.match(paginasHtml[0], /<div class="hoja">/);
+  assert.match(paginasHtml[0], /HOJA DE LIBRO DE VUELO DE PILOTOS/);
+});
+
+test('construirLibroAnualHtml: más de 15 vuelos pasan a una segunda hoja', () => {
+  const vuelos = Array.from({ length: 17 }, (_, i) => vueloBase({ fecha: `2025-03-${String(i + 1).padStart(2, '0')}` }));
+  const { paginasHtml } = ExportadorAnac.construirLibroAnualHtml({
+    anio: '2025', vuelos, datosPiloto: null, carryInicial: null,
+  });
+  assert.equal(paginasHtml.length, 2);
+});
+
+test('construirLibroAnualHtml: el arrastre inicial aparece en TOTALES PAGINA ANTERIOR de la primera hoja', () => {
+  const vuelos = [vueloBase()];
+  const carryInicial = { porColumna: { 11: 12.5 }, grandTotal: 12.5 };
+  const { paginasHtml } = ExportadorAnac.construirLibroAnualHtml({
+    anio: '2025', vuelos, datosPiloto: null, carryInicial,
+  });
+  assert.match(paginasHtml[0], /12\.5/);
+});
+
+test('construirLibroAnualHtml: el total acumulado final coincide con sumarColumnas de todos los vuelos', () => {
+  const vuelos = Array.from({ length: 16 }, (_, i) => vueloBase({ fecha: `2025-03-${String(i + 1).padStart(2, '0')}`, saero_dia_piloto: 1 }));
+  const { estadoFinal } = ExportadorAnac.construirLibroAnualHtml({
+    anio: '2025', vuelos, datosPiloto: null, carryInicial: null,
+  });
+  const sumaReal = ExportadorAnac.sumarColumnas(vuelos);
+  assert.equal(estadoFinal.porColumna[11], sumaReal[11]);
+  assert.equal(estadoFinal.grandTotal, 16);
+});
+
+test('construirLibroAnualHtml: datos del piloto aparecen en la cabecera', () => {
+  const { paginasHtml } = ExportadorAnac.construirLibroAnualHtml({
+    anio: '2025', vuelos: [vueloBase()],
+    datosPiloto: { nombre_completo: 'Juan Pérez', licencia: 'PPA', legajo: '123' },
+    carryInicial: null,
+  });
+  assert.match(paginasHtml[0], /Juan Pérez/);
+  assert.match(paginasHtml[0], />PPA</);
+});

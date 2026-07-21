@@ -237,6 +237,17 @@ alter table aeronaves add constraint aeronaves_clase_check
 alter table vuelos add column if not exists remolques integer not null default 0;
 
 -- ----------------------------------------------------------------------------
+-- PAPELERA DE VUELOS: "Borrar" marca deleted_at en vez de borrar la fila
+-- directo, así el vuelo desaparece de bitácora/totales/progreso pero se
+-- puede restaurar desde Perfil → Papelera hasta que se vacíe a mano (no hay
+-- borrado automático por tiempo). Antes vivía solo en
+-- sql/agregar_papelera_vuelos.sql, sin sumar al schema.sql base — lo
+-- estaba dejando afuera de "correr el archivo entero de nuevo".
+-- ----------------------------------------------------------------------------
+alter table vuelos add column if not exists deleted_at timestamptz;
+create index if not exists idx_vuelos_deleted_at on vuelos(user_id, deleted_at);
+
+-- ----------------------------------------------------------------------------
 -- CONFIG_LICENCIA: ahora conviven varios cursos a la vez para el mismo
 -- usuario (APPL, PPA, PCA, TLA), cada uno con sus propios requisitos.
 -- El nombre de requisito (ej. "total") se puede repetir entre cursos
@@ -503,10 +514,9 @@ create policy "notif_config_update_own" on notif_config for update using (auth.u
 -- ============================================================================
 -- RECORDATORIOS PERSONALIZADOS — uno o varios avisos por evento, cada uno
 -- con su propio disparador. Ver el detalle completo en
--- sql/agregar_recordatorios_personalizados.sql.
+-- sql/agregar_recordatorios_personalizados.sql. (deleted_at ya se define
+-- más arriba, en el bloque de Papelera de vuelos.)
 -- ============================================================================
-alter table vuelos add column if not exists deleted_at timestamptz;
-
 alter table vencimientos add column if not exists rodante boolean not null default false;
 alter table vencimientos add column if not exists intervalo_dias integer;
 

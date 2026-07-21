@@ -45,6 +45,7 @@ const Icons = (() => {
     landing: (s) => svg('<path d="M3 21h18"/><path d="M4 17 20 9"/><path d="M9 12.5 6 17"/><path d="M15 5.5 12 10"/>', s),
     bell: (s) => svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>', s),
     bellOff: (s) => svg('<path d="M2 2l20 20"/><path d="M8.7 3.7A6 6 0 0 1 18 8c0 3.5 1 5.8 1.9 7.2"/><path d="M6.3 6.3C6.1 6.9 6 7.6 6 8c0 7-3 9-3 9h13"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>', s),
+    mapPin: (s) => svg('<path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/>', s),
     tag(name, text) {
       return `<span style="display:inline-flex;align-items:center;gap:6px">${this[name](14)}<span>${text}</span></span>`;
     },

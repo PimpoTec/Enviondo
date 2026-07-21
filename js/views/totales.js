@@ -11,11 +11,40 @@
 const GRUPO_EXPERIENCIA = ['pic', 'travesia_pic', 'aterrizajes_noche', 'remolques'];
 const GRUPO_INSTRUMENTAL = ['total', 'instrumentos', 'instrumentos_sim', 'nocturnas'];
 
+// Cuántas veces aparece cada aeródromo (como origen o destino) en la
+// bitácora. Pura, sin DOM — la usa tanto el mapa como para decidir el
+// tamaño de cada marcador.
+function calcularFrecuenciaAerodromos(vuelos) {
+  const map = {};
+  for (const v of vuelos) {
+    for (const code of new Set([v.desde, v.hasta])) {
+      if (!code) continue;
+      map[code] = (map[code] || 0) + 1;
+    }
+  }
+  return map;
+}
+
+// Rutas más voladas — A-B y B-A cuentan como la misma ruta (no importa la
+// dirección del vuelo para el ranking). Ordenadas de más a menos frecuente.
+function calcularRutasFrecuentes(vuelos) {
+  const map = {};
+  for (const v of vuelos) {
+    if (!v.desde || !v.hasta) continue;
+    const key = [v.desde, v.hasta].sort().join('|');
+    if (!map[key]) map[key] = { desde: v.desde, hasta: v.hasta, count: 0, horas: 0 };
+    map[key].count++;
+    map[key].horas = Calc.round2(map[key].horas + Calc.n(v.tiempo_total));
+  }
+  return Object.values(map).sort((a, b) => b.count - a.count);
+}
+
 const ViewTotales = {
   async render() {
     const main = document.getElementById('main-content');
     const [vuelos, cursosActivos] = await Promise.all([Repo.listarVuelos(), Repo.getCursosActivos()]);
     const agg = agregarVuelos(vuelos);
+    const rutas = calcularRutasFrecuentes(vuelos);
 
     let hviSimHoras = null;
     if (cursosActivos.includes('PCA_HVI')) hviSimHoras = await Repo.getHviSimHoras();
@@ -74,9 +103,27 @@ const ViewTotales = {
           ${stat('Adiestrador/Simulador', agg.adiestrador_simulador)}
         </div>
       </div>
+
+      ${vuelos.length ? `
+      <div class="card">
+        <h2>${Icons.mapPin(18)} Mapa de rutas</h2>
+        <div id="mapa-rutas" style="height:320px;border-radius:var(--radius-sm);overflow:hidden;background:var(--bg-subtle)"></div>
+        <p class="muted" id="mapa-rutas-nota" style="margin:8px 0 0"></p>
+      </div>
+
+      <div class="card">
+        <h2>${Icons.barChart(18)} Rutas más voladas</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Ruta</th><th class="num">Vuelos</th><th class="num">Horas</th></tr></thead>
+          <tbody>
+            ${rutas.slice(0, 15).map((r) => `<tr><td>${r.desde}${r.desde === r.hasta ? '' : ' ↔ ' + r.hasta}</td><td class="num">${r.count}</td><td class="num">${r.horas}</td></tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>` : ''}
     `;
 
     try { renderDetalleProgreso(configsPorCurso, agg); } catch (err) { console.error('Error renderizando progreso de licencia:', err); }
+    if (vuelos.length) { try { renderMapaRutas(vuelos); } catch (err) { console.error('Error renderizando el mapa de rutas:', err); } }
   },
 };
 
@@ -136,6 +183,65 @@ function renderDetalleProgreso(configsPorCurso, agg) {
 
 function stat(label, valor, sufijo = ' hs') {
   return `<div class="stat"><div class="num">${(valor ?? 0)}${sufijo}</div><div class="lbl">${label}</div></div>`;
+}
+
+// Mapa real (Leaflet + OpenStreetMap) con un marcador por aeródromo volado
+// — tamaño según cuántas veces lo usaste — y líneas entre los pares de
+// travesía. Solo cubre aeródromos con código OACI reconocido (162 de los
+// ~857 del dataset, ver js/coordenadas.js) — el resto son aeroclubes/pistas
+// con código local nomás, sin una fuente pública confiable para
+// geocodificarlos; se listan aparte en vez de dibujar una ubicación
+// inventada.
+function renderMapaRutas(vuelos) {
+  const cont = document.getElementById('mapa-rutas');
+  const nota = document.getElementById('mapa-rutas-nota');
+  if (typeof L === 'undefined') {
+    cont.innerHTML = '<p class="muted" style="padding:12px;margin:0">No se pudo cargar el mapa (revisá tu conexión).</p>';
+    return;
+  }
+  const frecuencia = calcularFrecuenciaAerodromos(vuelos);
+  const codigos = Object.keys(frecuencia);
+  const coordenadas = window.COORDENADAS_AERODROMO || {};
+  const conCoords = codigos.filter((c) => coordenadas[c]);
+  const sinCoords = codigos.filter((c) => !coordenadas[c]);
+
+  if (!conCoords.length) {
+    cont.innerHTML = '<p class="muted" style="padding:12px;margin:0">Ninguno de tus aeródromos volados tiene código OACI reconocido todavía — el mapa no tiene nada para mostrar.</p>';
+    return;
+  }
+
+  const map = L.map(cont, { scrollWheelZoom: false }).setView([-38.5, -63.5], 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 18,
+  }).addTo(map);
+
+  // Líneas primero (van debajo de los marcadores).
+  calcularRutasFrecuentes(vuelos).forEach((r) => {
+    if (r.desde === r.hasta) return;
+    const a = coordenadas[r.desde], b = coordenadas[r.hasta];
+    if (!a || !b) return;
+    L.polyline([a, b], { color: '#ffb86b', weight: Math.min(1 + r.count * 0.4, 5), opacity: 0.55 }).addTo(map);
+  });
+
+  const maxFrec = Math.max(...conCoords.map((c) => frecuencia[c]));
+  const bounds = [];
+  conCoords.forEach((c) => {
+    const punto = coordenadas[c];
+    bounds.push(punto);
+    const radio = 5 + (frecuencia[c] / maxFrec) * 14;
+    const aero = (window.AERODROMOS || []).find((a) => a.code === c);
+    L.circleMarker(punto, { radius: radio, color: '#ffb86b', weight: 1.5, fillColor: '#ffb86b', fillOpacity: 0.55 })
+      .addTo(map)
+      .bindPopup(`<strong>${c}</strong>${aero ? ' — ' + aero.nombre : ''}<br>${frecuencia[c]} vuelo(s)`);
+  });
+
+  if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
+  else map.setView(bounds[0], 9);
+
+  nota.textContent = sinCoords.length
+    ? `${sinCoords.length} aeródromo(s) con código local (sin OACI reconocido) no se muestran en el mapa: ${sinCoords.join(', ')}.`
+    : '';
 }
 
 window.ViewTotales = ViewTotales;

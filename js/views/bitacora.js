@@ -2,11 +2,19 @@
 // VISTA: BITÁCORA — tabla filtrable/ordenable, con edición y borrado.
 // ============================================================================
 
+// Compartida entre el filtro de arriba y el panel de edición rápida — un
+// solo lugar para no tener el mismo listado de códigos duplicado dos veces.
+const FINALIDADES_VUELO = [
+  ['INST', 'INST — Instrucción'], ['ADAP', 'ADAP — Adaptación'], ['REDAP', 'REDAP — Readaptación'],
+  ['EXA', 'EXA — Examen'], ['ENTT', 'ENTT — Entrenamiento'], ['VP', 'VP — Vuelo privado'],
+];
+
 const ViewBitacora = {
   vuelos: [],
   filasActuales: [],
   aeronaves: [],
   orden: { campo: 'fecha', asc: false },
+  filaEditando: null, // id del vuelo con el panel de edición rápida abierto
 
   // El filtro vive en la URL (#bitacora?desde=...&aeronave=...), no solo en
   // memoria — si el navegador descarga la pestaña en segundo plano (pasa
@@ -48,10 +56,7 @@ const ViewBitacora = {
           <div class="field"><label>Finalidad</label>
             <select id="fx-finalidad">
               <option value="">Todas</option>
-              ${[
-                ['INST', 'INST — Instrucción'], ['ADAP', 'ADAP — Adaptación'], ['REDAP', 'REDAP — Readaptación'],
-                ['EXA', 'EXA — Examen'], ['ENTT', 'ENTT — Entrenamiento'], ['VP', 'VP — Vuelo privado'],
-              ].map(([f, label]) => `<option value="${f}" ${f === this.filtros.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}
+              ${FINALIDADES_VUELO.map(([f, label]) => `<option value="${f}" ${f === this.filtros.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -139,11 +144,90 @@ const ViewBitacora = {
         <td class="num">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</td>
         <td class="num">${(() => { const c = Calc.costoRegistrado(v, v.aeronaves); return fmtMoneda(c.monto, c.moneda); })()}</td>
         <td>
-          <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">${Icons.edit(16)}</button>
+          <button class="btn ghost" data-accion="toggle-edicion" data-id="${v.id}" title="Edición rápida">${Icons.edit(16)}</button>
           <button class="btn ghost" onclick="ViewBitacora._borrar('${v.id}')">${Icons.trash(16)}</button>
         </td>
       </tr>
+      ${this.filaEditando === v.id ? this._filaEdicionInline(v) : ''}
     `).join('');
+    tbody.querySelectorAll('button[data-accion="toggle-edicion"]').forEach((b) => {
+      b.onclick = () => {
+        this.filaEditando = this.filaEditando === b.dataset.id ? null : b.dataset.id;
+        this._renderFilas(this.filasActuales);
+      };
+    });
+    if (this.filaEditando) this._bindEdicionInline(this.filaEditando);
+  },
+
+  // Edición rápida sin salir de la Bitácora — a propósito NO toca los
+  // tiempos de vuelo (los 8 buckets del libro ANAC): esos números tienen
+  // que quedar exactos, y reconstruirlos a ciegas desde "tiempo total" acá
+  // podría pisar mal una carga con piloto+copiloto mixto o local+travesía
+  // mixto. Para eso sigue estando "Editar todo" (el formulario completo,
+  // con validación). Esto cubre el caso más común: corregir un dato
+  // administrativo (fecha, ruta, finalidad, aterrizajes, observaciones)
+  // sin tener que reabrir y volver a revisar todo el vuelo.
+  _filaEdicionInline(v) {
+    return `
+      <tr class="fila-edicion-inline">
+        <td colspan="10">
+          <div class="grid cols-4">
+            <div class="field"><label>Fecha</label><input type="date" id="ie-fecha" value="${v.fecha}"></div>
+            <div class="field"><label>Desde (OACI)</label><input maxlength="4" style="text-transform:uppercase" id="ie-desde" value="${v.desde}"></div>
+            <div class="field"><label>Hasta (OACI)</label><input maxlength="4" style="text-transform:uppercase" id="ie-hasta" value="${v.hasta}"></div>
+            <div class="field"><label>Finalidad</label>
+              <select id="ie-finalidad">${FINALIDADES_VUELO.map(([f, label]) => `<option value="${f}" ${f === v.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}</select>
+            </div>
+          </div>
+          <div class="grid cols-4">
+            <div class="field"><label>Aterrizajes de día</label><input type="number" min="0" id="ie-aterr-dia" value="${Calc.n(v.aterrizajes_dia)}"></div>
+            <div class="field"><label>Aterrizajes de noche</label><input type="number" min="0" id="ie-aterr-noche" value="${Calc.n(v.aterrizajes_noche)}"></div>
+            <div class="field" style="grid-column:span 2"><label>Observaciones</label><input id="ie-obs" value="${(v.observaciones || '').replace(/"/g, '&quot;')}"></div>
+          </div>
+          <p class="muted" style="margin:0 0 10px">Para corregir horas/tiempos de vuelo, usá "Editar todo" — acá solo se cambian los datos administrativos.</p>
+          <div class="btn-row">
+            <button class="btn" data-accion="guardar-inline">Guardar</button>
+            <button class="btn ghost" data-accion="cancelar-inline">Cancelar</button>
+            <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar todo</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  },
+
+  _bindEdicionInline(id) {
+    const fila = document.querySelector('.fila-edicion-inline');
+    if (!fila) return;
+    fila.querySelector('[data-accion="guardar-inline"]').onclick = () => this._guardarEdicionInline(id);
+    fila.querySelector('[data-accion="cancelar-inline"]').onclick = () => {
+      this.filaEditando = null;
+      this._renderFilas(this.filasActuales);
+    };
+  },
+
+  async _guardarEdicionInline(id) {
+    const desde = document.getElementById('ie-desde').value.trim().toUpperCase();
+    const hasta = document.getElementById('ie-hasta').value.trim().toUpperCase();
+    const cambios = {
+      fecha: document.getElementById('ie-fecha').value,
+      desde, hasta,
+      finalidad_vuelo: document.getElementById('ie-finalidad').value,
+      aterrizajes_dia: Calc.n(document.getElementById('ie-aterr-dia').value),
+      aterrizajes_noche: Calc.n(document.getElementById('ie-aterr-noche').value),
+      observaciones: document.getElementById('ie-obs').value || null,
+    };
+    if (!cambios.fecha || desde.length !== 4 || hasta.length !== 4) {
+      UI.toast('Revisá la fecha y los códigos OACI (4 letras).', 'warn');
+      return;
+    }
+    try {
+      await Repo.actualizarVuelo(id, cambios);
+      this.filaEditando = null;
+      UI.toast('Vuelo actualizado.', 'ok');
+      this.render();
+    } catch (err) {
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
+    }
   },
 
   _renderEstadoLicencia(vuelos, vencimientos) {
