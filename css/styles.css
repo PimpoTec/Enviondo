@@ -527,7 +527,10 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
   position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
   width: calc(100% - 20px); max-width: 420px; z-index: 1000; padding: 12px 14px;
   display: none;
+  background: rgba(28, 30, 35, 0.86); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow);
 }
+:root[data-theme="light"] .mapa-ficha-ruta { background: rgba(255, 255, 255, 0.9); }
 .mapa-ficha-ruta.visible { display: block; }
 .mapa-ficha-ruta-head {
   display: flex; align-items: center; justify-content: space-between;

@@ -3,6 +3,14 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 24 (fix: ficha de ruta sin fondo)
+- [x] La ficha que aparece al tocar una ruta (distancia/duración/aeronaves)
+      tenía posición y tamaño pero le faltaba el `background`/blur — el
+      texto quedaba flotando transparente arriba del mapa en vez de una
+      tarjeta legible. `.mapa-ficha-ruta` ahora tiene su propio fondo
+      glass (antes solo lo tenía la clase genérica `.mapa-panel`, que
+      nunca se le había aplicado a este elemento). Confirmado con captura.
+
 ## Hecho — tanda 23 (mapa de rutas: rediseño "glass cockpit" + interactivo)
 - [x] **Bug real corregido**: el mapa a veces no cargaba ("revisá tu
       conexión") por una carrera de tiempos — `renderMapaRutas()` corría
