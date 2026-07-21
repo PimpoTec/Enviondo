@@ -62,16 +62,17 @@ function calcularRutasFrecuentes(vuelos) {
     .sort((a, b) => b.count - a.count);
 }
 
-// Distancia en línea recta (círculo máximo) entre dos puntos, en km —
-// fórmula de haversine. No es la distancia realmente volada (eso depende
-// de la ruta/viento real), es una referencia.
-function distanciaKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
+// Distancia en línea recta (círculo máximo) entre dos puntos, en millas
+// náuticas (NM, la unidad de distancia estándar en aviación) — fórmula de
+// haversine con el radio terrestre en NM. No es la distancia realmente
+// volada (eso depende de la ruta/viento real), es una referencia.
+function distanciaNm(lat1, lon1, lat2, lon2) {
+  const R_NM = 3440.065;
   const rad = Math.PI / 180;
   const dLat = (lat2 - lat1) * rad;
   const dLon = (lon2 - lon1) * rad;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  return Math.round(R_NM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 // "1.75" (hs.décimos) → "01:45", para mostrar la duración media como
@@ -315,7 +316,7 @@ function renderMapaRutas(vuelos, intentos = 0) {
     }).addTo(map);
     areaTactil.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
-      mostrarFichaRuta(ficha, r, distanciaKm(a[0], a[1], b[0], b[1]));
+      mostrarFichaRuta(ficha, r, distanciaNm(a[0], a[1], b[0], b[1]));
     });
   });
 
@@ -387,7 +388,7 @@ function mostrarFichaRuta(ficha, ruta, distancia) {
       <button aria-label="Cerrar">${Icons.xCircle(16)}</button>
     </div>
     <div class="mapa-ficha-stats">
-      <div><span class="lbl">Distancia</span><span class="val">${distancia}<span class="unidad">km</span></span></div>
+      <div><span class="lbl">Distancia</span><span class="val">${distancia}<span class="unidad">nm</span></span></div>
       <div><span class="lbl">Duración media</span><span class="val">${fmtDuracionHhMm(ruta.duracionMedia)}<span class="unidad">hs</span></span></div>
       <div><span class="lbl">Vuelos</span><span class="val">${ruta.count}</span></div>
     </div>

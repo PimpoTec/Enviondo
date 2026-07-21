@@ -3,6 +3,12 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 30 (distancia del mapa en NM en vez de km)
+- [x] La ficha de ruta del mapa (Totales) mostraba la distancia en km —
+      ahora en millas náuticas (NM), la unidad estándar de aviación.
+      `distanciaKm` renombrada a `distanciaNm`, mismo cálculo de haversine
+      con el radio terrestre en NM.
+
 ## Hecho — tanda 29 (progreso de licencia más claro: horas hechas vs. faltantes)
 - [x] Cada requisito venía como una sola línea corrida ("184.5 hs / 200 hs
       — faltan 15.5 hs") que en pantalla angosta se cortaba mal y costaba

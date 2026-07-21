@@ -8,7 +8,7 @@ const { window } = loadApp([
   path.join(ROOT, 'js/calc.js'),
   path.join(ROOT, 'js/views/totales.js'),
 ]);
-const { calcularFrecuenciaAerodromos, calcularRutasFrecuentes, distanciaKm, fmtDuracionHhMm } = window;
+const { calcularFrecuenciaAerodromos, calcularRutasFrecuentes, distanciaNm, fmtDuracionHhMm } = window;
 
 function vuelo(desde, hasta, tiempo_total = 1, matricula) {
   return { desde, hasta, tiempo_total, aeronaves: matricula ? { matricula } : undefined };
@@ -68,14 +68,14 @@ test('calcularRutasFrecuentes: duracionMedia es el promedio de tiempo_total de l
   assert.equal(rutas[0].duracionMedia, 1.5);
 });
 
-test('distanciaKm: SADF a SABE da un valor chico y positivo (aeródromos cercanos, mismo AMBA)', () => {
-  // SADF (San Fernando) y SABE (Aeroparque) están a ~15km en línea recta.
-  const km = distanciaKm(-34.4532, -58.5896, -34.5592, -58.4156);
-  assert.ok(km > 10 && km < 25, `esperaba entre 10 y 25km, dio ${km}`);
+test('distanciaNm: SADF a SABE da un valor chico y positivo (aeródromos cercanos, mismo AMBA)', () => {
+  // SADF (San Fernando) y SABE (Aeroparque) están a ~8nm en línea recta (~15km).
+  const nm = distanciaNm(-34.4532, -58.5896, -34.5592, -58.4156);
+  assert.ok(nm > 5 && nm < 14, `esperaba entre 5 y 14nm, dio ${nm}`);
 });
 
-test('distanciaKm: mismo punto da 0', () => {
-  assert.equal(distanciaKm(-34.5, -58.5, -34.5, -58.5), 0);
+test('distanciaNm: mismo punto da 0', () => {
+  assert.equal(distanciaNm(-34.5, -58.5, -34.5, -58.5), 0);
 });
 
 test('fmtDuracionHhMm: convierte horas.décimos a HH:MM', () => {
