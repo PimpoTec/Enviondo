@@ -268,16 +268,25 @@ function renderMapaRutas(vuelos, intentos = 0) {
   const ficha = document.getElementById('mapa-ficha-ruta');
   const rutas = calcularRutasFrecuentes(vuelos);
 
-  // Líneas primero (van debajo de los marcadores). Cada una es tocable:
-  // abre la ficha con los datos reales de esa ruta.
+  // Líneas primero (van debajo de los marcadores). El área tocable de una
+  // polyline es exactamente su grosor visual — con 2-7px es casi
+  // imposible acertarle a mano. Por eso cada ruta son en realidad DOS
+  // líneas superpuestas: la fina que se ve, y una invisible mucho más
+  // ancha (24px) encima que es la que realmente recibe el click/touch —
+  // truco estándar de Leaflet para no tener que engordar visualmente la
+  // línea solo para que se pueda tocar.
   rutas.forEach((r) => {
     if (r.desde === r.hasta) return;
     const a = coordenadas[r.desde], b = coordenadas[r.hasta];
     if (!a || !b) return;
-    const linea = L.polyline([a, b], {
+    L.polyline([a, b], {
       className: 'mapa-ruta-linea', color: '#ff9f1c', weight: Math.min(2 + r.count * 0.6, 7), opacity: 0.6,
+      interactive: false,
     }).addTo(map);
-    linea.on('click', (e) => {
+    const areaTactil = L.polyline([a, b], {
+      className: 'mapa-ruta-linea', weight: 24, opacity: 0,
+    }).addTo(map);
+    areaTactil.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       mostrarFichaRuta(ficha, r, distanciaKm(a[0], a[1], b[0], b[1]));
     });

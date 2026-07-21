@@ -3,6 +3,16 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 25 (fix: tocar una ruta era casi imposible)
+- [x] El área tocable de una polyline de Leaflet es exactamente su grosor
+      visual (2-7px según cuánto se voló) — casi imposible de acertar con
+      el dedo. Ahora cada ruta son dos líneas superpuestas: la fina que se
+      ve (sin interacción) y una invisible de 24px encima que es la que
+      recibe el toque — la línea no se ve más gruesa, pero tolera hasta
+      ~12px de error. Verificado con Playwright: clicks con offset
+      perpendicular de hasta 12px abren la ficha; a partir de 15px no
+      (correcto, ya no es "tocar la ruta").
+
 ## Hecho — tanda 24 (fix: ficha de ruta sin fondo)
 - [x] La ficha que aparece al tocar una ruta (distancia/duración/aeronaves)
       tenía posición y tamaño pero le faltaba el `background`/blur — el
