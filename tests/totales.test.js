@@ -110,3 +110,13 @@ test('calcularFrecuenciaAerodromos: sin CODIGO_CANONICO (o código desconocido),
   assert.equal(f.ZZZZ, 1);
   assert.equal(f.SADF, 1);
 });
+
+test('calcularFrecuenciaAerodromos: TERR (turno de adiestrador/simulador) no cuenta como aeródromo', () => {
+  const f = calcularFrecuenciaAerodromos([vuelo('TERR', 'TERR')]);
+  assert.deepEqual(Object.keys(f), []);
+});
+
+test('calcularRutasFrecuentes: TERR no genera ninguna ruta', () => {
+  const rutas = calcularRutasFrecuentes([vuelo('TERR', 'TERR')]);
+  assert.equal(rutas.length, 0);
+});

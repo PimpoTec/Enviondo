@@ -3,6 +3,20 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 28 (correcciones puntuales al dataset de aeródromos)
+- [x] **TERR** (marcador de turno de adiestrador/simulador, no es un
+      aeródromo real) ya no cuenta para nada del mapa — antes aparecía en
+      la lista de "sin coordenadas". `normalizarCodigoAerodromo` lo
+      excluye desde la raíz.
+- [x] **SRDS** agregado a `CODIGO_CANONICO` → alias de **CTS** (Capitán
+      Sarmiento), que ya estaba en el dataset con coordenadas.
+- [x] **BGI** (Ezpeleta) agregado como aeródromo nuevo, con coordenadas.
+- [x] **LAD-2968**: no lo pude resolver — los sitios oficiales de ANAC/FADA
+      que listan los "Lugares Aptos Denunciados" (LAD, pistas privadas
+      declaradas) rechazan la descarga automática (403) y no está
+      indexado en buscadores. Pendiente: si conseguís la coordenada del
+      PDF de ANAC a mano, la cargo.
+
 ## Hecho — tanda 27 (fix: rutas "perdidas" tras el dataset nuevo — MOR, PTA, SNT, etc.)
 - [x] **Causa real**: el registro oficial reconoce OACI para varios
       aeródromos que la fuente anterior no sabía que lo tenían (ej. Morón

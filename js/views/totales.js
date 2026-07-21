@@ -18,8 +18,11 @@ const GRUPO_INSTRUMENTAL = ['total', 'instrumentos', 'instrumentos_sim', 'noctur
 // como dos aeródromos distintos y partirían las estadísticas al medio.
 // window.CODIGO_CANONICO (js/aerodromos.js) resuelve cualquiera de los
 // tres al código canónico; si no lo reconoce, se usa tal cual vino.
+// "TERR" es el marcador de turno de adiestrador/simulador (no es un
+// aeródromo real, ver nuevoVuelo.js _guardarAdiestrador) — no cuenta para
+// nada de esto, por eso devuelve null en vez de "normalizarlo".
 function normalizarCodigoAerodromo(code) {
-  if (!code) return code;
+  if (!code || code === 'TERR') return null;
   return (window.CODIGO_CANONICO && window.CODIGO_CANONICO[code]) || code;
 }
 
@@ -47,6 +50,7 @@ function calcularRutasFrecuentes(vuelos) {
     if (!v.desde || !v.hasta) continue;
     const desde = normalizarCodigoAerodromo(v.desde);
     const hasta = normalizarCodigoAerodromo(v.hasta);
+    if (!desde || !hasta) continue; // TERR (turno de adiestrador/simulador)
     const key = [desde, hasta].sort().join('|');
     if (!map[key]) map[key] = { desde, hasta, count: 0, horas: 0, matriculas: new Set() };
     map[key].count++;
