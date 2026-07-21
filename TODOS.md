@@ -19,6 +19,16 @@ Marcá `[x]` a medida que se completan.
       quien ya tenga el cron viejo programado) y el README (sección 8)
       con este síntoma exacto, para que no haga falta repetir todo el
       diagnóstico la próxima vez.
+- [x] Confirmado resuelto en producción: se agregaron logs temporales
+      (`DIAG-RECORDATORIO`) a `procesarRecordatorio`, se redesplegó desde
+      el dashboard (sin CLI, pegando el código en Edge Functions → Code),
+      y la corrida siguiente procesó el recordatorio de prueba de punta a
+      punta (`mandarATodos` → `{ total: 2, enviados: 2 }` → marcado como
+      enviado). El push llegó al celu con algo de latencia (normal en Web
+      Push, no siempre es instantáneo — depende del estado de
+      batería/Doze del dispositivo). Logs de diagnóstico sacados
+      (`git show 30a1b4a:...` restaurado tal cual, sin las líneas
+      `DIAG-*`) — falta redesplegar esta versión limpia una vez más.
 
 ## Hecho — tanda 34 (3 detalles de la ficha de vuelo: ruta descentrada, local sin ciudad, TERR)
 - [x] El ícono de avión entre los dos códigos no quedaba centrado de

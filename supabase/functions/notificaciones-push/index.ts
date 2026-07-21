@@ -111,11 +111,6 @@ function estadoVencimiento(fechaVencimiento: string, umbralDias: number) {
 // la clave deja de coincidir y el recordatorio queda habilitado de nuevo
 // para la fecha nueva, sin ninguna limpieza manual.
 async function procesarRecordatorio(r: any) {
-  // DIAG-RECORDATORIO: log temporal para diagnosticar por qué algunos
-  // recordatorios de tipo_disparo='fecha_hora' no se marcaban ni mandaban
-  // nada aunque ya estuvieran vencidos y activos — sacar una vez resuelto.
-  console.log('DIAG-RECORDATORIO inicio', { id: r.id, evento_tipo: r.evento_tipo, evento_id: r.evento_id, tipo_disparo: r.tipo_disparo, fecha_hora: r.fecha_hora, ultimo_aviso_clave: r.ultimo_aviso_clave, activo: r.activo });
-
   let evento: any;
   let referenciaMs: number;
   let claveActual: string;
@@ -124,9 +119,8 @@ async function procesarRecordatorio(r: any) {
   let url: string;
 
   if (r.evento_tipo === 'vuelo_programado') {
-    const { data: p, error: errP } = await admin.from('vuelos_programados').select('*, aeronaves(matricula)').eq('id', r.evento_id).maybeSingle();
-    if (errP) console.log('DIAG-RECORDATORIO error consultando vuelos_programados', r.id, errP);
-    if (!p) { console.log('DIAG-RECORDATORIO evento no encontrado, se borra el recordatorio', r.id); await admin.from('recordatorios').delete().eq('id', r.id); return; } // el evento ya no existe: limpiamos el recordatorio huérfano
+    const { data: p } = await admin.from('vuelos_programados').select('*, aeronaves(matricula)').eq('id', r.evento_id).maybeSingle();
+    if (!p) { await admin.from('recordatorios').delete().eq('id', r.id); return; } // el evento ya no existe: limpiamos el recordatorio huérfano
     evento = p;
     const hora = p.hora_prevista || '12:00:00';
     referenciaMs = new Date(`${p.fecha}T${hora}Z`).getTime() + OFFSET_ARG_MS;
@@ -137,9 +131,8 @@ async function procesarRecordatorio(r: any) {
     cuerpoDefault = `${matricula}${ruta} — ${p.fecha} ${hora.slice(0, 5)}`;
     url = './#dashboard';
   } else {
-    const { data: v, error: errV } = await admin.from('vencimientos').select('*').eq('id', r.evento_id).maybeSingle();
-    if (errV) console.log('DIAG-RECORDATORIO error consultando vencimientos', r.id, errV);
-    if (!v) { console.log('DIAG-RECORDATORIO evento no encontrado, se borra el recordatorio', r.id); await admin.from('recordatorios').delete().eq('id', r.id); return; }
+    const { data: v } = await admin.from('vencimientos').select('*').eq('id', r.evento_id).maybeSingle();
+    if (!v) { await admin.from('recordatorios').delete().eq('id', r.id); return; }
     evento = v;
     referenciaMs = new Date(`${v.fecha_vencimiento}T00:00:00Z`).getTime() + OFFSET_ARG_MS;
     claveActual = v.fecha_vencimiento;
@@ -151,26 +144,21 @@ async function procesarRecordatorio(r: any) {
   const ahora = Date.now();
 
   if (r.tipo_disparo === 'fecha_hora') {
-    if (r.ultimo_aviso_clave === 'enviado') { console.log('DIAG-RECORDATORIO ya marcado como enviado', r.id); return; }
-    const fechaHoraMs = r.fecha_hora ? new Date(r.fecha_hora).getTime() : NaN;
-    console.log('DIAG-RECORDATORIO chequeo fecha_hora', { id: r.id, ahora, ahora_iso: new Date(ahora).toISOString(), fecha_hora_raw: r.fecha_hora, fechaHoraMs, fecha_hora_iso: isNaN(fechaHoraMs) ? null : new Date(fechaHoraMs).toISOString(), yaPaso: ahora >= fechaHoraMs });
-    if (!r.fecha_hora || ahora < fechaHoraMs) { console.log('DIAG-RECORDATORIO todavía no toca (o fecha_hora inválida)', r.id); return; }
+    if (r.ultimo_aviso_clave === 'enviado') return;
+    if (!r.fecha_hora || ahora < new Date(r.fecha_hora).getTime()) return;
   } else {
     // "Días/horas antes" es un aviso previo al evento — una vez que ya
     // pasó, no tiene sentido seguir avisando "antes" (el fallback legacy de
     // abajo es el que se encarga de insistir mientras algo esté vencido).
-    if (r.ultimo_aviso_clave === claveActual) { console.log('DIAG-RECORDATORIO clave ya avisada', r.id, claveActual); return; }
+    if (r.ultimo_aviso_clave === claveActual) return;
     const faltanMs = referenciaMs - ahora;
-    if (faltanMs < 0) { console.log('DIAG-RECORDATORIO evento ya pasó (dias/horas_antes)', r.id); return; }
+    if (faltanMs < 0) return;
     const unidadMs = r.tipo_disparo === 'dias_antes' ? 86400000 : 3600000;
-    if (faltanMs / unidadMs > Number(r.valor)) { console.log('DIAG-RECORDATORIO todavía falta demasiado', r.id, faltanMs / unidadMs, r.valor); return; }
+    if (faltanMs / unidadMs > Number(r.valor)) return;
   }
 
-  console.log('DIAG-RECORDATORIO mandando push', r.id);
-  const resumen = await mandarATodos(r.user_id, { title: titulo, body: r.mensaje || cuerpoDefault, tag: 'recordatorio-' + r.id, url });
-  console.log('DIAG-RECORDATORIO resultado mandarATodos', r.id, resumen);
+  await mandarATodos(r.user_id, { title: titulo, body: r.mensaje || cuerpoDefault, tag: 'recordatorio-' + r.id, url });
   await admin.from('recordatorios').update({ ultimo_aviso_clave: r.tipo_disparo === 'fecha_hora' ? 'enviado' : claveActual }).eq('id', r.id);
-  console.log('DIAG-RECORDATORIO marcado como enviado', r.id);
 }
 
 async function correrCron() {
@@ -226,8 +214,7 @@ async function correrCron() {
   }
 
   // ---- Recordatorios personalizados (uno o varios por evento) ----
-  const { data: recordatorios, error: errRecordatorios } = await admin.from('recordatorios').select('*').eq('activo', true);
-  console.log('DIAG-RECORDATORIO fetch', { cantidad: recordatorios?.length ?? 0, error: errRecordatorios, ids: (recordatorios ?? []).map((r: any) => r.id) });
+  const { data: recordatorios } = await admin.from('recordatorios').select('*').eq('activo', true);
   for (const r of recordatorios ?? []) {
     try {
       await procesarRecordatorio(r);
