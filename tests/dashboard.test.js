@@ -6,9 +6,12 @@ const { loadApp } = require('./_helpers/loadApp');
 const ROOT = path.join(__dirname, '..');
 const { window } = loadApp([
   path.join(ROOT, 'js/calc.js'),
+  path.join(ROOT, 'js/views/totales.js'), // define distanciaNm, que usa _buscarMetarCercano
   path.join(ROOT, 'js/views/dashboard.js'),
 ]);
-const { valorNocturnasAjustado, calcularProgresoPonderado, ViewDashboard } = window;
+const { valorNocturnasAjustado, calcularProgresoPonderado, ViewDashboard, _buscarMetarCercano } = window;
+window.SUPABASE_CONFIG = { url: 'https://x.test' };
+window.METAR_FN_SLUG = 'metar';
 
 // _urlCalendarioProgramado no depende de nada más de dashboard.js, pero sí
 // de un global que normalmente pone js/app.js (obtenerPrefHorario) — se
@@ -105,4 +108,58 @@ test('_urlCalendarioProgramado: vuelo local (mismo aeródromo) muestra un solo c
   const p = { fecha: '2026-08-10', hora_prevista: '10:00:00', aeronave_id: 'a1', desde: 'SADF', hasta: 'SADF' };
   const url = new URL(ViewDashboard._urlCalendarioProgramado(p));
   assert.equal(url.searchParams.get('location'), 'SADF');
+});
+
+// ---- _buscarMetarCercano: si el aeródromo pedido no tiene METAR/TAF, busca
+// el más cercano (con código OACI) que sí tenga — ver dashboard.js. ----
+
+// Set de aeródromos sintético (no el dataset real) para que la distancia y
+// el orden de candidatos sean deterministas: ORIG en el origen, A/B/C cada
+// vez más lejos en línea recta (mismo meridiano, separados 1° de latitud
+// ≈ 60nm cada uno).
+function armarAerodromosSinteticos() {
+  window.COORDENADAS_AERODROMO = { ORIG: [0, 0], AAAA: [-1, 0], BBBB: [-2, 0], CCCC: [-3, 0] };
+  window.AERODROMOS = [
+    { code: 'ORIG', icao: 'ORIG' }, { code: 'AAAA', icao: 'AAAA' },
+    { code: 'BBBB', icao: 'BBBB' }, { code: 'CCCC', icao: 'CCCC' },
+  ];
+}
+function mockFetchConDatosEn(icaosConDatos) {
+  window.fetch = async (url) => {
+    const icao = new URL(url).searchParams.get('icao') || (url.match(/ids=([A-Z]{4})/) || [])[1];
+    return { ok: true, text: async () => (icaosConDatos.has(icao) ? `METAR de prueba ${icao}` : '') };
+  };
+}
+
+test('_buscarMetarCercano: salta el más cercano sin datos y devuelve el siguiente que sí tiene', async () => {
+  armarAerodromosSinteticos();
+  mockFetchConDatosEn(new Set(['BBBB'])); // AAAA (más cerca) no tiene, BBBB sí
+  const r = await _buscarMetarCercano('ORIG', 'metar');
+  assert.equal(r.icao, 'BBBB');
+  assert.equal(r.nm, 120); // 2° de latitud ≈ 120nm
+  assert.match(r.texto, /BBBB/);
+});
+
+test('_buscarMetarCercano: ninguno de los candidatos tiene datos → null', async () => {
+  armarAerodromosSinteticos();
+  mockFetchConDatosEn(new Set());
+  const r = await _buscarMetarCercano('ORIG', 'metar');
+  assert.equal(r, null);
+});
+
+test('_buscarMetarCercano: sin coordenadas del aeródromo pedido, no intenta nada → null', async () => {
+  window.COORDENADAS_AERODROMO = {};
+  window.AERODROMOS = [];
+  let llamadas = 0;
+  window.fetch = async () => { llamadas++; return { ok: true, text: async () => '' }; };
+  const r = await _buscarMetarCercano('DESCONOCIDO', 'metar');
+  assert.equal(r, null);
+  assert.equal(llamadas, 0);
+});
+
+test('_buscarMetarCercano: respeta el tope de candidatos (no busca más allá)', async () => {
+  armarAerodromosSinteticos();
+  mockFetchConDatosEn(new Set(['CCCC'])); // el más lejos de los 3 sintéticos
+  const r = await _buscarMetarCercano('ORIG', 'metar', 2); // tope 2: solo llegan AAAA y BBBB
+  assert.equal(r, null);
 });

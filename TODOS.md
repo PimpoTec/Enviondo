@@ -3,6 +3,31 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 41 (METAR/TAF: si el aeródromo no tiene, mostrar el más cercano que sí)
+- [x] A pedido: muchos aeródromos chicos/privados nunca tuvieron estación
+      meteorológica propia (no es un problema de conexión, simplemente no
+      hay METAR/TAF para ese código) — antes el cartel quedaba vacío
+      ("Sin METAR publicado"). Ahora, si el aeródromo pedido no tiene, se
+      busca el aeródromo con código OACI más cercano que sí tenga datos
+      (probando de más cerca a más lejos, tope de 6 para no demorar de
+      más) y se muestra ESO, con un aviso bien visible (badge amarillo,
+      mismo estilo que las alertas de vencimiento) aclarando que no es el
+      del aeródromo pedido y a cuántas millas náuticas está.
+- [x] El aviso de sustituto queda guardado en la cache local junto con el
+      texto — así, si después no hay conexión y se muestra el último dato
+      leído, se sigue viendo la aclaración (no puede confundirse con el
+      clima real del aeródromo pedido).
+- [x] Refactor menor: `cargarMetar` se partió en `_fetchMetarCrudo`
+      (un pedido, sin tocar el DOM — reusable), `_buscarMetarCercano`
+      (la búsqueda por distancia) y `_renderMetarTexto` (pinta el badge +
+      el texto). Tests nuevos para `_buscarMetarCercano` con un dataset
+      sintético de aeródromos y `fetch` mockeado (4 casos: salta el más
+      cercano sin datos, ninguno tiene, sin coordenadas del pedido, tope
+      de candidatos) — 83 tests en total, todos en verde. Verificado
+      visualmente con Playwright que el badge se ve bien y no rompe el
+      `<p>` contenedor (se usan `<span>` con `display:flex`/`block`, no
+      `<div>`, porque bloques adentro de un párrafo no son válidos).
+
 ## Hecho — tanda 40 (fix: el evento de calendario salía de 30 min, ignorando los horarios)
 - [x] Reportado: al agregar un vuelo agendado a Google Calendar (tanda
       39), el evento salía siempre de 30 min, sin respetar el horario

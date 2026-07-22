@@ -477,39 +477,106 @@ function ciudadDeAerodromo(code) {
 // y se recrea con el slug "metar" desde el vamos, actualizar esta URL.
 function _metarCacheKey(icao, tipo) { return `metar_cache_${tipo}_${icao}`; }
 
-function _guardarMetarCache(icao, tipo, texto) {
-  try { localStorage.setItem(_metarCacheKey(icao, tipo), JSON.stringify({ texto, ts: Date.now() })); } catch { /* storage lleno */ }
+// `sustituto` (si el dato no es del aeródromo pedido sino del más cercano
+// que sí tiene) viaja en la cache para que el aviso de "no es de este
+// aeródromo" se siga viendo aunque después se muestre desde cache offline.
+function _guardarMetarCache(icao, tipo, texto, sustituto = null) {
+  try { localStorage.setItem(_metarCacheKey(icao, tipo), JSON.stringify({ texto, ts: Date.now(), sustituto })); } catch { /* storage lleno */ }
 }
 function _leerMetarCache(icao, tipo) {
   try { return JSON.parse(localStorage.getItem(_metarCacheKey(icao, tipo)) || 'null'); } catch { return null; }
 }
 function _horasDesde(ts) { return (Date.now() - ts) / 3600000; }
 
-async function cargarMetar(icao, elId, tipo = 'metar') {
-  const el = document.getElementById(elId);
-  if (!el) return;
-
+// Un solo pedido de METAR/TAF crudo (propia Edge Function, con el proxy CORS
+// público como red de contención) — sin tocar el DOM, para poder reusarlo
+// tanto para el aeródromo pedido como para buscar en los cercanos.
+async function _fetchMetarCrudo(icao, tipo) {
   const propia = `${window.SUPABASE_CONFIG.url}/functions/v1/${window.METAR_FN_SLUG}?icao=${icao}&tipo=${tipo}`;
   const destino = encodeURIComponent(`https://aviationweather.gov/api/data/${tipo}?ids=${icao}&format=raw`);
   const proxyPublico = `https://api.allorigins.win/raw?url=${destino}`;
-
   for (const url of [propia, proxyPublico]) {
     try {
       const resp = await fetch(url);
       if (!resp.ok) continue;
       const texto = (await resp.text()).trim();
-      if (texto) _guardarMetarCache(icao, tipo, texto);
-      el.textContent = texto || `Sin ${tipo.toUpperCase()} publicado para este aeródromo.`;
-      return;
+      if (texto) return texto;
     } catch { /* intenta la siguiente fuente */ }
   }
+  return null;
+}
 
-  // No se pudo refrescar: mostramos el último dato leído, con un aviso de
-  // antigüedad solo si tiene 1 hora o más (si es más reciente, sirve tal cual).
+// Muchos aeródromos chicos/privados no tienen estación meteorológica propia
+// (sin METAR/TAF publicado nunca, no es un problema de conexión) — en vez de
+// dejar el cartel vacío, se busca el aeródromo con código OACI más cercano
+// que sí tenga, probando de más cerca a más lejos hasta encontrar uno (tope
+// de 6 para no demorar de más si varios seguidos tampoco tienen).
+async function _buscarMetarCercano(icaoOriginal, tipo, maxCandidatos = 6) {
+  const coords = window.COORDENADAS_AERODROMO || {};
+  const origen = coords[icaoOriginal];
+  if (!origen || typeof distanciaNm !== 'function') return null;
+
+  const candidatos = (window.AERODROMOS || [])
+    .filter((a) => a.icao && a.icao !== icaoOriginal && coords[a.icao])
+    .map((a) => ({ icao: a.icao, nm: distanciaNm(origen[0], origen[1], coords[a.icao][0], coords[a.icao][1]) }))
+    .sort((a, b) => a.nm - b.nm)
+    .slice(0, maxCandidatos);
+
+  for (const c of candidatos) {
+    const texto = await _fetchMetarCrudo(c.icao, tipo);
+    if (texto) return { icao: c.icao, nm: Math.round(c.nm), texto };
+  }
+  return null;
+}
+
+// Aviso bien visible (mismo estilo que las alertas de vencimiento) cuando el
+// METAR/TAF mostrado no es del aeródromo pedido sino del más cercano que sí
+// tiene — para que no se confunda con el clima real de ahí.
+function _renderMetarTexto(el, tipo, texto, sustituto) {
+  // <span>, no <div>: el.plan-clima es un <p> y un bloque adentro de un
+  // párrafo no es válido — display:flex (en vez de inline-flex, el default
+  // de .badge) alcanza para que el aviso quede en su propia línea arriba
+  // del texto, sin tener que meter un elemento de bloque de verdad.
+  el.innerHTML = '';
+  if (sustituto) {
+    const aviso = document.createElement('span');
+    aviso.className = 'badge warn';
+    aviso.style.cssText = 'display:flex;margin-bottom:4px;white-space:normal';
+    aviso.innerHTML = Icons.tag('alertTriangle', `No es de acá — ${tipo.toUpperCase()} de ${sustituto.icao}, el más cercano con datos (a ${sustituto.nm} nm)`);
+    el.appendChild(aviso);
+  }
+  const cuerpo = document.createElement('span');
+  cuerpo.style.display = 'block';
+  cuerpo.textContent = texto;
+  el.appendChild(cuerpo);
+}
+
+async function cargarMetar(icao, elId, tipo = 'metar') {
+  const el = document.getElementById(elId);
+  if (!el) return;
+
+  const texto = await _fetchMetarCrudo(icao, tipo);
+  if (texto) {
+    _guardarMetarCache(icao, tipo, texto);
+    _renderMetarTexto(el, tipo, texto, null);
+    return;
+  }
+
+  const cercano = await _buscarMetarCercano(icao, tipo);
+  if (cercano) {
+    const sustituto = { icao: cercano.icao, nm: cercano.nm };
+    _guardarMetarCache(icao, tipo, cercano.texto, sustituto);
+    _renderMetarTexto(el, tipo, cercano.texto, sustituto);
+    return;
+  }
+
+  // Ni el aeródromo pedido ni ninguno cercano dieron datos: mostramos el
+  // último leído (con su aviso de sustituto, si lo tenía) y, si tiene 1 hora
+  // o más, aclaramos la antigüedad — antes de esa hora sirve tal cual.
   const cache = _leerMetarCache(icao, tipo);
   if (cache && cache.texto) {
+    _renderMetarTexto(el, tipo, cache.texto, cache.sustituto);
     const horas = _horasDesde(cache.ts);
-    el.textContent = cache.texto;
     if (horas >= 1) {
       const aviso = document.createElement('span');
       aviso.className = 'muted';
@@ -519,7 +586,7 @@ async function cargarMetar(icao, elId, tipo = 'metar') {
     }
     return;
   }
-  el.textContent = `${tipo.toUpperCase()} no disponible.`;
+  el.textContent = `${tipo.toUpperCase()} no disponible (ni acá ni en aeródromos cercanos).`;
 }
 
 // Cuando "Habilitación de Vuelo Nocturno" (HAB_NOC) está activa junto a otro
