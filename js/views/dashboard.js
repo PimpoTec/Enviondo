@@ -488,6 +488,28 @@ function _leerMetarCache(icao, tipo) {
 }
 function _horasDesde(ts) { return (Date.now() - ts) / 3600000; }
 
+// Registro propio de "a qué código conviene pedirle este reporte" — para no
+// tener que rebuscar entre los aeródromos cercanos cada vez que se abre el
+// dashboard. NO es el texto del reporte (eso cambia hora a hora y se sigue
+// pidiendo fresco siempre) — es la "receta" de dónde conseguirlo: el mismo
+// código (tiene lo suyo), uno cercano ({icao, nm}, ver _buscarMetarCercano)
+// o null (confirmado que ni uno ni el otro tienen). Una estación no aparece
+// ni desaparece de un día para el otro, así que 30 días de vigencia alcanza
+// de sobra y evita la búsqueda completa en casi todas las cargas.
+function _metarRegistroKey(icao, tipo) { return `metar_registro_${tipo}_${icao}`; }
+const REGISTRO_METAR_TTL_MS = 30 * 24 * 3600000;
+
+function _guardarMetarRegistro(icao, tipo, resuelto) {
+  try { localStorage.setItem(_metarRegistroKey(icao, tipo), JSON.stringify({ resuelto, ts: Date.now() })); } catch { /* storage lleno */ }
+}
+function _leerMetarRegistro(icao, tipo) {
+  try {
+    const r = JSON.parse(localStorage.getItem(_metarRegistroKey(icao, tipo)) || 'null');
+    if (!r || (Date.now() - r.ts) > REGISTRO_METAR_TTL_MS) return { vigente: false };
+    return { vigente: true, resuelto: r.resuelto };
+  } catch { return { vigente: false }; }
+}
+
 // Un solo pedido de METAR/TAF crudo (propia Edge Function, con el proxy CORS
 // público como red de contención) — sin tocar el DOM, para poder reusarlo
 // tanto para el aeródromo pedido como para buscar en los cercanos.
@@ -551,28 +573,11 @@ function _renderMetarTexto(el, tipo, texto, sustituto) {
   el.appendChild(cuerpo);
 }
 
-async function cargarMetar(icao, elId, tipo = 'metar') {
-  const el = document.getElementById(elId);
-  if (!el) return;
-
-  const texto = await _fetchMetarCrudo(icao, tipo);
-  if (texto) {
-    _guardarMetarCache(icao, tipo, texto);
-    _renderMetarTexto(el, tipo, texto, null);
-    return;
-  }
-
-  const cercano = await _buscarMetarCercano(icao, tipo);
-  if (cercano) {
-    const sustituto = { icao: cercano.icao, nm: cercano.nm };
-    _guardarMetarCache(icao, tipo, cercano.texto, sustituto);
-    _renderMetarTexto(el, tipo, cercano.texto, sustituto);
-    return;
-  }
-
-  // Ni el aeródromo pedido ni ninguno cercano dieron datos: mostramos el
-  // último leído (con su aviso de sustituto, si lo tenía) y, si tiene 1 hora
-  // o más, aclaramos la antigüedad — antes de esa hora sirve tal cual.
+// Ni el aeródromo pedido ni ninguno cercano dieron datos (recién ahora, o ya
+// lo sabíamos por el registro): mostramos el último leído (con su aviso de
+// sustituto, si lo tenía) y, si tiene 1 hora o más, aclaramos la antigüedad
+// — antes de esa hora sirve tal cual. Sin nada en cache, el mensaje final.
+function _mostrarUltimaCacheOFallback(el, icao, tipo) {
   const cache = _leerMetarCache(icao, tipo);
   if (cache && cache.texto) {
     _renderMetarTexto(el, tipo, cache.texto, cache.sustituto);
@@ -587,6 +592,53 @@ async function cargarMetar(icao, elId, tipo = 'metar') {
     return;
   }
   el.textContent = `${tipo.toUpperCase()} no disponible (ni acá ni en aeródromos cercanos).`;
+}
+
+async function cargarMetar(icao, elId, tipo = 'metar') {
+  const el = document.getElementById(elId);
+  if (!el) return;
+
+  // Si ya sabemos (de una carga anterior, últimos 30 días) a qué código
+  // pedirle esto — el mismo aeródromo, uno cercano, o ninguno — vamos
+  // directo ahí en vez de rebuscar entre los cercanos de nuevo cada vez.
+  const registro = _leerMetarRegistro(icao, tipo);
+  if (registro.vigente) {
+    if (registro.resuelto === null) { _mostrarUltimaCacheOFallback(el, icao, tipo); return; }
+    const sustituto = registro.resuelto.icao !== icao ? registro.resuelto : null;
+    const texto = await _fetchMetarCrudo(registro.resuelto.icao, tipo);
+    if (texto) {
+      _guardarMetarCache(icao, tipo, texto, sustituto);
+      _renderMetarTexto(el, tipo, texto, sustituto);
+      return;
+    }
+    // El registro decía que ahí solía haber — pero esta vez no respondió
+    // (estación caída un rato, o dejó de reportar). No repetimos la
+    // búsqueda completa por eso solo; mostramos la última cache que haya.
+    _mostrarUltimaCacheOFallback(el, icao, tipo);
+    return;
+  }
+
+  // Primera vez para este aeródromo (o el registro venció): se descubre de
+  // cero dónde hay datos, y se guarda la receta para la próxima.
+  const texto = await _fetchMetarCrudo(icao, tipo);
+  if (texto) {
+    _guardarMetarRegistro(icao, tipo, { icao, nm: 0 });
+    _guardarMetarCache(icao, tipo, texto);
+    _renderMetarTexto(el, tipo, texto, null);
+    return;
+  }
+
+  const cercano = await _buscarMetarCercano(icao, tipo);
+  if (cercano) {
+    const sustituto = { icao: cercano.icao, nm: cercano.nm };
+    _guardarMetarRegistro(icao, tipo, sustituto);
+    _guardarMetarCache(icao, tipo, cercano.texto, sustituto);
+    _renderMetarTexto(el, tipo, cercano.texto, sustituto);
+    return;
+  }
+
+  _guardarMetarRegistro(icao, tipo, null);
+  _mostrarUltimaCacheOFallback(el, icao, tipo);
 }
 
 // Cuando "Habilitación de Vuelo Nocturno" (HAB_NOC) está activa junto a otro

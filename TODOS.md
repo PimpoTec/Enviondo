@@ -3,6 +3,31 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 42 (METAR/TAF: registro propio para no rebuscar cada vez)
+- [x] A pedido: la búsqueda del aeródromo cercano (tanda 41) se repetía
+      de cero cada vez que se abría el dashboard, aunque ya se supiera de
+      antes que, por ejemplo, SADM no tiene TAF propio — "que se ponga a
+      pensar la app" cada carga. Ahora, una vez resuelto (el propio
+      aeródromo tiene, un cercano tiene, o ninguno tiene), queda guardado
+      en un registro propio en `localStorage` (`_guardarMetarRegistro`/
+      `_leerMetarRegistro`, 30 días de vigencia — una estación no
+      aparece/desaparece de un día para el otro) con a qué código pedirle
+      la próxima vez. Las cargas siguientes van directo ahí: sin
+      registro, 3 pedidos de red (verificado con Playwright); con
+      registro ya guardado, 1 solo pedido.
+      El TEXTO del reporte se sigue pidiendo fresco siempre (cambia hora
+      a hora) — lo que se evita repetir es la BÚSQUEDA de dónde
+      conseguirlo. Si el código registrado deja de responder (estación
+      caída un rato), no disparamos una rebúsqueda completa por eso
+      solo — se muestra la última cache que haya.
+- [x] 5 tests nuevos para `_leerMetarRegistro`/`_guardarMetarRegistro`
+      (round-trip, TTL de 30 días, metar/taf independientes, sin nada
+      guardado). Hubo que agregar un `localStorage` en memoria al
+      sandbox de `tests/_helpers/loadApp.js` (no viene por default en un
+      `vm.createContext` vacío — los guardados fallaban silenciosos,
+      atrapados por el propio try/catch de storage lleno). 88 tests en
+      total, todos en verde.
+
 ## Hecho — tanda 41 (METAR/TAF: si el aeródromo no tiene, mostrar el más cercano que sí)
 - [x] A pedido: muchos aeródromos chicos/privados nunca tuvieron estación
       meteorológica propia (no es un problema de conexión, simplemente no

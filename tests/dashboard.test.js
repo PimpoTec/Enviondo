@@ -9,7 +9,10 @@ const { window } = loadApp([
   path.join(ROOT, 'js/views/totales.js'), // define distanciaNm, que usa _buscarMetarCercano
   path.join(ROOT, 'js/views/dashboard.js'),
 ]);
-const { valorNocturnasAjustado, calcularProgresoPonderado, ViewDashboard, _buscarMetarCercano } = window;
+const {
+  valorNocturnasAjustado, calcularProgresoPonderado, ViewDashboard, _buscarMetarCercano,
+  _guardarMetarRegistro, _leerMetarRegistro,
+} = window;
 window.SUPABASE_CONFIG = { url: 'https://x.test' };
 window.METAR_FN_SLUG = 'metar';
 
@@ -162,4 +165,42 @@ test('_buscarMetarCercano: respeta el tope de candidatos (no busca más allá)',
   mockFetchConDatosEn(new Set(['CCCC'])); // el más lejos de los 3 sintéticos
   const r = await _buscarMetarCercano('ORIG', 'metar', 2); // tope 2: solo llegan AAAA y BBBB
   assert.equal(r, null);
+});
+
+// ---- Registro de "a qué código pedirle este reporte" (_leerMetarRegistro/
+// _guardarMetarRegistro) — para no rebuscar entre los cercanos cada vez que
+// se abre el dashboard, ver comentario en dashboard.js. ----
+
+test('_leerMetarRegistro: sin nada guardado, no está vigente', () => {
+  const r = _leerMetarRegistro('NUNCA-GUARDADO', 'metar');
+  assert.equal(r.vigente, false);
+});
+
+test('_guardarMetarRegistro/_leerMetarRegistro: guarda y relee un sustituto tal cual', () => {
+  _guardarMetarRegistro('SADM', 'taf', { icao: 'SACO', nm: 45 });
+  const r = _leerMetarRegistro('SADM', 'taf');
+  assert.equal(r.vigente, true);
+  // Objeto reconstruido con JSON.parse en el sandbox: comparar por
+  // estructura, no por referencia/prototipo (otro "realm" de JS).
+  assert.equal(JSON.stringify(r.resuelto), JSON.stringify({ icao: 'SACO', nm: 45 }));
+});
+
+test('_guardarMetarRegistro/_leerMetarRegistro: null significa "confirmado, ninguno tiene" (no undefined)', () => {
+  _guardarMetarRegistro('SIN-NADA-CERCA', 'taf', null);
+  const r = _leerMetarRegistro('SIN-NADA-CERCA', 'taf');
+  assert.equal(r.vigente, true);
+  assert.equal(r.resuelto, null);
+});
+
+test('_leerMetarRegistro: metar y taf del mismo aeródromo son registros independientes', () => {
+  _guardarMetarRegistro('SAEZ', 'metar', { icao: 'SAEZ', nm: 0 });
+  const taf = _leerMetarRegistro('SAEZ', 'taf');
+  assert.equal(taf.vigente, false);
+});
+
+test('_leerMetarRegistro: un registro viejo (más de 30 días) no está vigente', () => {
+  const HACE_31_DIAS = Date.now() - 31 * 24 * 3600000;
+  window.localStorage.setItem('metar_registro_metar_VIEJO', JSON.stringify({ resuelto: { icao: 'X', nm: 1 }, ts: HACE_31_DIAS }));
+  const r = _leerMetarRegistro('VIEJO', 'metar');
+  assert.equal(r.vigente, false);
 });
