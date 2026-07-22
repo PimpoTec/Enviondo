@@ -3,6 +3,36 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 43 (ficha de vuelo de Bitácora: de fila de tabla a modal)
+- [x] Reportado con foto: al tocar un vuelo, la fila de detalle que se
+      abría debajo desalineaba las columnas de las OTRAS filas de la
+      tabla (Ruta/Aeronave/Finalidad se corrían para la derecha, dejando
+      un hueco raro). A pedido: en vez de una fila de tabla, la ficha
+      ahora es un modal — fondo oscuro difuminado (`backdrop-filter:
+      blur`) con la tarjeta encima, mismo estilo que la ficha ya tenía.
+      Se cierra con la cruz arriba a la derecha, tocando afuera del
+      recuadro, con Escape, o con el botón "atrás" del celu (pushea una
+      entrada al historial al abrir y la consume al cerrar, así un
+      "atrás" real después no queda pisado por esto).
+- [x] De paso, se simplifica bastante: al ya no vivir adentro de un
+      `<td colspan>` de la tabla, se cae TODO el código que hacía falta
+      para lidiar con eso — el `display:block` del `<td>`, el cálculo a
+      mano de ancho/margen contra `.table-wrap` (tandas 33, 39), el
+      reset de scroll horizontal al abrir. El modal se centra solo, como
+      cualquier otro modal de la app (`.modal-overlay`).
+      `filaDetalle` (estado ya no necesario) sacado de `ViewBitacora`;
+      `_filaDetalleVuelo`/`_bindDetalleVuelo` reemplazados por
+      `_ticketHtml` (solo el contenido) + `_abrirFichaVuelo` (el modal).
+- [x] Bug propio encontrado al verificar: la cruz de cerrar (arriba a la
+      derecha del modal) quedaba tapando la fecha del encabezado del
+      ticket — arreglado con `padding-right` en `.ticket-head`.
+- [x] Verificado con Playwright: posición del encabezado de la tabla
+      IDÉNTICA antes/después de abrir el modal (el bug reportado ya no
+      pasa), cierre con cruz/click afuera/"atrás" del navegador, y que
+      "Edición rápida" cierra el modal y abre el panel de edición
+      inline correctamente. 88 tests siguen en verde (sin tests nuevos:
+      es una reestructuración de DOM/UI, no lógica pura nueva).
+
 ## Hecho — tanda 42 (METAR/TAF: registro propio para no rebuscar cada vez)
 - [x] A pedido: la búsqueda del aeródromo cercano (tanda 41) se repetía
       de cero cada vez que se abría el dashboard, aunque ya se supiera de

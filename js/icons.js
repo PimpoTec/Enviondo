@@ -23,6 +23,7 @@ const Icons = (() => {
     checkCircle: (s) => svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/>', s),
     alertTriangle: (s) => svg('<path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4"/><path d="M12 17h.01"/>', s),
     xCircle: (s) => svg('<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>', s),
+    x: (s) => svg('<path d="M18 6 6 18"/><path d="M6 6l12 12"/>', s),
     edit: (s) => svg('<path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>', s),
     trash: (s) => svg('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>', s),
     save: (s) => svg('<path d="M5 4h11l3 3v13H5V4Z"/><path d="M8 4v5h7V4"/><path d="M8 20v-6h8v6"/>', s),

@@ -283,16 +283,12 @@ main {
 .plan-acciones-iconos { display: flex; gap: 8px; flex: 0 0 auto; }
 .plan-acciones-iconos .btn { padding: 8px 10px; }
 
-/* ---------- Ficha de vuelo estilo "tarjeta de embarque" (Bitácora, fila de
-   detalle al tocar un vuelo) ---------- */
-/* El <td colspan> de esta fila (display:block, ver más abajo) se achica al
-   ancho de la ficha en vez de estirarse a lo ancho de la tabla — sin
-   espacio de sobra, `margin:auto` no tiene nada para repartir y queda
-   pegada al borde izquierdo. Ancho y centrado reales se calculan a mano
-   en bitacora.js (_bindDetalleVuelo) contra el ancho visible de
-   .table-wrap — esto es solo el valor por default antes de que corra. */
-.ticket { width: 100%; max-width: 420px; }
-.ticket-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+/* ---------- Ficha de vuelo estilo "tarjeta de embarque" (Bitácora, modal
+   al tocar un vuelo — ver .ticket-modal más abajo para el contenedor) ---------- */
+.ticket { width: 100%; }
+/* padding-right: en el modal, la cruz de cerrar (arriba a la derecha)
+   quedaba encima de la fecha si no le dejaba lugar. */
+.ticket-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding-right: 36px; }
 .ticket-fecha { text-align: right; }
 .ticket-lbl {
   margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
@@ -331,6 +327,27 @@ main {
 .ticket-dato:nth-child(even) { text-align: right; }
 .ticket-val { margin: 3px 0 0; font-family: var(--font-mono); font-weight: 700; font-size: 15px; }
 .ticket-val.brand { color: var(--brand); }
+
+/* Modal de la ficha: mismo .modal-overlay que confirmar()/elegir()/prompt(),
+   con blur de más (fondo "difuminado", no solo oscuro) porque acá abajo
+   suele quedar la tabla con bastante texto — sin blur se lee doble. */
+.ticket-overlay { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.ticket-modal {
+  position: relative;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 20px; max-width: 420px; width: 100%;
+  max-height: 88vh; overflow-y: auto;
+  transform: translateY(8px) scale(.98); transition: transform .18s ease;
+}
+.ticket-overlay.visible .ticket-modal { transform: translateY(0) scale(1); }
+.ticket-modal-cerrar {
+  position: absolute; top: 10px; right: 10px; z-index: 1;
+  width: 32px; height: 32px; border-radius: 50%; border: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-subtle); color: var(--text-muted); cursor: pointer;
+}
+.ticket-modal-cerrar:hover { background: var(--bg-elevated-2); color: var(--text); }
 
 /* ---------- Forms ---------- */
 label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
@@ -397,8 +414,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
    para la ficha de solo lectura (fila-detalle-vuelo) que se abre al tocar
    la fila. */
 .fila-vuelo { cursor: pointer; }
-.fila-edicion-inline td, .fila-edicion-inline:hover td,
-.fila-detalle-vuelo td, .fila-detalle-vuelo:hover td {
+.fila-edicion-inline td, .fila-edicion-inline:hover td {
   /* display:block: un <td> normal mide su ancho "deseado" a partir del
      contenido (min-content) ANTES de que el grid de adentro pueda achicarse
      — con contenido ancho (ej. "13:00–13:35") eso hacía crecer la tabla

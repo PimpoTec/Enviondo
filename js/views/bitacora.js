@@ -15,7 +15,6 @@ const ViewBitacora = {
   aeronaves: [],
   orden: { campo: 'fecha', asc: false },
   filaEditando: null, // id del vuelo con el panel de edición rápida abierto
-  filaDetalle: null, // id del vuelo con la ficha de vista rápida abierta (mutuamente excluyente con filaEditando)
 
   // El filtro vive en la URL (#bitacora?desde=...&aeronave=...), no solo en
   // memoria — si el navegador descarga la pestaña en segundo plano (pasa
@@ -150,32 +149,24 @@ const ViewBitacora = {
         </td>
       </tr>
       ${this.filaEditando === v.id ? this._filaEdicionInline(v) : ''}
-      ${this.filaDetalle === v.id ? this._filaDetalleVuelo(v) : ''}
     `).join('');
 
     // Tocar la fila (en cualquier parte que no sea un botón de acción) abre
     // una ficha de solo lectura con los datos importantes del vuelo, sin
-    // tener que entrar al modo edición para verlos.
+    // tener que entrar al modo edición para verlos. Va en un modal aparte
+    // (no como fila de la tabla) — adentro de la tabla, con más columnas
+    // que ancho de pantalla, el contenido de la ficha desalineaba el resto
+    // de las columnas de las otras filas.
     tbody.querySelectorAll('tr.fila-vuelo').forEach((tr) => {
       tr.onclick = (e) => {
         if (e.target.closest('button')) return;
-        const id = tr.dataset.id;
-        const abriendo = this.filaDetalle !== id;
-        this.filaDetalle = abriendo ? id : null;
-        this.filaEditando = null;
-        this._renderFilas(this.filasActuales);
-        // La tabla scrollea de costado (más columnas que ancho de pantalla) —
-        // si quedó scrolleada de una vista anterior, la ficha (centrada
-        // dentro de la fila, no del viewport) se ve descentrada/cortada.
-        // La volvemos al inicio al abrir para que el centrado coincida con
-        // lo que se ve en pantalla.
-        if (abriendo) document.querySelector('.table-wrap').scrollLeft = 0;
+        const v = this.filasActuales.find((x) => x.id === tr.dataset.id);
+        if (v) this._abrirFichaVuelo(v);
       };
     });
     tbody.querySelectorAll('button[data-accion="toggle-edicion"]').forEach((b) => {
       b.onclick = () => {
         this.filaEditando = this.filaEditando === b.dataset.id ? null : b.dataset.id;
-        this.filaDetalle = null;
         this._renderFilas(this.filasActuales);
       };
     });
@@ -183,7 +174,6 @@ const ViewBitacora = {
       b.onclick = () => this._borrar(b.dataset.id);
     });
     if (this.filaEditando) this._bindEdicionInline(this.filaEditando);
-    if (this.filaDetalle) this._bindDetalleVuelo();
   },
 
   // Ficha de solo lectura ("check-in") con los datos importantes del
@@ -191,7 +181,7 @@ const ViewBitacora = {
   // (línea recta, si se conocen las coordenadas de los dos aeródromos) y
   // costo. Para corregir algo, "Edición rápida" abre el panel editable en
   // el lugar de esta misma ficha.
-  _filaDetalleVuelo(v) {
+  _ticketHtml(v) {
     const esLocal = v.desde === v.hasta;
     const ciudadDesde = typeof ciudadDeAerodromo === 'function' ? ciudadDeAerodromo(v.desde) : '';
     const ciudadHasta = typeof ciudadDeAerodromo === 'function' ? ciudadDeAerodromo(v.hasta) : '';
@@ -234,68 +224,80 @@ const ViewBitacora = {
         </div>`;
 
     return `
-      <tr class="fila-detalle-vuelo">
-        <td colspan="10">
-          <div class="ticket">
-            <div class="ticket-head">
-              <div>
-                <p class="ticket-lbl">Matrícula</p>
-                <p class="ticket-flightno">${v.aeronaves?.matricula || '—'}</p>
-              </div>
-              <div class="ticket-fecha">
-                <p class="ticket-lbl">Fecha</p>
-                <p class="ticket-fecha-valor">${fmtFecha(v.fecha)}</p>
-              </div>
-            </div>
+      <div class="ticket-head">
+        <div>
+          <p class="ticket-lbl">Matrícula</p>
+          <p class="ticket-flightno">${v.aeronaves?.matricula || '—'}</p>
+        </div>
+        <div class="ticket-fecha">
+          <p class="ticket-lbl">Fecha</p>
+          <p class="ticket-fecha-valor">${fmtFecha(v.fecha)}</p>
+        </div>
+      </div>
 
-            <div class="ticket-ruta">${rutaHtml}</div>
+      <div class="ticket-ruta">${rutaHtml}</div>
 
-            <div class="ticket-perforado"></div>
+      <div class="ticket-perforado"></div>
 
-            <div class="ticket-datos">
-              <div class="ticket-dato"><p class="ticket-lbl">Salida UTC</p><p class="ticket-val">${salida}</p></div>
-              <div class="ticket-dato"><p class="ticket-lbl">Llegada UTC</p><p class="ticket-val">${llegada}</p></div>
-              <div class="ticket-dato"><p class="ticket-lbl">Duración</p><p class="ticket-val brand">${v.tiempo_total} hs</p></div>
-              <div class="ticket-dato"><p class="ticket-lbl">Modelo</p><p class="ticket-val">${v.aeronaves?.marca_modelo || '—'}</p></div>
-              <div class="ticket-dato"><p class="ticket-lbl">PIC</p><p class="ticket-val">${v.total_pic} hs</p></div>
-              <div class="ticket-dato"><p class="ticket-lbl">Aterrizajes</p><p class="ticket-val">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</p></div>
-              ${distanciaTxt ? `<div class="ticket-dato"><p class="ticket-lbl">Distancia</p><p class="ticket-val">${distanciaTxt}</p></div>` : ''}
-              <div class="ticket-dato"><p class="ticket-lbl">Costo</p><p class="ticket-val">${fmtMoneda(costo.monto, costo.moneda)}</p></div>
-            </div>
+      <div class="ticket-datos">
+        <div class="ticket-dato"><p class="ticket-lbl">Salida UTC</p><p class="ticket-val">${salida}</p></div>
+        <div class="ticket-dato"><p class="ticket-lbl">Llegada UTC</p><p class="ticket-val">${llegada}</p></div>
+        <div class="ticket-dato"><p class="ticket-lbl">Duración</p><p class="ticket-val brand">${v.tiempo_total} hs</p></div>
+        <div class="ticket-dato"><p class="ticket-lbl">Modelo</p><p class="ticket-val">${v.aeronaves?.marca_modelo || '—'}</p></div>
+        <div class="ticket-dato"><p class="ticket-lbl">PIC</p><p class="ticket-val">${v.total_pic} hs</p></div>
+        <div class="ticket-dato"><p class="ticket-lbl">Aterrizajes</p><p class="ticket-val">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</p></div>
+        ${distanciaTxt ? `<div class="ticket-dato"><p class="ticket-lbl">Distancia</p><p class="ticket-val">${distanciaTxt}</p></div>` : ''}
+        <div class="ticket-dato"><p class="ticket-lbl">Costo</p><p class="ticket-val">${fmtMoneda(costo.monto, costo.moneda)}</p></div>
+      </div>
 
-            ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', v.observaciones)}</p>` : ''}
-            <div class="btn-row" style="margin-top:14px">
-              <button class="btn secondary" data-accion="editar-desde-detalle" data-id="${v.id}">${Icons.tag('edit', 'Edición rápida')}</button>
-              <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar todo</button>
-            </div>
-          </div>
-        </td>
-      </tr>
+      ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', v.observaciones)}</p>` : ''}
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn secondary" data-accion="editar-desde-detalle" data-id="${v.id}">${Icons.tag('edit', 'Edición rápida')}</button>
+        <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar todo</button>
+      </div>
     `;
   },
 
-  _bindDetalleVuelo() {
-    document.querySelectorAll('button[data-accion="editar-desde-detalle"]').forEach((b) => {
-      b.onclick = () => {
-        this.filaEditando = b.dataset.id;
-        this.filaDetalle = null;
-        this._renderFilas(this.filasActuales);
-      };
-    });
-    // El <td colspan> de esta fila se achica al ancho de la ficha (no al de
-    // la tabla completa, que puede ser mucho más ancha que la pantalla) —
-    // con `margin:auto` no le queda espacio de sobra para centrarse, y un
-    // ancho en vw se mide contra el viewport entero, no contra lo que
-    // .table-wrap deja disponible (que es menos, por el padding de la
-    // card). Se calculan ancho y margen a mano contra ese espacio real.
-    const wrap = document.querySelector('.table-wrap');
-    const ticket = document.querySelector('.ticket');
-    if (wrap && ticket) {
-      const disponible = wrap.clientWidth - 20; // padding horizontal del <td> (14px 10px)
-      const ancho = Math.min(420, disponible);
-      ticket.style.width = ancho + 'px';
-      ticket.style.marginLeft = Math.max(0, (disponible - ancho) / 2) + 'px';
-    }
+  // Ficha en un modal aparte (fondo oscuro difuminado, tarjeta encima) en
+  // vez de una fila que se abre debajo del vuelo tocado — adentro de la
+  // tabla (más columnas que ancho de pantalla) esa fila desalineaba el
+  // resto de las columnas de las otras filas al abrirse. Se cierra con la
+  // cruz, tocando afuera, con Escape, o con el botón "atrás" del celu
+  // (pushea una entrada al historial al abrir y la consume al cerrar, para
+  // que un "atrás" real después no quede pisado por esto).
+  _abrirFichaVuelo(v) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay ticket-overlay';
+    overlay.innerHTML = `
+      <div class="ticket-modal" role="dialog" aria-modal="true">
+        <button class="ticket-modal-cerrar" aria-label="Cerrar">${Icons.x(18)}</button>
+        <div class="ticket">${this._ticketHtml(v)}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+
+    let cerradoPorHistorial = false;
+    const cerrar = () => {
+      overlay.classList.remove('visible');
+      setTimeout(() => overlay.remove(), 180);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPopState);
+      if (!cerradoPorHistorial) history.back();
+    };
+    const onPopState = () => { cerradoPorHistorial = true; cerrar(); };
+    const onKey = (e) => { if (e.key === 'Escape') cerrar(); };
+
+    history.pushState({ fichaVuelo: v.id }, '', location.href);
+    window.addEventListener('popstate', onPopState);
+    document.addEventListener('keydown', onKey);
+    overlay.querySelector('.ticket-modal-cerrar').onclick = cerrar;
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cerrar(); });
+    overlay.querySelector('button[data-accion="editar-desde-detalle"]').onclick = () => {
+      cerrar();
+      this.filaEditando = v.id;
+      this._renderFilas(this.filasActuales);
+    };
   },
 
   // Edición rápida sin salir de la Bitácora — a propósito NO toca los
