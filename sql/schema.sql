@@ -589,4 +589,30 @@ create policy "recordatorios_insert_own" on recordatorios for insert with check 
 create policy "recordatorios_update_own" on recordatorios for update using (auth.uid() = user_id);
 create policy "recordatorios_delete_own" on recordatorios for delete using (auth.uid() = user_id);
 
+-- Foto de aeronave (opcional): URL pública + bucket de Storage con
+-- políticas de subida/borrado por dueño (carpeta = user_id), lectura
+-- pública (ver sql/agregar_foto_aeronave.sql para el detalle comentado).
+alter table aeronaves add column if not exists foto_url text;
+
+insert into storage.buckets (id, name, public)
+values ('aeronaves-fotos', 'aeronaves-fotos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "aeronaves_fotos_select_public" on storage.objects;
+drop policy if exists "aeronaves_fotos_insert_own" on storage.objects;
+drop policy if exists "aeronaves_fotos_update_own" on storage.objects;
+drop policy if exists "aeronaves_fotos_delete_own" on storage.objects;
+
+create policy "aeronaves_fotos_select_public" on storage.objects for select
+  using (bucket_id = 'aeronaves-fotos');
+
+create policy "aeronaves_fotos_insert_own" on storage.objects for insert
+  with check (bucket_id = 'aeronaves-fotos' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "aeronaves_fotos_update_own" on storage.objects for update
+  using (bucket_id = 'aeronaves-fotos' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "aeronaves_fotos_delete_own" on storage.objects for delete
+  using (bucket_id = 'aeronaves-fotos' and auth.uid()::text = (storage.foldername(name))[1]);
+
 -- Fin del esquema.

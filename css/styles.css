@@ -191,32 +191,22 @@ main {
 .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 
-/* ---------- Dashboard: hero de bienvenida con glow ambiental ---------- */
-.dash-hero {
-  position: relative; overflow: hidden;
-  display: flex; align-items: center; justify-content: space-between; gap: 20px;
-  box-shadow: var(--glow-primary);
+/* ---------- Dashboard: franja compacta del próximo vuelo ---------- */
+.dash-proximo-banner {
+  display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 16px;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: blur(12px);
+  border-radius: var(--radius); padding: 12px 14px; border-left: 3px solid var(--brand);
+  color: var(--text); font: inherit; cursor: pointer; text-align: left; transition: border-color .15s ease;
 }
-.dash-hero-texto { position: relative; z-index: 1; }
-.dash-hero-saludo { margin: 0 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
-.dash-hero-nombre { margin: 0 0 8px; font-family: var(--font-headline); font-size: 24px; font-weight: 800; text-transform: capitalize; }
-.dash-hero-mensaje { margin: 0; color: var(--text-muted); max-width: 46ch; }
-.dash-hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-.dash-hero-deco { position: relative; z-index: 1; flex-shrink: 0; display: none; }
-@media (min-width: 560px) { .dash-hero-deco { display: block; } }
-.dash-hero-anillo-out {
-  width: 116px; height: 116px; border: 2px solid var(--brand-weak); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  animation: dash-hero-pulse 2.4s ease-in-out infinite;
+.dash-proximo-banner:hover { border-color: var(--brand); }
+.dash-proximo-banner-cuenta {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+  font-weight: 700; color: var(--brand); font-size: 13px;
 }
-.dash-hero-anillo-in {
-  width: 76px; height: 76px; border: 2px solid var(--brand-weak); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; color: var(--brand);
-}
-@keyframes dash-hero-pulse {
-  0%, 100% { opacity: .55; } 50% { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) { .dash-hero-anillo-out { animation: none; } }
+.dash-proximo-banner-detalle { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; overflow: hidden; }
+.dash-proximo-banner-matricula { font-family: var(--font-mono); font-weight: 600; flex-shrink: 0; }
+.dash-proximo-banner-detalle .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-proximo-banner .icon:last-child { color: var(--text-muted); flex-shrink: 0; }
 
 /* ---------- Hero: horas totales con anillo ---------- */
 .hero-hours {
@@ -235,7 +225,7 @@ main {
 
 /* Un anillo chico por curso activo (en vez de una lista de texto) — igual
    de compacto con 1 solo curso, y escala bien con 2 o 3 en simultáneo. */
-.cursos-anillos { display: flex; flex-wrap: wrap; gap: 20px; }
+.cursos-anillos { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
 .curso-anillo { display: flex; flex-direction: column; align-items: center; text-align: center; width: 84px; }
 .curso-anillo-svg { position: relative; width: 80px; height: 80px; }
 .curso-anillo-svg svg { transform: rotate(-90deg); overflow: visible; }
@@ -514,20 +504,72 @@ tbody tr:hover td { background: var(--bg-elevated-2); }
 tbody tr:hover td:first-child { border-left-color: var(--brand); }
 td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* Panel de edición rápida de la Bitácora: una fila que se abre debajo de
-   la que se está editando, con los campos administrativos nomás (no los
-   tiempos de vuelo — ver comentario en bitacora.js). Misma base visual
-   para la ficha de solo lectura (fila-detalle-vuelo) que se abre al tocar
-   la fila. */
-.fila-vuelo { cursor: pointer; }
-.fila-edicion-inline td, .fila-edicion-inline:hover td {
-  /* display:block: un <td> normal mide su ancho "deseado" a partir del
-     contenido (min-content) ANTES de que el grid de adentro pueda achicarse
-     — con contenido ancho (ej. "13:00–13:35") eso hacía crecer la tabla
-     entera a ~800px y el resto de las columnas quedaban solo alcanzables
-     scrolleando de costado. Sacándolo del algoritmo de ancho de la tabla,
-     pasa a ocupar el ancho real de la fila (igual que las demás celdas). */
-  display: block; white-space: normal; background: var(--bg-subtle); padding: 14px 10px;
+/* ---------- Bitácora: filtros, lista de vuelos, paginación, FAB ---------- */
+.campo-filtro { margin-bottom: 14px; }
+.campo-filtro:last-of-type { margin-bottom: 16px; }
+.campo-filtro label {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted);
+}
+.campo-filtro label .icon { color: var(--brand); }
+.campo-filtro-rango { display: flex; align-items: center; gap: 8px; }
+.campo-filtro-rango input { flex: 1; min-width: 0; }
+
+.vuelo-lista-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.orden-select { width: auto; max-width: 200px; padding: 6px 10px; font-size: 12px; }
+
+.vuelo-lista { display: flex; flex-direction: column; gap: 10px; }
+.vuelo-item {
+  display: flex; flex-wrap: wrap; align-items: center; row-gap: 8px; column-gap: 14px;
+  background: var(--bg-subtle); border: 1px solid var(--border); border-left: 3px solid transparent;
+  border-radius: var(--radius-sm); padding: 12px 14px; cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.vuelo-item:hover { background: var(--bg-elevated-2); border-left-color: var(--brand); }
+.vuelo-item-fecha { display: flex; flex-direction: column; min-width: 74px; }
+.vuelo-item-fecha-dia { font-family: var(--font-headline); font-size: 14px; font-weight: 700; }
+.vuelo-item-fecha-anio { font-size: 11px; }
+.vuelo-item-aeronave { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vuelo-item-aeronave .icon { color: var(--brand); flex-shrink: 0; }
+.vuelo-item-matricula { margin: 0; font-family: var(--font-mono); font-weight: 700; font-size: 13px; }
+.vuelo-item-modelo { margin: 0; font-size: 11px; }
+.vuelo-item-ruta { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.vuelo-item-badge { flex-shrink: 0; }
+.vuelo-item-tiempo {
+  display: flex; align-items: center; gap: 5px; margin-left: auto;
+  font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.vuelo-item-tiempo .icon { color: var(--brand); }
+.vuelo-item-acciones { display: flex; gap: 2px; flex-shrink: 0; }
+.vuelo-lista-resumen { text-align: center; margin: 12px 0 0; }
+
+.vuelo-paginacion { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+.vuelo-paginacion button {
+  min-width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--bg-subtle); color: var(--text); cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.vuelo-paginacion button.active { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 700; }
+.vuelo-paginacion button:disabled { opacity: .4; cursor: default; }
+
+/* Botón flotante de "nuevo registro" — solo tiene sentido en pantallas
+   angostas (mobile); en desktop ya está el botón del encabezado a la vista,
+   uno flotando encima del contenido ahí sería un elemento de más. */
+.fab {
+  position: fixed; right: 16px; bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 1100;
+  width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--brand-strong); color: var(--on-brand); box-shadow: var(--shadow-lg);
+  display: flex; align-items: center; justify-content: center; transition: transform .1s ease;
+}
+.fab:active { transform: scale(.94); }
+@media (min-width: 860px) { .fab { display: none; } }
+
+/* Panel de edición rápida de la Bitácora: se abre debajo de la tarjeta que
+   se está editando, con los campos administrativos nomás (no los tiempos
+   de vuelo — ver comentario en bitacora.js). */
+.fila-edicion-inline {
+  background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 14px; margin-top: -4px; margin-bottom: 4px;
 }
 
 .badge {
@@ -550,11 +592,47 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 .stat .num { font-family: var(--font-mono); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .stat .lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
 
-/* ---------- Aeronaves: grilla tipo bento ---------- */
-.flota-header {
+/* ---------- Totales: resumen general + horas por aeronave ---------- */
+.resumen-general { border-left: 3px solid var(--brand); }
+.resumen-general-label {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 6px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted);
+}
+.resumen-general-label .icon { color: var(--brand); }
+.resumen-general-valor { margin: 0; display: flex; align-items: baseline; gap: 8px; }
+.resumen-general-valor span:first-child {
+  font-family: var(--font-mono); font-size: 40px; font-weight: 700; color: var(--brand); line-height: 1;
+}
+.resumen-general-unidad { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.resumen-general-mes { margin: 6px 0 0; color: var(--ok); font-size: 13px; font-weight: 600; }
+
+.stat-mini { text-align: left; }
+.stat-mini-label {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 4px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted);
+}
+.stat-mini-label .icon { color: var(--brand); }
+.stat-mini-valor { margin: 0 0 2px; font-family: var(--font-mono); font-size: 26px; font-weight: 700; }
+
+.aeronave-horas-lista { display: flex; flex-direction: column; gap: 8px; }
+.aeronave-horas-item {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 12px; font-weight: 600;
+}
+.aeronave-horas-valor { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--brand); flex-shrink: 0; }
+
+/* ---------- Encabezado de pantalla: título + subtítulo + CTA(s) ----------
+   Compartido entre Aeronaves y Bitácora (título grande arriba de la lista,
+   en vez de un <h2> de card común). ---------- */
+.pantalla-header {
   display: flex; justify-content: space-between; align-items: flex-end; gap: 12px;
   flex-wrap: wrap; margin-bottom: 16px;
 }
+.pantalla-header h1 { margin: 0 0 2px; font-family: var(--font-headline); font-size: 22px; font-weight: 800; }
+.pantalla-header-cta { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Aeronaves: grilla tipo bento ---------- */
 .flota-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
 @media (min-width: 640px) { .flota-stats { grid-template-columns: repeat(4, 1fr); } }
 .flota-stat {
@@ -577,18 +655,29 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
   transition: border-color .2s ease;
 }
 .aeronave-card:hover { border-color: var(--brand-weak); }
-/* Sin fotos reales de aeronave todavía: un degradé + ícono grande ocupa el
-   lugar de la miniatura del mock, en vez de dejar un hueco vacío. */
+/* Sin foto propia cargada: un degradé + ícono grande ocupa el lugar de la
+   miniatura en vez de dejar un hueco vacío (la foto real, si existe, se
+   pone como background-image inline — ver aeronaves.js). */
 .aeronave-card-top {
-  position: relative; height: 84px; display: flex; align-items: center; justify-content: center;
+  position: relative; height: 110px; display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, var(--bg-elevated-2), var(--bg-subtle));
-  color: var(--brand); opacity: .85;
+  color: var(--brand);
 }
+.aeronave-card-icono { opacity: .85; }
 .aeronave-card-matricula {
   position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.45); backdrop-filter: blur(4px);
   color: var(--brand); font-family: var(--font-mono); font-size: 11px; font-weight: 600;
   padding: 3px 8px; border-radius: var(--radius-sm); letter-spacing: .03em;
 }
+.aeronave-card-foto-btn, .aeronave-card-foto-quitar {
+  position: absolute; bottom: 8px; border: none; cursor: pointer;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(4px); color: #fff;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  transition: background .15s ease;
+}
+.aeronave-card-foto-btn { left: 8px; width: 28px; height: 28px; }
+.aeronave-card-foto-btn:hover, .aeronave-card-foto-quitar:hover { background: rgba(0,0,0,.7); }
+.aeronave-card-foto-quitar { left: 42px; width: 24px; height: 24px; }
 .aeronave-card-body { padding: 14px 16px; flex-grow: 1; }
 .aeronave-card-titulo { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
 .aeronave-card-titulo h3 { font-family: var(--font-headline); font-size: 15px; font-weight: 700; margin: 0 0 2px; }

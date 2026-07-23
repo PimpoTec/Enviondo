@@ -268,7 +268,26 @@ Notificaciones) — esto es aditivo, no rompe lo que ya tenías andando.
 
 ---
 
-## 9) Qué falta / mejoras futuras
+## 9) Foto de aeronave (opcional)
+
+Cada ficha de Aeronaves/Simuladores puede tener una foto propia (se
+muestra en la tarjeta de la grilla en vez del degradé + ícono genérico).
+Se sube directo a Supabase Storage, sin ningún servicio de terceros.
+
+1. Correr `sql/agregar_foto_aeronave.sql` en el **SQL Editor** de Supabase
+   (o pegar `schema.sql` completo de nuevo). Crea la columna
+   `aeronaves.foto_url` y el bucket público `aeronaves-fotos` con
+   políticas para que cada usuario solo pueda subir/reemplazar/borrar sus
+   propios archivos (carpeta = su `user_id`) — la lectura es pública
+   (son solo fotos de aviones, sin dato sensible, y así se muestran con
+   una URL directa sin pasar por el cliente autenticado).
+2. Nada más — el botón para agregar/cambiar la foto ya aparece en cada
+   ficha de Aeronaves. Sin correr este paso, la app sigue andando igual
+   (el botón de foto no hace nada hasta que exista la columna).
+
+---
+
+## 10) Qué falta / mejoras futuras
 
 - Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
   `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está

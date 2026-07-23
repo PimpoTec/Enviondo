@@ -8,7 +8,10 @@ const { window } = loadApp([
   path.join(ROOT, 'js/calc.js'),
   path.join(ROOT, 'js/views/totales.js'),
 ]);
-const { calcularFrecuenciaAerodromos, calcularRutasFrecuentes, distanciaNm, fmtDuracionHhMm } = window;
+const {
+  calcularFrecuenciaAerodromos, calcularRutasFrecuentes, distanciaNm, fmtDuracionHhMm,
+  calcularHorasEsteMes, calcularHorasPorAeronave,
+} = window;
 
 function vuelo(desde, hasta, tiempo_total = 1, matricula) {
   return { desde, hasta, tiempo_total, aeronaves: matricula ? { matricula } : undefined };
@@ -119,4 +122,44 @@ test('calcularFrecuenciaAerodromos: TERR (turno de adiestrador/simulador) no cue
 test('calcularRutasFrecuentes: TERR no genera ninguna ruta', () => {
   const rutas = calcularRutasFrecuentes([vuelo('TERR', 'TERR')]);
   assert.equal(rutas.length, 0);
+});
+
+// ---- Totales: resumen general (horas por aeronave, horas del mes) ----
+
+test('calcularHorasPorAeronave: suma horas por matrícula y ordena de más a menos', () => {
+  const vuelos = [
+    { ...vuelo('SADF', 'SABE', 1.5), aeronaves: { matricula: 'LV-ABC', marca_modelo: 'Cessna 172' } },
+    { ...vuelo('SABE', 'SADF', 2), aeronaves: { matricula: 'LV-XYZ', marca_modelo: 'Piper PA-28' } },
+    { ...vuelo('SADF', 'SADF', 0.8), aeronaves: { matricula: 'LV-ABC', marca_modelo: 'Cessna 172' } },
+  ];
+  const porAeronave = calcularHorasPorAeronave(vuelos);
+  assert.equal(porAeronave.length, 2);
+  assert.equal(porAeronave[0].matricula, 'LV-ABC');
+  assert.equal(porAeronave[0].horas, 2.3);
+  assert.equal(porAeronave[0].modelo, 'Cessna 172');
+  assert.equal(porAeronave[1].matricula, 'LV-XYZ');
+  assert.equal(porAeronave[1].horas, 2);
+});
+
+test('calcularHorasPorAeronave: agrupa los vuelos sin aeronave asignada aparte', () => {
+  const porAeronave = calcularHorasPorAeronave([vuelo('SADF', 'SABE', 1)]);
+  assert.equal(porAeronave.length, 1);
+  assert.equal(porAeronave[0].matricula, 'Sin aeronave asignada');
+});
+
+test('calcularHorasEsteMes: solo suma vuelos con fecha dentro del mes calendario actual', () => {
+  const hoy = new Date();
+  const esteMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-05`;
+  const otroAnio = `${hoy.getFullYear() - 1}-${String(hoy.getMonth() + 1).padStart(2, '0')}-05`;
+  const total = calcularHorasEsteMes([
+    { fecha: esteMes, tiempo_total: 1.5 },
+    { fecha: esteMes, tiempo_total: 2 },
+    { fecha: otroAnio, tiempo_total: 100 },
+  ]);
+  assert.equal(total, 3.5);
+});
+
+test('calcularHorasEsteMes: sin vuelos este mes da 0', () => {
+  const total = calcularHorasEsteMes([{ fecha: '2020-01-01', tiempo_total: 5 }]);
+  assert.equal(total, 0);
 });

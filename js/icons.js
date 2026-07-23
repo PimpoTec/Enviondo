@@ -31,6 +31,8 @@ const Icons = (() => {
     clock: (s) => svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>', s),
     shieldCheck: (s) => svg('<path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5Z"/><path d="M9 12l2 2 4-4"/>', s),
     chevronRight: (s) => svg('<path d="M9 18l6-6-6-6"/>', s),
+    chevronLeft: (s) => svg('<path d="M15 18l-6-6 6-6"/>', s),
+    camera: (s) => svg('<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13.5" r="3.5"/>', s),
     calendar: (s) => svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>', s),
     idCard: (s) => svg('<rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M6 16.5c.5-1.5 1.8-2.5 2.5-2.5s2 1 2.5 2.5"/><path d="M14 10h5M14 14h5"/>', s),
     medical: (s) => svg('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M12 11v6M9 14h6"/>', s),

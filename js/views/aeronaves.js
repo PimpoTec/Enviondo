@@ -28,12 +28,14 @@ const ViewAeronaves = {
     const habituales = aeronaves.filter((a) => a.es_habitual).length;
 
     main.innerHTML = `
-      <div class="flota-header">
+      <div class="pantalla-header">
         <div>
-          <h2 style="margin:0 0 2px">Flota de aeronaves</h2>
+          <h1>Flota de aeronaves</h1>
           <p class="muted" style="margin:0">Tus aeronaves y simuladores, con sus tarifas horarias.</p>
         </div>
-        <button class="btn" id="btn-mostrar-form">${Icons.plusCircle(16)} Agregar</button>
+        <div class="pantalla-header-cta">
+          <button class="btn" id="btn-mostrar-form">${Icons.plusCircle(16)} Agregar</button>
+        </div>
       </div>
 
       <div class="flota-stats">
@@ -145,9 +147,11 @@ const ViewAeronaves = {
     const grid = document.getElementById('grid-aeronaves');
     const tarjetas = aeronaves.map((a) => `
       <div class="aeronave-card">
-        <div class="aeronave-card-top">
-          <span class="aeronave-card-icono">${a.es_simulador ? Icons.monitor(28) : Icons.plane(28)}</span>
+        <div class="aeronave-card-top"${a.foto_url ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.45)), url('${a.foto_url.replace(/'/g, '%27')}');background-size:cover;background-position:center"` : ''}>
+          ${!a.foto_url ? `<span class="aeronave-card-icono">${a.es_simulador ? Icons.monitor(28) : Icons.plane(28)}</span>` : ''}
           <span class="aeronave-card-matricula">${a.matricula}</span>
+          <button type="button" class="aeronave-card-foto-btn" data-accion="foto" data-id="${a.id}" title="${a.foto_url ? 'Cambiar foto' : 'Agregar foto'}">${Icons.camera(14)}</button>
+          ${a.foto_url ? `<button type="button" class="aeronave-card-foto-quitar" data-accion="quitar-foto" data-id="${a.id}" title="Quitar foto">${Icons.x(12)}</button>` : ''}
         </div>
         <div class="aeronave-card-body">
           <div class="aeronave-card-titulo">
@@ -185,6 +189,7 @@ const ViewAeronaves = {
         <p class="aeronave-card-nueva-titulo">Nueva aeronave</p>
         <p class="muted">Cargá matrícula, clase y tarifas horarias.</p>
       </button>
+      <input type="file" id="input-foto-aeronave" accept="image/*" style="display:none">
     `;
 
     if (!aeronaves.length) {
@@ -193,14 +198,45 @@ const ViewAeronaves = {
 
     document.getElementById('btn-nueva-placeholder').onclick = () => document.getElementById('btn-mostrar-form').click();
 
+    const inputFoto = document.getElementById('input-foto-aeronave');
+    inputFoto.onchange = () => {
+      const file = inputFoto.files[0];
+      if (file) this._subirFoto(inputFoto.dataset.aeronaveId, file);
+      inputFoto.value = '';
+    };
+
     // Delegación por id — evita serializar la aeronave entera (con notas/modelo
     // que pueden traer comillas) dentro de un atributo onclick.
     grid.querySelectorAll('button[data-accion]').forEach((b) => {
       b.onclick = () => {
         if (b.dataset.accion === 'editar') this._editar(b.dataset.id);
-        else this._borrar(b.dataset.id);
+        else if (b.dataset.accion === 'borrar') this._borrar(b.dataset.id);
+        else if (b.dataset.accion === 'foto') { inputFoto.dataset.aeronaveId = b.dataset.id; inputFoto.click(); }
+        else if (b.dataset.accion === 'quitar-foto') this._quitarFoto(b.dataset.id);
       };
     });
+  },
+
+  async _subirFoto(id, file) {
+    if (!file.type.startsWith('image/')) { UI.toast('Elegí un archivo de imagen.', 'warn'); return; }
+    if (file.size > 5 * 1024 * 1024) { UI.toast('La imagen no puede pesar más de 5 MB.', 'warn'); return; }
+    try {
+      await Repo.subirFotoAeronave(id, file);
+      UI.toast('Foto actualizada.', 'ok');
+      this.render();
+    } catch (err) {
+      UI.toast('Error al subir la foto: ' + (err.message || err), 'error');
+    }
+  },
+
+  async _quitarFoto(id) {
+    if (!(await UI.confirmar('¿Quitar la foto de esta ficha?'))) return;
+    try {
+      await Repo.quitarFotoAeronave(id);
+      this.render();
+    } catch (err) {
+      UI.toast('Error al quitar la foto: ' + (err.message || err), 'error');
+    }
   },
 
   async _editar(id) {

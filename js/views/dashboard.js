@@ -10,10 +10,9 @@ const ViewDashboard = {
 
   async render() {
     const main = document.getElementById('main-content');
-    const [vuelos, cursosActivos, programados, aeronaves, datosPiloto] = await Promise.all([
+    const [vuelos, cursosActivos, programados, aeronaves] = await Promise.all([
       Repo.listarVuelos(), Repo.getCursosActivos(),
       Repo.listarVuelosProgramados(), Repo.listarAeronaves(),
-      Repo.getDatosPiloto().catch(() => ({})),
     ]);
     this.aeronaves = aeronaves;
     const agg = agregarVuelos(vuelos);
@@ -32,24 +31,8 @@ const ViewDashboard = {
       return { cursoId, curso: CURSOS.find((c) => c.id === cursoId), config };
     }));
 
-    const nombrePiloto = (datosPiloto?.nombre_completo || '').trim().split(' ')[0] || 'piloto';
-    const heroSub = this._mensajeHero(programados);
-
     main.innerHTML = `
-      <div class="card dash-hero">
-        <div class="dash-hero-texto">
-          <p class="dash-hero-saludo">Bienvenido de nuevo</p>
-          <h2 class="dash-hero-nombre">${nombrePiloto}</h2>
-          <p class="dash-hero-mensaje">${heroSub}</p>
-          <div class="dash-hero-cta">
-            <button class="btn" onclick="Router.irA('nuevo-vuelo')">${Icons.plusCircle(16)} Nuevo vuelo</button>
-            <button class="btn secondary" onclick="Router.irA('exportar')">${Icons.download(16)} Exportar logbook</button>
-          </div>
-        </div>
-        <div class="dash-hero-deco" aria-hidden="true">
-          <div class="dash-hero-anillo-out"><div class="dash-hero-anillo-in">${Icons.plane(26)}</div></div>
-        </div>
-      </div>
+      ${this._htmlBannerProximoVuelo(programados)}
 
       <div class="card">
         <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
@@ -69,7 +52,11 @@ const ViewDashboard = {
         </div>
       </div>
 
-      <div class="card">
+      <button class="btn" style="width:100%;padding:16px;gap:10px;margin-bottom:16px" onclick="Router.irA('nuevo-vuelo')">
+        <span>Nuevo vuelo</span>${Icons.plusCircle(18)}
+      </button>
+
+      <div class="card" id="card-proximo-vuelo">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <h2 style="margin:0">${Icons.calendar(18)} Próximo vuelo</h2>
           <button class="btn ghost" id="btn-mostrar-form-programado">Programar vuelo</button>
@@ -80,23 +67,40 @@ const ViewDashboard = {
     `;
 
     document.getElementById('btn-mostrar-form-programado').onclick = () => this._toggleFormProgramado();
+    const btnBanner = document.getElementById('btn-ir-proximo-vuelo');
+    if (btnBanner) btnBanner.onclick = () => document.getElementById('card-proximo-vuelo').scrollIntoView({ behavior: 'smooth' });
 
     try { renderHeroProgreso(configsPorCurso, agg); } catch (err) { console.error('Error renderizando progreso del dashboard:', err); }
     try { this._renderProximoVuelo(programados); } catch (err) { console.error('Error renderizando próximo vuelo:', err); }
   },
 
-  // Texto corto para el hero de bienvenida — a partir del vuelo agendado
-  // más próximo, sin repetir la ficha completa que ya se ve más abajo.
-  _mensajeHero(programados) {
-    if (!programados.length) return 'Todavía no tenés vuelos agendados — cargá el próximo con "Nuevo vuelo".';
+  // Franja compacta arriba del todo con el próximo vuelo agendado — sin
+  // saludo ni foto, solo lo esencial (cuándo, en qué, a dónde). Clickeable:
+  // lleva a la ficha completa (con METAR/TAF) que ya está más abajo.
+  _htmlBannerProximoVuelo(programados) {
+    if (!programados.length) return '';
     const p = programados[0];
+    const [, mes, dia] = p.fecha.split('-');
+    const fechaChica = `${dia} ${MESES_CORTOS[Number(mes) - 1]}`;
     const fechaLocal = Calc.parseFechaLocal(p.fecha);
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
     const diasFaltan = fechaLocal ? Math.round((fechaLocal - hoy) / 86400000) : null;
-    const cuando = diasFaltan === null ? `el ${fmtFecha(p.fecha)}` : diasFaltan <= 0 ? 'hoy' : diasFaltan === 1 ? 'mañana' : `en ${diasFaltan} días`;
-    const hora = p.hora_prevista ? ` a las ${p.hora_prevista.slice(0, 5)}` : '';
-    const matricula = p.aeronaves?.matricula ? ` en ${p.aeronaves.matricula}` : '';
-    return `Tu próximo vuelo${matricula} es ${cuando}${hora}. Revisá el plan más abajo.`;
+    const cuenta = diasFaltan === null ? fechaChica : diasFaltan <= 0 ? 'Hoy' : diasFaltan === 1 ? 'Mañana' : `En ${diasFaltan} días`;
+    const hora = p.hora_prevista ? ` · ${p.hora_prevista.slice(0, 5)}` : '';
+    const matricula = p.aeronaves?.matricula || 'Sin asignar';
+    const esLocal = p.desde && p.hasta && p.desde === p.hasta;
+    const ruta = p.desde && p.hasta ? (esLocal ? 'Vuelo local' : `${p.desde} → ${p.hasta}`) : '';
+
+    return `
+      <button type="button" class="dash-proximo-banner" id="btn-ir-proximo-vuelo">
+        <span class="dash-proximo-banner-cuenta">${Icons.calendar(15)} ${cuenta}${hora}</span>
+        <span class="dash-proximo-banner-detalle">
+          <span class="dash-proximo-banner-matricula">${matricula}</span>
+          ${ruta ? `<span class="muted">${ruta}</span>` : ''}
+        </span>
+        ${Icons.chevronRight(16)}
+      </button>
+    `;
   },
 
   _renderProximoVuelo(programados) {

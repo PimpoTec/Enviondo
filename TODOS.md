@@ -3,6 +3,55 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 46 (feedback puntual sobre la tanda 45: Dashboard, Bitácora, Aeronaves, Totales)
+- [x] **Dashboard**: el anillo de progreso general ya se veía centrado; los
+      anillos individuales por curso (ej. con licencia + habilitación en
+      paralelo) quedaban pegados a la izquierda en mobile — se centran con
+      `justify-content: center` en `.cursos-anillos`. Se sacó el panel de
+      bienvenida (nombre + fondo con glow) por pedido explícito ("no me
+      gusta como me recibe la app"); en su lugar, una franja compacta y
+      clickeable arriba del todo con el próximo vuelo agendado (cuenta
+      regresiva, aeronave, ruta — sin foto ni saludo), que lleva a la
+      ficha completa de más abajo. Vuelve el botón "Nuevo vuelo" de ancho
+      completo como estaba antes de la tanda 45, y se saca el botón
+      "Exportar logbook" del Dashboard (ya vive en Perfil → Exportar).
+- [x] **Bitácora**: rediseño completo del encabezado y el listado, según
+      mockup — título "Libro de Vuelo Digital" + botones "Nuevo registro"
+      y "Exportar", card de filtros con ícono por campo (rango de fecha,
+      matrícula, función) que aplica el filtro solo (sin botón
+      "Filtrar" — cambiar cualquier campo dispara la búsqueda), botón
+      "Limpiar filtros". La tabla pasa a ser una lista de tarjetas por
+      vuelo (fecha, aeronave, ruta, función, tiempo con ícono sol/luna
+      según diurno/nocturno) con paginación de a 10 (antes se mostraban
+      todos los vuelos filtrados de una — con meses de historial es un
+      scroll eterno); el orden por columna del header viejo se reemplaza
+      por un select "Ordenar por" (mismo resultado, sin encabezado de
+      tabla). Botón flotante (FAB) de "nuevo registro" en mobile. La
+      ficha modal y el panel de edición rápida siguen intactos (solo se
+      adaptó el panel de `<tr><td>` a un `<div>`, ya no hay tabla).
+- [x] **Aeronaves**: se agregó foto editable por ficha (subida real a
+      Supabase Storage, bucket público `aeronaves-fotos` con políticas
+      de escritura por dueño — `sql/agregar_foto_aeronave.sql` y
+      `schema.sql` actualizados, documentado en README § 9). Botón de
+      cámara en la tarjeta para agregar/cambiar la foto, y una cruz para
+      quitarla; sin foto propia, sigue el degradé + ícono de siempre.
+- [x] **Totales**: reordenado según mockup — "Resumen general" (horas
+      totales, con "+X hs este mes" real calculado sobre el mes
+      calendario actual), tarjeta de cantidad de vuelos, "Horas por
+      aeronave" (nuevo, `calcularHorasPorAeronave` — suma tiempo_total
+      por matrícula) y "Discriminación de horas" con el mismo diseño de
+      barra que "Progreso de licencia" (barra = proporción sobre el
+      total general, no un mínimo). "Monomotor" no es un campo propio en
+      la base — se muestra como aproximación derivada (total menos las
+      categorías que sí se cargan a mano), aclarado en un comentario;
+      "Totales acumulados" pierde los dos campos que ahora están arriba
+      (total general, cantidad de vuelos) para no duplicar.
+- [x] Verificado con Playwright (oscuro y claro) las 4 pantallas tocadas,
+      incluyendo la ficha y edición rápida de Bitácora (para confirmar
+      que sobreviven al cambio de tabla a tarjetas) y una foto de
+      ejemplo en Aeronaves. 92 tests en verde (se sumaron 4 nuevos para
+      `calcularHorasPorAeronave`/`calcularHorasEsteMes`).
+
 ## Hecho — tanda 45 (sistema de diseño "AeroMetric": traducido a vanilla CSS/JS en toda la app)
 - [x] A pedido, se pasaron 4 mockups (Bitácora, Aeronaves, Dashboard, Perfil)
       + 2 `DESIGN.md` + 3 `code.html` (Tailwind + Material Symbols,

@@ -55,6 +55,30 @@ const Repo = {
     Cache.invalidar('aeronaves');
   },
 
+  // Sube la foto a Storage (bucket público "aeronaves-fotos", carpeta
+  // propia = user_id — ver sql/agregar_foto_aeronave.sql) y guarda la URL
+  // pública en la ficha. Nombre de archivo único por subida (no se
+  // reemplaza el objeto anterior en Storage): para un uso personal el
+  // costo de esos objetos "huérfanos" al cambiar de foto es despreciable,
+  // y así no hay que llevar la cuenta de la extensión del archivo previo.
+  async subirFotoAeronave(aeronaveId, file) {
+    const user = await usuarioActual();
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = `${user.id}/${aeronaveId}-${Date.now()}.${ext}`;
+    const { error: errorSubida } = await window.db.storage.from('aeronaves-fotos').upload(path, file);
+    if (errorSubida) throw errorSubida;
+    const { data } = window.db.storage.from('aeronaves-fotos').getPublicUrl(path);
+    const { error } = await window.db.from('aeronaves').update({ foto_url: data.publicUrl }).eq('id', aeronaveId);
+    if (error) throw error;
+    Cache.invalidar('aeronaves');
+    return data.publicUrl;
+  },
+  async quitarFotoAeronave(aeronaveId) {
+    const { error } = await window.db.from('aeronaves').update({ foto_url: null }).eq('id', aeronaveId);
+    if (error) throw error;
+    Cache.invalidar('aeronaves');
+  },
+
   // ---- Vuelos ----
   // "Borrar" es soft-delete (deleted_at) — el vuelo sale de la bitácora,
   // totales y progreso, pero se puede restaurar desde la Papelera (Perfil)

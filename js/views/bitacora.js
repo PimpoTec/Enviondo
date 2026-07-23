@@ -1,5 +1,6 @@
 // ============================================================================
-// VISTA: BITÁCORA — tabla filtrable/ordenable, con edición y borrado.
+// VISTA: BITÁCORA — lista de vuelos filtrable/ordenable/paginada, con
+// edición rápida y borrado.
 // ============================================================================
 
 // Compartida entre el filtro de arriba y el panel de edición rápida — un
@@ -9,11 +10,14 @@ const FINALIDADES_VUELO = [
   ['EXA', 'EXA — Examen'], ['ENTT', 'ENTT — Entrenamiento'], ['VP', 'VP — Vuelo privado'],
 ];
 
+const PAGINA_TAMANIO = 10;
+
 const ViewBitacora = {
   vuelos: [],
   filasActuales: [],
   aeronaves: [],
   orden: { campo: 'fecha', asc: false },
+  pagina: 1,
   filaEditando: null, // id del vuelo con el panel de edición rápida abierto
 
   // El filtro vive en la URL (#bitacora?desde=...&aeronave=...), no solo en
@@ -34,6 +38,7 @@ const ViewBitacora = {
         aeronave_id: params.get('aeronave') || undefined,
         finalidad_vuelo: params.get('finalidad') || undefined,
       };
+      this.pagina = 1;
     }
     this.filtros = this.filtros || {};
     const [vuelos, aeronaves, vencimientos] = await Promise.all([
@@ -43,36 +48,55 @@ const ViewBitacora = {
     this.aeronaves = aeronaves;
 
     main.innerHTML = `
-      <div class="card">
-        <h2>${Icons.list(18)} Bitácora</h2>
-        <div class="grid cols-4">
-          <div class="field"><label>Desde</label><input type="date" id="fx-desde" value="${this.filtros.desde || ''}"></div>
-          <div class="field"><label>Hasta</label><input type="date" id="fx-hasta" value="${this.filtros.hasta || ''}"></div>
-          <div class="field"><label>Aeronave</label>
-            <select id="fx-aeronave"><option value="">Todas</option>
-              ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === this.filtros.aeronave_id ? 'selected' : ''}>${a.matricula}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field"><label>Finalidad</label>
-            <select id="fx-finalidad">
-              <option value="">Todas</option>
-              ${FINALIDADES_VUELO.map(([f, label]) => `<option value="${f}" ${f === this.filtros.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}
-            </select>
-          </div>
+      <div class="pantalla-header">
+        <div>
+          <h1>Libro de Vuelo Digital</h1>
+          <p class="muted" style="margin:0">Registro detallado de tus vuelos, formato ANAC 290/2012.</p>
         </div>
-        <div class="btn-row"><button class="btn secondary" id="btn-filtrar">Filtrar</button><button class="btn ghost" id="btn-limpiar-filtro">Limpiar</button></div>
+        <div class="pantalla-header-cta">
+          <button class="btn" onclick="Router.irA('nuevo-vuelo')">${Icons.plusCircle(16)} Nuevo registro</button>
+          <button class="btn secondary" onclick="Router.irA('exportar')">${Icons.download(16)} Exportar</button>
+        </div>
       </div>
 
       <div class="card">
-        <div class="table-wrap"><table id="tabla-bitacora">
-          <thead><tr>
-            <th data-orden="fecha">Fecha</th><th>Ruta</th><th>Aeronave</th><th>Finalidad</th>
-            <th class="num" data-orden="tiempo_total">Tiempo</th>
-            <th class="num">Día/Noche</th><th class="num" data-orden="total_pic">PIC</th>
-            <th class="num">Aterr.</th><th class="num">Costo</th><th></th>
-          </tr></thead>
-          <tbody id="tbody-bitacora"></tbody>
-        </table></div>
+        <div class="campo-filtro">
+          <label>${Icons.calendar(14)} Rango de fecha</label>
+          <div class="campo-filtro-rango">
+            <input type="date" id="fx-desde" value="${this.filtros.desde || ''}">
+            <span class="muted">—</span>
+            <input type="date" id="fx-hasta" value="${this.filtros.hasta || ''}">
+          </div>
+        </div>
+        <div class="campo-filtro">
+          <label>${Icons.plane(14)} Matrícula</label>
+          <select id="fx-aeronave"><option value="">Todas las aeronaves</option>
+            ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === this.filtros.aeronave_id ? 'selected' : ''}>${a.matricula}</option>`).join('')}
+          </select>
+        </div>
+        <div class="campo-filtro">
+          <label>${Icons.person(14)} Función</label>
+          <select id="fx-finalidad">
+            <option value="">Cualquier función</option>
+            ${FINALIDADES_VUELO.map(([f, label]) => `<option value="${f}" ${f === this.filtros.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn ghost" id="btn-limpiar-filtro" style="width:100%;justify-content:center">${Icons.tag('list', 'Limpiar filtros')}</button>
+      </div>
+
+      <div class="card">
+        <div class="vuelo-lista-header">
+          <h2 style="margin:0">${Icons.list(18)} Vuelos</h2>
+          <select id="orden-campo" class="orden-select">
+            <option value="fecha-desc">Más recientes primero</option>
+            <option value="fecha-asc">Más antiguos primero</option>
+            <option value="tiempo_total-desc">Más horas primero</option>
+            <option value="total_pic-desc">Más PIC primero</option>
+          </select>
+        </div>
+        <div id="lista-vuelos" class="vuelo-lista"></div>
+        <p class="muted vuelo-lista-resumen" id="vuelo-lista-resumen"></p>
+        <div class="vuelo-paginacion" id="vuelo-paginacion"></div>
       </div>
 
       <div class="grid cols-2">
@@ -83,21 +107,23 @@ const ViewBitacora = {
           <p class="muted" style="margin:0">Formato conforme a ANAC Res. 290/2012</p>
         </div>
       </div>
+
+      <button type="button" class="fab" onclick="Router.irA('nuevo-vuelo')" aria-label="Nuevo registro">${Icons.plusCircle(24)}</button>
     `;
 
-    document.getElementById('btn-filtrar').onclick = () => this._aplicarFiltro();
-    document.getElementById('btn-limpiar-filtro').onclick = () => Router.irA('bitacora');
-    document.querySelectorAll('#tabla-bitacora th[data-orden]').forEach((th) => {
-      th.style.cursor = 'pointer';
-      th.onclick = () => this._ordenarPor(th.dataset.orden);
+    document.querySelectorAll('#fx-desde, #fx-hasta, #fx-aeronave, #fx-finalidad').forEach((el) => {
+      el.addEventListener('change', () => this._aplicarFiltro());
     });
+    document.getElementById('btn-limpiar-filtro').onclick = () => Router.irA('bitacora');
+    document.getElementById('orden-campo').value = `${this.orden.campo}-${this.orden.asc ? 'asc' : 'desc'}`;
+    document.getElementById('orden-campo').onchange = (e) => this._aplicarOrden(e.target.value);
 
-    this.filasActuales = this.vuelos;
-    this._renderFilas(this.filasActuales);
+    this.filasActuales = this._ordenar(this.vuelos);
+    this._renderLista();
     this._renderEstadoLicencia(this.vuelos, vencimientos);
   },
 
-  // Navega a la URL con el filtro puesto (en vez de solo refrescar la tabla
+  // Navega a la URL con el filtro puesto (en vez de solo refrescar la lista
   // en memoria) — así queda en el hash y sobrevive a una recarga.
   _aplicarFiltro() {
     const qs = new URLSearchParams();
@@ -113,67 +139,138 @@ const ViewBitacora = {
     Router.irA('bitacora' + (query ? '?' + query : ''));
   },
 
-  // Ordena el conjunto que se está mostrando ahora (filtrado o completo), no
-  // siempre la lista entera — así ordenar no descarta el filtro aplicado.
-  _ordenarPor(campo) {
-    this.orden.asc = this.orden.campo === campo ? !this.orden.asc : false;
-    this.orden.campo = campo;
-    const filas = [...this.filasActuales].sort((a, b) => {
+  _ordenar(vuelos) {
+    const { campo, asc } = this.orden;
+    return [...vuelos].sort((a, b) => {
       const va = a[campo], vb = b[campo];
-      return (va > vb ? 1 : va < vb ? -1 : 0) * (this.orden.asc ? 1 : -1);
+      return (va > vb ? 1 : va < vb ? -1 : 0) * (asc ? 1 : -1);
     });
-    this.filasActuales = filas;
-    this._renderFilas(filas);
   },
 
-  _renderFilas(vuelos) {
-    const tbody = document.getElementById('tbody-bitacora');
-    if (!vuelos.length) {
-      tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Sin vuelos con esos filtros.</td></tr>`;
+  // El select de orden reemplaza al click-en-columna de la tabla vieja (ya
+  // no hay encabezado de tabla en el diseño de tarjetas) — mismo resultado,
+  // elegido de una lista en vez de tocar un <th>.
+  _aplicarOrden(valor) {
+    const [campo, dir] = valor.split('-');
+    this.orden = { campo, asc: dir === 'asc' };
+    this.pagina = 1;
+    this.filasActuales = this._ordenar(this.vuelos);
+    this._renderLista();
+  },
+
+  // Lista de tarjetas (una por vuelo) + paginación client-side — el filtro
+  // ya trae solo lo que corresponde desde Supabase, pero con meses/años de
+  // vuelos cargados esa lista puede ser larga; mostrarla entera de un
+  // saque hace un scroll eterno, así que se corta de a páginas de
+  // PAGINA_TAMANIO como el resto de las listas largas de la app.
+  _renderLista() {
+    const cont = document.getElementById('lista-vuelos');
+    const resumen = document.getElementById('vuelo-lista-resumen');
+    const paginacion = document.getElementById('vuelo-paginacion');
+    const total = this.filasActuales.length;
+
+    if (!total) {
+      cont.innerHTML = `<p class="empty-state">Sin vuelos con esos filtros.</p>`;
+      resumen.textContent = '';
+      paginacion.innerHTML = '';
       return;
     }
-    tbody.innerHTML = vuelos.map((v) => `
-      <tr class="fila-vuelo" data-id="${v.id}">
-        <td>${fmtFecha(v.fecha)}</td>
-        <td>${v.desde} → ${v.hasta}</td>
-        <td>${v.aeronaves?.matricula || '—'}</td>
-        <td>${v.finalidad_vuelo}</td>
-        <td class="num">${v.tiempo_total}</td>
-        <td class="num">${v.total_dia} / ${v.total_noche}</td>
-        <td class="num">${v.total_pic}</td>
-        <td class="num">${v.aterrizajes_dia}d / ${v.aterrizajes_noche}n</td>
-        <td class="num">${(() => { const c = Calc.costoRegistrado(v, v.aeronaves); return fmtMoneda(c.monto, c.moneda); })()}</td>
-        <td>
-          <button class="btn ghost" data-accion="toggle-edicion" data-id="${v.id}" title="Edición rápida">${Icons.edit(16)}</button>
-          <button class="btn ghost" data-accion="borrar" data-id="${v.id}" title="Borrar">${Icons.trash(16)}</button>
-        </td>
-      </tr>
-      ${this.filaEditando === v.id ? this._filaEdicionInline(v) : ''}
+
+    const totalPaginas = Math.max(1, Math.ceil(total / PAGINA_TAMANIO));
+    this.pagina = Math.min(Math.max(1, this.pagina), totalPaginas);
+    const inicio = (this.pagina - 1) * PAGINA_TAMANIO;
+    const vista = this.filasActuales.slice(inicio, inicio + PAGINA_TAMANIO);
+
+    cont.innerHTML = vista.map((v) => `
+      <div class="vuelo-item" data-id="${v.id}">
+        ${this._vueloItemHtml(v)}
+      </div>
+      ${this.filaEditando === v.id ? this._panelEdicionInline(v) : ''}
     `).join('');
 
-    // Tocar la fila (en cualquier parte que no sea un botón de acción) abre
-    // una ficha de solo lectura con los datos importantes del vuelo, sin
-    // tener que entrar al modo edición para verlos. Va en un modal aparte
-    // (no como fila de la tabla) — adentro de la tabla, con más columnas
-    // que ancho de pantalla, el contenido de la ficha desalineaba el resto
-    // de las columnas de las otras filas.
-    tbody.querySelectorAll('tr.fila-vuelo').forEach((tr) => {
-      tr.onclick = (e) => {
+    resumen.textContent = `Mostrando ${inicio + 1}-${Math.min(inicio + PAGINA_TAMANIO, total)} de ${total} vuelo${total === 1 ? '' : 's'} registrado${total === 1 ? '' : 's'}`;
+    paginacion.innerHTML = this._paginacionHtml(this.pagina, totalPaginas);
+
+    // Tocar la tarjeta (en cualquier parte que no sea un botón de acción)
+    // abre una ficha de solo lectura con los datos importantes del vuelo,
+    // sin tener que entrar al modo edición para verlos. Va en un modal
+    // aparte (no expandiendo la tarjeta) para no desalinear el resto de
+    // la lista al abrirse.
+    cont.querySelectorAll('.vuelo-item').forEach((item) => {
+      item.onclick = (e) => {
         if (e.target.closest('button')) return;
-        const v = this.filasActuales.find((x) => x.id === tr.dataset.id);
+        const v = this.filasActuales.find((x) => x.id === item.dataset.id);
         if (v) this._abrirFichaVuelo(v);
       };
     });
-    tbody.querySelectorAll('button[data-accion="toggle-edicion"]').forEach((b) => {
+    cont.querySelectorAll('button[data-accion="toggle-edicion"]').forEach((b) => {
       b.onclick = () => {
         this.filaEditando = this.filaEditando === b.dataset.id ? null : b.dataset.id;
-        this._renderFilas(this.filasActuales);
+        this._renderLista();
       };
     });
-    tbody.querySelectorAll('button[data-accion="borrar"]').forEach((b) => {
+    cont.querySelectorAll('button[data-accion="borrar"]').forEach((b) => {
       b.onclick = () => this._borrar(b.dataset.id);
     });
     if (this.filaEditando) this._bindEdicionInline(this.filaEditando);
+
+    paginacion.querySelectorAll('button[data-pagina]').forEach((b) => {
+      b.onclick = () => { this.pagina = Number(b.dataset.pagina); this._renderLista(); };
+    });
+  },
+
+  // Contenido de una tarjeta de vuelo — fecha, aeronave, ruta, función y
+  // tiempo total (día/noche/PIC/aterrizajes/costo quedan en la ficha
+  // completa, un tap más allá, para no amontonar la lista).
+  _vueloItemHtml(v) {
+    const [anio, mes, dia] = v.fecha.split('-');
+    const fechaLocal = Calc.parseFechaLocal(v.fecha);
+    const diaSemana = fechaLocal ? DIAS_SEMANA[fechaLocal.getDay()] : '';
+    const esTerr = v.desde === 'TERR' && v.hasta === 'TERR';
+    const esLocal = v.desde === v.hasta;
+    const esNocturno = Calc.n(v.total_noche) > 0;
+
+    return `
+      <div class="vuelo-item-fecha">
+        <span class="vuelo-item-fecha-dia">${dia} ${MESES_CORTOS[Number(mes) - 1]}</span>
+        <span class="vuelo-item-fecha-anio muted">${anio}${diaSemana ? ` · ${diaSemana}` : ''}</span>
+      </div>
+      <div class="vuelo-item-aeronave">
+        <span class="icon">${Icons.plane(16)}</span>
+        <div>
+          <p class="vuelo-item-matricula">${v.aeronaves?.matricula || '—'}</p>
+          <p class="muted vuelo-item-modelo">${v.aeronaves?.marca_modelo || ''}</p>
+        </div>
+      </div>
+      <div class="vuelo-item-ruta">${esTerr ? 'Simulador' : `${v.desde}${esLocal ? '' : ` <span class="muted">→</span> ${v.hasta}`}`}</div>
+      <span class="badge neutral vuelo-item-badge">${v.finalidad_vuelo || '—'}</span>
+      <div class="vuelo-item-tiempo">
+        <span class="icon">${esNocturno ? Icons.moon(14) : Icons.sun(14)}</span>
+        <span>${v.tiempo_total} hs</span>
+      </div>
+      <div class="vuelo-item-acciones">
+        <button class="btn ghost" data-accion="toggle-edicion" data-id="${v.id}" title="Edición rápida">${Icons.edit(15)}</button>
+        <button class="btn ghost" data-accion="borrar" data-id="${v.id}" title="Borrar">${Icons.trash(15)}</button>
+      </div>
+    `;
+  },
+
+  // Máximo 5 botones de página visibles (con el actual centrado cuando se
+  // puede) — con muchas páginas, listarlas todas sería más ruido que ayuda.
+  _paginacionHtml(pagina, totalPaginas) {
+    if (totalPaginas <= 1) return '';
+    let ini = Math.max(1, pagina - 2);
+    let fin = Math.min(totalPaginas, ini + 4);
+    ini = Math.max(1, fin - 4);
+    const botones = [];
+    for (let p = ini; p <= fin; p++) {
+      botones.push(`<button type="button" class="pag-num ${p === pagina ? 'active' : ''}" data-pagina="${p}">${p}</button>`);
+    }
+    return `
+      <button type="button" class="pag-flecha" data-pagina="${pagina - 1}" ${pagina <= 1 ? 'disabled' : ''}>${Icons.chevronLeft(16)}</button>
+      ${botones.join('')}
+      <button type="button" class="pag-flecha" data-pagina="${pagina + 1}" ${pagina >= totalPaginas ? 'disabled' : ''}>${Icons.chevronRight(16)}</button>
+    `;
   },
 
   // Ficha de solo lectura ("check-in") con los datos importantes del
@@ -296,7 +393,7 @@ const ViewBitacora = {
     overlay.querySelector('button[data-accion="editar-desde-detalle"]').onclick = () => {
       cerrar();
       this.filaEditando = v.id;
-      this._renderFilas(this.filasActuales);
+      this._renderLista();
     };
   },
 
@@ -308,41 +405,39 @@ const ViewBitacora = {
   // con validación). Esto cubre el caso más común: corregir un dato
   // administrativo (fecha, ruta, finalidad, aterrizajes, observaciones)
   // sin tener que reabrir y volver a revisar todo el vuelo.
-  _filaEdicionInline(v) {
+  _panelEdicionInline(v) {
     return `
-      <tr class="fila-edicion-inline">
-        <td colspan="10">
-          <div class="grid cols-4">
-            <div class="field"><label>Fecha</label><input type="date" id="ie-fecha" value="${v.fecha}"></div>
-            <div class="field"><label>Desde (OACI)</label><input maxlength="4" style="text-transform:uppercase" id="ie-desde" value="${v.desde}"></div>
-            <div class="field"><label>Hasta (OACI)</label><input maxlength="4" style="text-transform:uppercase" id="ie-hasta" value="${v.hasta}"></div>
-            <div class="field"><label>Finalidad</label>
-              <select id="ie-finalidad">${FINALIDADES_VUELO.map(([f, label]) => `<option value="${f}" ${f === v.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}</select>
-            </div>
+      <div class="fila-edicion-inline">
+        <div class="grid cols-4">
+          <div class="field"><label>Fecha</label><input type="date" id="ie-fecha" value="${v.fecha}"></div>
+          <div class="field"><label>Desde (OACI)</label><input maxlength="4" style="text-transform:uppercase" id="ie-desde" value="${v.desde}"></div>
+          <div class="field"><label>Hasta (OACI)</label><input maxlength="4" style="text-transform:uppercase" id="ie-hasta" value="${v.hasta}"></div>
+          <div class="field"><label>Finalidad</label>
+            <select id="ie-finalidad">${FINALIDADES_VUELO.map(([f, label]) => `<option value="${f}" ${f === v.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}</select>
           </div>
-          <div class="grid cols-4">
-            <div class="field"><label>Aterrizajes de día</label><input type="number" min="0" id="ie-aterr-dia" value="${Calc.n(v.aterrizajes_dia)}"></div>
-            <div class="field"><label>Aterrizajes de noche</label><input type="number" min="0" id="ie-aterr-noche" value="${Calc.n(v.aterrizajes_noche)}"></div>
-            <div class="field" style="grid-column:span 2"><label>Observaciones</label><input id="ie-obs" value="${(v.observaciones || '').replace(/"/g, '&quot;')}"></div>
-          </div>
-          <p class="muted" style="margin:0 0 10px">Para corregir horas/tiempos de vuelo, usá "Editar todo" — acá solo se cambian los datos administrativos.</p>
-          <div class="btn-row">
-            <button class="btn" data-accion="guardar-inline">Guardar</button>
-            <button class="btn ghost" data-accion="cancelar-inline">Cancelar</button>
-            <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar todo</button>
-          </div>
-        </td>
-      </tr>
+        </div>
+        <div class="grid cols-4">
+          <div class="field"><label>Aterrizajes de día</label><input type="number" min="0" id="ie-aterr-dia" value="${Calc.n(v.aterrizajes_dia)}"></div>
+          <div class="field"><label>Aterrizajes de noche</label><input type="number" min="0" id="ie-aterr-noche" value="${Calc.n(v.aterrizajes_noche)}"></div>
+          <div class="field" style="grid-column:span 2"><label>Observaciones</label><input id="ie-obs" value="${(v.observaciones || '').replace(/"/g, '&quot;')}"></div>
+        </div>
+        <p class="muted" style="margin:0 0 10px">Para corregir horas/tiempos de vuelo, usá "Editar todo" — acá solo se cambian los datos administrativos.</p>
+        <div class="btn-row">
+          <button class="btn" data-accion="guardar-inline">Guardar</button>
+          <button class="btn ghost" data-accion="cancelar-inline">Cancelar</button>
+          <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar todo</button>
+        </div>
+      </div>
     `;
   },
 
   _bindEdicionInline(id) {
-    const fila = document.querySelector('.fila-edicion-inline');
-    if (!fila) return;
-    fila.querySelector('[data-accion="guardar-inline"]').onclick = () => this._guardarEdicionInline(id);
-    fila.querySelector('[data-accion="cancelar-inline"]').onclick = () => {
+    const panel = document.querySelector('.fila-edicion-inline');
+    if (!panel) return;
+    panel.querySelector('[data-accion="guardar-inline"]').onclick = () => this._guardarEdicionInline(id);
+    panel.querySelector('[data-accion="cancelar-inline"]').onclick = () => {
       this.filaEditando = null;
-      this._renderFilas(this.filasActuales);
+      this._renderLista();
     };
   },
 

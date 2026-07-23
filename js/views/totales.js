@@ -105,7 +105,47 @@ const ViewTotales = {
       return { cursoId, curso: CURSOS.find((c) => c.id === cursoId), config };
     }));
 
+    const horasMes = calcularHorasEsteMes(vuelos);
+    const porAeronave = calcularHorasPorAeronave(vuelos);
+
     main.innerHTML = `
+      <div class="card resumen-general">
+        <p class="resumen-general-label">${Icons.clock(14)} Tiempo total de vuelo</p>
+        <p class="resumen-general-valor"><span id="resumen-horas">0</span><span class="resumen-general-unidad">horas</span></p>
+        ${horasMes > 0 ? `<p class="resumen-general-mes">+${horasMes} hs este mes</p>` : ''}
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card stat-mini">
+          <p class="stat-mini-label">${Icons.list(14)} Vuelos</p>
+          <p class="stat-mini-valor">${vuelos.length}</p>
+          <p class="muted" style="margin:0">Operaciones totales</p>
+        </div>
+        <div class="card stat-mini">
+          <p class="stat-mini-label">${Icons.plane(14)} Aeronaves</p>
+          <p class="stat-mini-valor">${porAeronave.length}</p>
+          <p class="muted" style="margin:0">Voladas hasta hoy</p>
+        </div>
+      </div>
+
+      ${porAeronave.length ? `
+      <div class="card">
+        <h2>${Icons.plane(18)} Horas por aeronave</h2>
+        <div class="aeronave-horas-lista">
+          ${porAeronave.map((a) => `
+            <div class="aeronave-horas-item">
+              <span>${a.matricula}${a.modelo ? ` <span class="muted">${a.modelo}</span>` : ''}</span>
+              <span class="aeronave-horas-valor">${a.horas} hs</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+
+      <div class="card">
+        <h2>${Icons.search(18)} Discriminación de horas <span class="muted" style="font-weight:400">(ANAC — ya incluidas en el total, no se suman aparte)</span></h2>
+        ${htmlDiscriminaciones(agg)}
+      </div>
+
       <div class="card">
         <h2>${Icons.award(18)} Progreso de licencia</h2>
         <div id="detalle-progreso-licencia"></div>
@@ -114,14 +154,12 @@ const ViewTotales = {
       <div class="card">
         <h2>${Icons.barChart(18)} Totales acumulados</h2>
         <div class="grid cols-4">
-          ${stat('Total general', agg.tiempo_total)}
           ${stat('PIC', agg.total_pic)}
           ${stat('Copiloto', agg.total_copiloto)}
           ${stat('Día', agg.total_dia)}
           ${stat('Noche', agg.total_noche)}
           ${stat('Travesía', agg.total_travesia)}
           ${stat('Travesía PIC', agg.travesia_pic)}
-          ${stat('Vuelos cargados', vuelos.length, '')}
         </div>
       </div>
 
@@ -132,20 +170,6 @@ const ViewTotales = {
           ${stat('Noche', agg.aterrizajes_noche, '')}
           ${stat('Total aterrizajes', agg.aterrizajes_dia + agg.aterrizajes_noche, '')}
           ${stat('Remolques', agg.remolques, '')}
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>${Icons.search(18)} Discriminaciones <span class="muted" style="font-weight:400">(informativo — ya están incluidas en los totales de arriba, no se suman aparte)</span></h2>
-        <div class="grid cols-4">
-          ${stat('Instrucción', agg.instruccion_vuelo)}
-          ${stat('Multimotor', agg.multimotor)}
-          ${stat('Reactor', agg.reactor)}
-          ${stat('Turbohélice', agg.turbohelice)}
-          ${stat('Aeroaplicador', agg.aeroaplicador)}
-          ${stat('Instrumentos real', agg.instrumentos_real)}
-          ${stat('Instrumentos capota', agg.instrumentos_capota)}
-          ${stat('Adiestrador/Simulador', agg.adiestrador_simulador)}
         </div>
       </div>
 
@@ -170,11 +194,76 @@ const ViewTotales = {
       </div>` : ''}
     `;
 
+    const resumenHoras = document.getElementById('resumen-horas');
+    if (resumenHoras && typeof animarNumero === 'function') animarNumero(resumenHoras, agg.tiempo_total);
+
     try { renderDetalleProgreso(configsPorCurso, agg); } catch (err) { console.error('Error renderizando progreso de licencia:', err); }
     if (vuelos.length) { try { renderMapaRutas(vuelos); } catch (err) { console.error('Error renderizando el mapa de rutas:', err); } }
     animarStats(main);
   },
 };
+
+// Suma de horas de vuelos con fecha dentro del mes calendario actual —
+// mismo criterio simple que "Últimos 90 días" en otras pantallas, pero
+// acotado al mes en curso (no una ventana móvil de N días).
+function calcularHorasEsteMes(vuelos) {
+  const hoy = new Date();
+  const total = vuelos.reduce((s, v) => {
+    const f = Calc.parseFechaLocal(v.fecha);
+    if (!f || f.getFullYear() !== hoy.getFullYear() || f.getMonth() !== hoy.getMonth()) return s;
+    return s + Calc.n(v.tiempo_total);
+  }, 0);
+  return Calc.round2(total);
+}
+
+// Horas totales voladas en cada aeronave (por matrícula), de mayor a menor.
+function calcularHorasPorAeronave(vuelos) {
+  const map = {};
+  for (const v of vuelos) {
+    const key = v.aeronaves?.matricula || 'Sin aeronave asignada';
+    if (!map[key]) map[key] = { matricula: key, modelo: v.aeronaves?.marca_modelo || '', horas: 0 };
+    map[key].horas = Calc.round2(map[key].horas + Calc.n(v.tiempo_total));
+  }
+  return Object.values(map).sort((a, b) => b.horas - a.horas);
+}
+
+// Discriminaciones como barras de proporción sobre el total general (no
+// "de un mínimo" como el progreso de licencia — acá no hay meta, solo qué
+// porción del total representa cada categoría). "Monomotor" no es un campo
+// propio: se deriva restando del total las categorías que sí se cargan a
+// mano (multimotor/reactor/turbohélice/aeroaplicador/simulador) — es una
+// aproximación razonable (la mayoría de los vuelos caen en una sola
+// categoría de motor), no una clasificación garantizada al 100%.
+function htmlDiscriminaciones(agg) {
+  const monomotor = Math.max(0, Calc.round2(
+    agg.tiempo_total - agg.multimotor - agg.reactor - agg.turbohelice - agg.aeroaplicador - agg.adiestrador_simulador
+  ));
+  const filas = [
+    ['Monomotor', monomotor],
+    ['Multimotor', agg.multimotor],
+    ['Reactor', agg.reactor],
+    ['Turbohélice', agg.turbohelice],
+    ['Aeroaplicador', agg.aeroaplicador],
+    ['Instrumentos (real)', agg.instrumentos_real],
+    ['Instrumentos (capota)', agg.instrumentos_capota],
+    ['Adiestrador/Simulador', agg.adiestrador_simulador],
+    ['Nocturno', agg.total_noche],
+    ['Piloto al mando (PIC)', agg.total_pic],
+    ['Instrucción', agg.instruccion_vuelo],
+  ].filter(([, horas]) => horas > 0);
+
+  if (!filas.length) return '<p class="muted" style="margin:0">Todavía no hay datos suficientes.</p>';
+
+  return filas.map(([nombre, horas]) => {
+    const pct = agg.tiempo_total > 0 ? Math.min(100, Calc.round2((horas / agg.tiempo_total) * 100)) : 0;
+    return `
+    <div class="progreso-item">
+      <div class="pi-head"><span class="nombre">${nombre}</span></div>
+      <p class="pi-cifras"><span class="pi-actual">${horas} hs</span><span class="pi-de">de ${agg.tiempo_total} hs</span></p>
+      <div class="progreso-bar"><span style="width:${pct}%"></span></div>
+    </div>`;
+  }).join('');
+}
 
 function calcularItemsRequisito(cursoId, config, agg, configsPorCurso) {
   const items = config.map((req) => {
