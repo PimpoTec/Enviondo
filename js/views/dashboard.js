@@ -37,16 +37,19 @@ const ViewDashboard = {
       <div class="card">
         <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
         <div class="hero-hours">
-          <div class="ring-wrap">
-            <svg width="168" height="168" viewBox="0 0 168 168">
-              <circle class="ring-track" cx="84" cy="84" r="64" fill="none" stroke-width="9"></circle>
-              <circle id="ring-fill" class="ring-fill" cx="84" cy="84" r="64" fill="none" stroke-width="9"
-                stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="402"></circle>
-            </svg>
-            <div class="ring-label">
-              <span class="kpi" id="hero-horas-total">0</span>
-              <span class="kpi-unit">Horas${agg.adiestrador_simulador > 0 ? ` · ${agg.adiestrador_simulador} sim.` : ''}</span>
+          <div class="hero-ring-col">
+            <div class="ring-wrap">
+              <svg width="168" height="168" viewBox="0 0 168 168">
+                <circle class="ring-track" cx="84" cy="84" r="64" fill="none" stroke-width="9"></circle>
+                <circle id="ring-fill" class="ring-fill" cx="84" cy="84" r="64" fill="none" stroke-width="9"
+                  stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="402"></circle>
+              </svg>
+              <div class="ring-label">
+                <span class="kpi" id="hero-horas-total">0</span>
+                <span class="kpi-unit">Horas${agg.adiestrador_simulador > 0 ? ` · ${agg.adiestrador_simulador} sim.` : ''}</span>
+              </div>
             </div>
+            <p class="hero-ring-pct" id="hero-progreso-pct"></p>
           </div>
           <div id="hero-cursos-lista" style="flex:1;min-width:220px"></div>
         </div>
@@ -700,6 +703,7 @@ function renderHeroProgreso(configsPorCurso, agg) {
   const lista = document.getElementById('hero-cursos-lista');
   const ring = document.getElementById('ring-fill');
   const horasTotal = document.getElementById('hero-horas-total');
+  const pctLabel = document.getElementById('hero-progreso-pct');
   const CIRC = 402; // 2 * PI * r(64)
   const CIRC_MINI = 226; // 2 * PI * r(36)
 
@@ -709,6 +713,7 @@ function renderHeroProgreso(configsPorCurso, agg) {
   if (!conRequisitos.length) {
     lista.innerHTML = '<p class="muted" style="margin:0">Sin requisitos configurados todavía.</p>';
     ring.style.strokeDashoffset = CIRC;
+    if (pctLabel) pctLabel.textContent = '';
     return;
   }
 
@@ -725,9 +730,9 @@ function renderHeroProgreso(configsPorCurso, agg) {
   });
 
   const promedio = calcularProgresoPonderado(porCurso);
+  if (pctLabel) pctLabel.textContent = promedio + '%';
 
   lista.innerHTML = `
-    ${porCurso.length > 1 ? `<p class="muted" style="margin:0 0 10px">Progreso combinado: ${promedio}% completado</p>` : ''}
     <div class="cursos-anillos">
       ${porCurso.map(({ cursoId, principal, pct, faltan, esUnidad }) => {
         const offset = CIRC_MINI - (CIRC_MINI * pct) / 100;

@@ -3,6 +3,16 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 50 (Dashboard: % de progreso combinado centrado bajo el anillo)
+- [x] El texto "Progreso combinado: X% completado" se veía gris, arriba de
+      los anillos por curso — se reemplaza por solo el número (ej.
+      "93.54%"), en color marca (naranja), centrado justo debajo del
+      anillo grande de horas totales. Se muestra siempre (antes solo con
+      más de un curso activo) ya que anota lo que ya representa el
+      relleno del anillo grande, con 1 curso o varios.
+- [x] Verificado con Playwright (oscuro y claro). 96 tests siguen en
+      verde (cambio de presentación, sin tocar `calcularProgresoPonderado`).
+
 ## Hecho — tanda 49 (Bitácora: filtros colapsados; Aeronaves: checkbox y orden por uso)
 - [x] **Bitácora**: la card de filtros (rango de fecha, matrícula, función)
       ocupaba lugar de entrada aunque se use cada tanto — ahora arranca
