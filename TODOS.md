@@ -3,6 +3,34 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 49 (Bitácora: filtros colapsados; Aeronaves: checkbox y orden por uso)
+- [x] **Bitácora**: la card de filtros (rango de fecha, matrícula, función)
+      ocupaba lugar de entrada aunque se use cada tanto — ahora arranca
+      colapsada, con un botón "Filtros" (con un badge "Activo" si hay
+      algún filtro puesto) que la despliega al tocarlo. Si entrás por un
+      link con un filtro ya en la URL, arranca abierta para que se vea
+      qué está filtrando. El toggle no dispara un re-render con red (solo
+      muestra/oculta el panel — los campos siguen en el DOM).
+- [x] **Aeronaves**: el checkbox "Es un avión que suelo volar" (y los
+      otros 4 checkboxes de la app — cursos activos, currency rodante,
+      notificaciones) se veían con el estilo blanco/celeste default del
+      navegador, clavado contra el tema oscuro. Redibujados enteros
+      (`appearance:none` + tokens de la app) — sin tildar, un cuadrado
+      con el borde/fondo de siempre; tildado, relleno color marca con
+      el tilde dibujado a mano.
+- [x] **Orden de la flota** (Aeronaves, y los selectores de aeronave en
+      Nuevo vuelo/Programar vuelo/filtro de Bitácora/Exportar, que
+      comparten `Repo.listarAeronaves()`): ahora es preferidas primero
+      y, dentro de cada grupo, la que se voló más reciente arriba —
+      antes era alfabético, mezclando aviones que hace mucho no volás
+      con los que usás siempre. Nueva función pura `ordenarAeronavesPorUso`
+      (`js/db.js`, testeada en `tests/db.test.js`); si por lo que sea no
+      se pueden traer los vuelos (sin red y sin cache), se degrada al
+      orden preferida/alfabético, no rompe.
+- [x] Verificado con Playwright (oscuro y claro): panel de filtros
+      colapsado/expandido, checkbox tildado/sin tildar. 96 tests en
+      verde (4 nuevos para `ordenarAeronavesPorUso`).
+
 ## Hecho — tanda 48 (Aeronaves: tarjetas colapsadas por default)
 - [x] Con una flota grande, mostrar todas las tarjetas abiertas de una
       (foto + tarifas + acciones cada una) ocupaba toda la pantalla y

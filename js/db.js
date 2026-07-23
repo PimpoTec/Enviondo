@@ -32,11 +32,18 @@ const Repo = {
   // de la app — se cachean localmente (ver js/cache.js) para que abrir la
   // pantalla no espere la red si ya las tenés.
   async listarAeronaves() {
-    return Cache.conCache('aeronaves', async () => {
-      const { data, error } = await window.db.from('aeronaves').select('*').order('es_habitual', { ascending: false }).order('matricula');
-      if (error) throw error;
-      return data;
-    });
+    const [aeronaves, vuelos] = await Promise.all([
+      Cache.conCache('aeronaves', async () => {
+        const { data, error } = await window.db.from('aeronaves').select('*');
+        if (error) throw error;
+        return data;
+      }),
+      // Si esto falla (ej. sin red y todavía sin cache de vuelos), no tiene
+      // que tirar abajo la pantalla de aeronaves entera — se degrada al
+      // orden preferida/alfabético nomás (ver ordenarAeronavesPorUso).
+      this.listarVuelos().catch(() => []),
+    ]);
+    return ordenarAeronavesPorUso(aeronaves, vuelos);
   },
   async guardarAeronave(aeronave) {
     const user = await usuarioActual();
@@ -392,6 +399,25 @@ const Repo = {
   },
 };
 
+// Orden de la flota: preferidas primero y, dentro de cada grupo (preferida
+// o no), la que se voló más reciente arriba — así en un selector (Nuevo
+// vuelo, Programar vuelo) lo que realmente usás está a mano arriba, en vez
+// de una lista alfabética con aviones que ya no volás mezclados en el medio.
+// Pura (sin red), para poder testearla — ver tests/db.test.js.
+function ordenarAeronavesPorUso(aeronaves, vuelos) {
+  const ultimoVuelo = {};
+  for (const v of vuelos) {
+    if (!v.aeronave_id) continue;
+    if (!ultimoVuelo[v.aeronave_id] || v.fecha > ultimoVuelo[v.aeronave_id]) ultimoVuelo[v.aeronave_id] = v.fecha;
+  }
+  return [...aeronaves].sort((a, b) => {
+    if (!!a.es_habitual !== !!b.es_habitual) return a.es_habitual ? -1 : 1;
+    const fa = ultimoVuelo[a.id] || '', fb = ultimoVuelo[b.id] || '';
+    if (fa !== fb) return fa > fb ? -1 : 1;
+    return a.matricula.localeCompare(b.matricula);
+  });
+}
+
 // Los mínimos de licencia son una tabla GLOBAL (compartida por todos los
 // usuarios) — al editarla no sabemos de antemano en qué curso cae cada fila,
 // así que se invalida el cache de "todos" y el de cada curso individual.
@@ -446,3 +472,4 @@ window.CURSOS = CURSOS;
 window.Repo = Repo;
 window.agregarVuelos = agregarVuelos;
 window.valorRequisito = valorRequisito;
+window.ordenarAeronavesPorUso = ordenarAeronavesPorUso;

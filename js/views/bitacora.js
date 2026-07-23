@@ -19,6 +19,7 @@ const ViewBitacora = {
   orden: { campo: 'fecha', asc: false },
   pagina: 1,
   filaEditando: null, // id del vuelo con el panel de edición rápida abierto
+  filtroAbierto: false, // el panel de filtros arranca colapsado (se usa cada tanto)
 
   // El filtro vive en la URL (#bitacora?desde=...&aeronave=...), no solo en
   // memoria — si el navegador descarga la pestaña en segundo plano (pasa
@@ -39,6 +40,10 @@ const ViewBitacora = {
         finalidad_vuelo: params.get('finalidad') || undefined,
       };
       this.pagina = 1;
+      // Si venís de un link/recarga con un filtro ya puesto en la URL, el
+      // panel arranca abierto (para que se vea qué está filtrando) — si no,
+      // colapsado, que es el caso de uso más común (se usa cada tanto).
+      this.filtroAbierto = Object.values(this.filtros).some(Boolean);
     }
     this.filtros = this.filtros || {};
     const [vuelos, aeronaves, vencimientos] = await Promise.all([
@@ -46,6 +51,7 @@ const ViewBitacora = {
     ]);
     this.vuelos = vuelos;
     this.aeronaves = aeronaves;
+    const hayFiltroActivo = Object.values(this.filtros).some(Boolean);
 
     main.innerHTML = `
       <div class="pantalla-header">
@@ -59,29 +65,36 @@ const ViewBitacora = {
         </div>
       </div>
 
-      <div class="card">
-        <div class="campo-filtro">
-          <label>${Icons.calendar(14)} Rango de fecha</label>
-          <div class="campo-filtro-rango">
-            <input type="date" id="fx-desde" value="${this.filtros.desde || ''}">
-            <span class="muted">—</span>
-            <input type="date" id="fx-hasta" value="${this.filtros.hasta || ''}">
+      <div class="card" style="padding:6px 16px">
+        <button type="button" class="filtro-toggle" id="btn-toggle-filtro">
+          ${Icons.tag('search', 'Filtros')}
+          ${hayFiltroActivo ? '<span class="badge neutral">Activo</span>' : ''}
+          <span class="filtro-toggle-chevron${this.filtroAbierto ? ' abierto' : ''}">${Icons.chevronRight(16)}</span>
+        </button>
+        <div class="filtro-panel${this.filtroAbierto ? '' : ' oculto'}">
+          <div class="campo-filtro">
+            <label>${Icons.calendar(14)} Rango de fecha</label>
+            <div class="campo-filtro-rango">
+              <input type="date" id="fx-desde" value="${this.filtros.desde || ''}">
+              <span class="muted">—</span>
+              <input type="date" id="fx-hasta" value="${this.filtros.hasta || ''}">
+            </div>
           </div>
+          <div class="campo-filtro">
+            <label>${Icons.plane(14)} Matrícula</label>
+            <select id="fx-aeronave"><option value="">Todas las aeronaves</option>
+              ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === this.filtros.aeronave_id ? 'selected' : ''}>${a.matricula}</option>`).join('')}
+            </select>
+          </div>
+          <div class="campo-filtro">
+            <label>${Icons.person(14)} Función</label>
+            <select id="fx-finalidad">
+              <option value="">Cualquier función</option>
+              ${FINALIDADES_VUELO.map(([f, label]) => `<option value="${f}" ${f === this.filtros.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}
+            </select>
+          </div>
+          <button class="btn ghost" id="btn-limpiar-filtro" style="width:100%;justify-content:center">${Icons.tag('list', 'Limpiar filtros')}</button>
         </div>
-        <div class="campo-filtro">
-          <label>${Icons.plane(14)} Matrícula</label>
-          <select id="fx-aeronave"><option value="">Todas las aeronaves</option>
-            ${this.aeronaves.map((a) => `<option value="${a.id}" ${a.id === this.filtros.aeronave_id ? 'selected' : ''}>${a.matricula}</option>`).join('')}
-          </select>
-        </div>
-        <div class="campo-filtro">
-          <label>${Icons.person(14)} Función</label>
-          <select id="fx-finalidad">
-            <option value="">Cualquier función</option>
-            ${FINALIDADES_VUELO.map(([f, label]) => `<option value="${f}" ${f === this.filtros.finalidad_vuelo ? 'selected' : ''}>${label}</option>`).join('')}
-          </select>
-        </div>
-        <button class="btn ghost" id="btn-limpiar-filtro" style="width:100%;justify-content:center">${Icons.tag('list', 'Limpiar filtros')}</button>
       </div>
 
       <div class="card">
@@ -111,6 +124,11 @@ const ViewBitacora = {
       <button type="button" class="fab" onclick="Router.irA('nuevo-vuelo')" aria-label="Nuevo registro">${Icons.plusCircle(24)}</button>
     `;
 
+    document.getElementById('btn-toggle-filtro').onclick = () => {
+      this.filtroAbierto = !this.filtroAbierto;
+      document.querySelector('.filtro-panel').classList.toggle('oculto', !this.filtroAbierto);
+      document.querySelector('.filtro-toggle-chevron').classList.toggle('abierto', this.filtroAbierto);
+    };
     document.querySelectorAll('#fx-desde, #fx-hasta, #fx-aeronave, #fx-finalidad').forEach((el) => {
       el.addEventListener('change', () => this._aplicarFiltro());
     });
