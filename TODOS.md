@@ -3,6 +3,60 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 45 (sistema de diseño "AeroMetric": traducido a vanilla CSS/JS en toda la app)
+- [x] A pedido, se pasaron 4 mockups (Bitácora, Aeronaves, Dashboard, Perfil)
+      + 2 `DESIGN.md` + 3 `code.html` (Tailwind + Material Symbols,
+      nombre "AeroMetric") con la instrucción de mantener ese estilo visual
+      en toda la app. Decisión explícita, comunicada antes de empezar: se
+      adapta el lenguaje visual (glassmorphism, tipografía Hanken Grotesk +
+      Inter, acento naranja, radios más redondeados) al sistema vanilla
+      CSS/JS existente — **sin** migrar a Tailwind/React ni al set de
+      Material Symbols Outlined (se sigue usando `Icons.js`, el set de SVG
+      propio), y **sin** fotos reales de aeronave (no hay función de subida
+      de fotos — se usa un degradé + ícono grande en su lugar).
+- [x] **Identidad**: la app pasa a llamarse **Enviondo** también en la UI
+      (antes solo en el repo/branches) — header, `<title>`, login,
+      `manifest.webmanifest` (`name`/`short_name`).
+- [x] **Base global**: `--radius`/`--radius-sm` un poco más redondeados,
+      tipografía de títulos Hanken Grotesk (`--font-headline`), tokens de
+      vidrio (`--glass-bg`/`--glass-border`/`--glow-primary`, con el efecto
+      de vidrio desactivado en tema claro vía override) aplicados a
+      `.card`, `header.topbar`, `.bottom-nav`, `.modal-box`, `.ticket-modal`.
+      Tablas rediseñadas como filas-tarjeta separadas (`border-spacing` en
+      vez de `border-collapse`, esquinas redondeadas, barrita de acento al
+      pasar el mouse) — verificado que la fila de edición inline de
+      Bitácora (`.fila-edicion-inline`, con su `<td display:block>`) sigue
+      viéndose bien con el nuevo espaciado.
+- [x] **Aeronaves**: de tabla plana a grilla tipo "bento" — fila de stats
+      (Total/Aeronaves/Simuladores/Preferidas, 100% datos reales, sin
+      inventar "en taller" que no existe en el modelo), una tarjeta por
+      aeronave/simulador (header con degradé + ícono + matrícula, tarifas
+      diurna/nocturna con íconos sol/luna, pie con "Preferida" si aplica),
+      y una tarjeta punteada "Nueva aeronave" al final de la grilla.
+- [x] **Dashboard**: nuevo panel de bienvenida (glow ambiental, saludo con
+      el nombre del piloto si está cargado en Datos Personales, mensaje
+      corto sobre el próximo vuelo agendado, botones "Nuevo vuelo" /
+      "Exportar logbook", anillos decorativos). El progreso de licencia
+      pasa de una lista de texto + barra combinada a un anillo chico por
+      curso activo (PPA/PCA/etc., cada uno con su % y "faltan X hs"), con
+      el % combinado como texto aparte solo si hay más de un curso activo.
+- [x] **Perfil**: los vencimientos pasan de tabla a tarjetas con acento de
+      color a la izquierda según urgencia (vigente/por vencer/vencido) y
+      una barra fina de proximidad dentro de la ventana de alerta (solo
+      con datos reales: días restantes vs. umbral configurado — no se
+      inventa una "vigencia total" que la app no registra). Banner de
+      alerta crítica en el menú de Perfil cuando hay algo realmente
+      vencido, con acción directa a Alertas.
+- [x] Verificado con Playwright (tema oscuro y claro) cada pantalla tocada:
+      tabla de Bitácora + fila de edición inline, grilla de Aeronaves,
+      hero + anillos por curso del Dashboard, menú y Alertas de Perfil.
+      88 tests siguen en verde (cambios de presentación, sin tocar lógica
+      pura — `estadoVencimiento()` solo suma un campo `dias`/`umbral`
+      adicional al objeto que ya devolvía).
+- [x] Pendiente si se quiere seguir esta línea: Costos y Exportar (dentro
+      de Perfil) no se tocaron — quedaron con el estilo de base ya
+      heredado (cards/tablas/botones), sin secciones propias del mockup.
+
 ## Hecho — tanda 44 (pulido visual "profesional y moderno": Dashboard, Bitácora, Totales)
 - [x] A pedido, primer pasada de una mejora visual más grande — usando
       21st.dev (`mcp__21ST_CHAT__search_picker`) como inspiración

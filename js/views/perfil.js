@@ -32,9 +32,10 @@ function estadoVencimiento(v) {
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
   const fv = Calc.parseFechaLocal(v.fecha_vencimiento);
   const dias = Math.round((fv - hoy) / 86400000);
-  if (dias < 0) return { estado: 'danger', icon: 'xCircle', texto: `Vencido hace ${Math.abs(dias)} días` };
-  if (dias <= (v.umbral_alerta_dias || 30)) return { estado: 'warn', icon: 'alertTriangle', texto: `Vence en ${dias} días` };
-  return { estado: 'ok', icon: 'checkCircle', texto: `Vigente (${dias} días)` };
+  const umbral = v.umbral_alerta_dias || 30;
+  if (dias < 0) return { estado: 'danger', icon: 'xCircle', texto: `Vencido hace ${Math.abs(dias)} días`, dias, umbral };
+  if (dias <= umbral) return { estado: 'warn', icon: 'alertTriangle', texto: `Vence en ${dias} días`, dias, umbral };
+  return { estado: 'ok', icon: 'checkCircle', texto: `Vigente (${dias} días)`, dias, umbral };
 }
 
 const ViewPerfil = {
@@ -128,8 +129,19 @@ const ViewPerfil = {
   // MENÚ PRINCIPAL
   // ==========================================================================
   _htmlMenu(papeleraLen, vencimientos) {
+    const vencidos = vencimientos.filter((v) => estadoVencimiento(v).estado === 'danger').length;
     const alertasPend = vencimientos.filter((v) => estadoVencimiento(v).estado !== 'ok').length;
     return `
+      ${vencidos ? `
+      <div class="alerta-critica">
+        <span class="alerta-critica-icon">${Icons.alertTriangle(20)}</span>
+        <div class="alerta-critica-texto">
+          <p class="alerta-critica-titulo">${vencidos === 1 ? 'Tenés un vencimiento vencido' : `Tenés ${vencidos} vencimientos vencidos`}</p>
+          <p class="muted" style="margin:2px 0 0">Revisalo antes de tu próximo vuelo.</p>
+        </div>
+        <button class="btn" id="btn-ir-alertas" style="flex-shrink:0">Ver</button>
+      </div>` : ''}
+
       <div class="card" style="padding:6px 16px">
         <div class="menu-list">
           ${MENU_PERFIL.map((m) => {
@@ -164,6 +176,8 @@ const ViewPerfil = {
       b.onclick = () => Router.irA(b.dataset.ruta || ('perfil?seccion=' + b.dataset.id));
     });
     document.getElementById('btn-logout').onclick = () => Auth.cerrarSesion();
+    const btnIrAlertas = document.getElementById('btn-ir-alertas');
+    if (btnIrAlertas) btnIrAlertas.onclick = () => Router.irA('perfil?seccion=alertas');
   },
 
   // ==========================================================================
@@ -422,24 +436,30 @@ const ViewPerfil = {
         </div>
         <button class="btn" id="btn-agregar-vencimiento">Agregar vencimiento</button>
 
-        <div class="table-wrap" style="margin-top:14px"><table>
-          <thead><tr><th>Tipo</th><th>Vence</th><th>Estado</th><th>Notas</th><th></th></tr></thead>
-          <tbody id="tbody-vencimientos">
-            ${vencimientos.map((v) => {
-              const est = estadoVencimiento(v);
-              return `<tr>
-                <td>${v.tipo}${v.rodante ? ` <span class="muted" style="font-size:11px">(cada ${v.intervalo_dias}d)</span>` : ''}</td>
-                <td>${fmtFecha(v.fecha_vencimiento)}</td>
-                <td><span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span></td>
-                <td>${v.notas || ''}</td>
-                <td>
-                  <button class="btn ghost" data-accion="recordatorios" data-id="${v.id}" title="Recordatorios">${Icons.bell(16)}</button>
-                  <button class="btn ghost" data-accion="borrar" data-id="${v.id}" title="Borrar">${Icons.trash(16)}</button>
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table></div>
+        <div class="venc-list" id="tbody-vencimientos" style="margin-top:14px">
+          ${vencimientos.length ? vencimientos.map((v) => {
+            const est = estadoVencimiento(v);
+            // Barra honesta: solo tiene sentido dentro de la ventana de alerta
+            // (no inventamos "vigencia total" — esa fecha de emisión no se
+            // carga). Vencido = barra llena; vigente y lejos = sin barra.
+            const pct = est.estado === 'danger' ? 100
+              : est.estado === 'warn' ? Math.round((1 - Math.max(0, est.dias) / est.umbral) * 100)
+              : 0;
+            return `
+            <div class="venc-item venc-${est.estado}" data-id="${v.id}">
+              <div class="venc-item-top">
+                <span class="venc-item-tipo">${v.tipo}${v.rodante ? ` <span class="muted" style="font-size:11px">(cada ${v.intervalo_dias}d)</span>` : ''}</span>
+                <span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span>
+              </div>
+              <p class="muted" style="margin:2px 0 8px">Vence ${fmtFecha(v.fecha_vencimiento)}${v.notas ? ` · ${v.notas}` : ''}</p>
+              ${pct > 0 ? `<div class="progreso-bar venc-item-bar"><span style="width:${pct}%"></span></div>` : ''}
+              <div class="venc-item-acciones">
+                <button class="btn ghost" data-accion="recordatorios" data-id="${v.id}" title="Recordatorios">${Icons.bell(16)}</button>
+                <button class="btn ghost" data-accion="borrar" data-id="${v.id}" title="Borrar">${Icons.trash(16)}</button>
+              </div>
+            </div>`;
+          }).join('') : '<p class="empty-state">Todavía no cargaste ningún vencimiento.</p>'}
+        </div>
 
         <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
         <div id="currency-lista"></div>

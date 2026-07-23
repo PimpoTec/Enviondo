@@ -1,6 +1,6 @@
 {
-  "name": "Libro de Vuelo — ANAC 290/2012",
-  "short_name": "Libro de Vuelo",
+  "name": "Enviondo — Libro de Vuelo ANAC 290/2012",
+  "short_name": "Enviondo",
   "description": "Libro de vuelo personal, progreso hacia la CPL y control de costos.",
   "start_url": "./",
   "scope": "./",

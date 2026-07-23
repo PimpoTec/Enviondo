@@ -10,9 +10,10 @@ const ViewDashboard = {
 
   async render() {
     const main = document.getElementById('main-content');
-    const [vuelos, cursosActivos, programados, aeronaves] = await Promise.all([
+    const [vuelos, cursosActivos, programados, aeronaves, datosPiloto] = await Promise.all([
       Repo.listarVuelos(), Repo.getCursosActivos(),
       Repo.listarVuelosProgramados(), Repo.listarAeronaves(),
+      Repo.getDatosPiloto().catch(() => ({})),
     ]);
     this.aeronaves = aeronaves;
     const agg = agregarVuelos(vuelos);
@@ -31,7 +32,25 @@ const ViewDashboard = {
       return { cursoId, curso: CURSOS.find((c) => c.id === cursoId), config };
     }));
 
+    const nombrePiloto = (datosPiloto?.nombre_completo || '').trim().split(' ')[0] || 'piloto';
+    const heroSub = this._mensajeHero(programados);
+
     main.innerHTML = `
+      <div class="card dash-hero">
+        <div class="dash-hero-texto">
+          <p class="dash-hero-saludo">Bienvenido de nuevo</p>
+          <h2 class="dash-hero-nombre">${nombrePiloto}</h2>
+          <p class="dash-hero-mensaje">${heroSub}</p>
+          <div class="dash-hero-cta">
+            <button class="btn" onclick="Router.irA('nuevo-vuelo')">${Icons.plusCircle(16)} Nuevo vuelo</button>
+            <button class="btn secondary" onclick="Router.irA('exportar')">${Icons.download(16)} Exportar logbook</button>
+          </div>
+        </div>
+        <div class="dash-hero-deco" aria-hidden="true">
+          <div class="dash-hero-anillo-out"><div class="dash-hero-anillo-in">${Icons.plane(26)}</div></div>
+        </div>
+      </div>
+
       <div class="card">
         <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
         <div class="hero-hours">
@@ -46,19 +65,9 @@ const ViewDashboard = {
               <span class="kpi-unit">Horas${agg.adiestrador_simulador > 0 ? ` · ${agg.adiestrador_simulador} sim.` : ''}</span>
             </div>
           </div>
-          <div style="flex:1;min-width:220px">
-            <p class="muted" style="margin:0 0 2px">Progreso licencia</p>
-            <p style="margin:0 0 12px;font-size:18px;font-weight:600">${cursosActivos.map((id) => id.replace('_', ' ')).join(' + ')}</p>
-            <div id="hero-cursos-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
-            <div class="progreso-bar"><span id="hero-bar" style="width:0%"></span></div>
-            <p class="muted" id="hero-pct" style="margin:6px 0 0"></p>
-          </div>
+          <div id="hero-cursos-lista" style="flex:1;min-width:220px"></div>
         </div>
       </div>
-
-      <button class="btn" style="width:100%;padding:16px;gap:10px;margin-bottom:16px" onclick="Router.irA('nuevo-vuelo')">
-        <span>Nuevo vuelo</span>${Icons.plusCircle(18)}
-      </button>
 
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -74,6 +83,20 @@ const ViewDashboard = {
 
     try { renderHeroProgreso(configsPorCurso, agg); } catch (err) { console.error('Error renderizando progreso del dashboard:', err); }
     try { this._renderProximoVuelo(programados); } catch (err) { console.error('Error renderizando próximo vuelo:', err); }
+  },
+
+  // Texto corto para el hero de bienvenida — a partir del vuelo agendado
+  // más próximo, sin repetir la ficha completa que ya se ve más abajo.
+  _mensajeHero(programados) {
+    if (!programados.length) return 'Todavía no tenés vuelos agendados — cargá el próximo con "Nuevo vuelo".';
+    const p = programados[0];
+    const fechaLocal = Calc.parseFechaLocal(p.fecha);
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const diasFaltan = fechaLocal ? Math.round((fechaLocal - hoy) / 86400000) : null;
+    const cuando = diasFaltan === null ? `el ${fmtFecha(p.fecha)}` : diasFaltan <= 0 ? 'hoy' : diasFaltan === 1 ? 'mañana' : `en ${diasFaltan} días`;
+    const hora = p.hora_prevista ? ` a las ${p.hora_prevista.slice(0, 5)}` : '';
+    const matricula = p.aeronaves?.matricula ? ` en ${p.aeronaves.matricula}` : '';
+    return `Tu próximo vuelo${matricula} es ${cuando}${hora}. Revisá el plan más abajo.`;
   },
 
   _renderProximoVuelo(programados) {
@@ -671,19 +694,16 @@ function calcularProgresoPonderado(porCurso) {
 // anillo grande del hero.
 function renderHeroProgreso(configsPorCurso, agg) {
   const lista = document.getElementById('hero-cursos-lista');
-  const bar = document.getElementById('hero-bar');
-  const pctLabel = document.getElementById('hero-pct');
   const ring = document.getElementById('ring-fill');
   const horasTotal = document.getElementById('hero-horas-total');
   const CIRC = 402; // 2 * PI * r(64)
+  const CIRC_MINI = 226; // 2 * PI * r(36)
 
   if (horasTotal && typeof animarNumero === 'function') animarNumero(horasTotal, agg.tiempo_total);
 
   const conRequisitos = configsPorCurso.filter(({ config }) => config.length);
   if (!conRequisitos.length) {
     lista.innerHTML = '<p class="muted" style="margin:0">Sin requisitos configurados todavía.</p>';
-    pctLabel.textContent = 'Sin requisitos configurados';
-    bar.style.width = '0%';
     ring.style.strokeDashoffset = CIRC;
     return;
   }
@@ -700,18 +720,31 @@ function renderHeroProgreso(configsPorCurso, agg) {
     return { cursoId, curso, principal, actual, minimo, pct, faltan, esUnidad };
   });
 
-  lista.innerHTML = porCurso.map(({ cursoId, curso, principal, pct, faltan, esUnidad }) => `
-    <div class="doc-card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-        <span class="muted">${cursoId.replace('_', ' ')} — ${LABELS_REQUISITO[principal.nombre_requisito] || principal.nombre_requisito}</span>
-        <span style="font-family:var(--font-mono);flex-shrink:0">${pct}%</span>
-      </div>
-      <p class="muted" style="margin:2px 0 0">${faltan <= 0 ? '¡Completo!' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`}</p>
-    </div>`).join('');
-
   const promedio = calcularProgresoPonderado(porCurso);
-  bar.style.width = promedio + '%';
-  pctLabel.textContent = porCurso.length > 1 ? `Progreso combinado: ${promedio}% completado` : `${promedio}% completado`;
+
+  lista.innerHTML = `
+    ${porCurso.length > 1 ? `<p class="muted" style="margin:0 0 10px">Progreso combinado: ${promedio}% completado</p>` : ''}
+    <div class="cursos-anillos">
+      ${porCurso.map(({ cursoId, principal, pct, faltan, esUnidad }) => {
+        const offset = CIRC_MINI - (CIRC_MINI * pct) / 100;
+        const estado = faltan <= 0 ? '¡Completo!' : `faltan ${faltan}${esUnidad ? '' : ' hs'}`;
+        return `
+          <div class="curso-anillo">
+            <div class="curso-anillo-svg">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <circle class="ring-track" cx="40" cy="40" r="36" fill="none" stroke-width="7"></circle>
+                <circle class="ring-fill" cx="40" cy="40" r="36" fill="none" stroke-width="7"
+                  stroke-linecap="round" stroke-dasharray="${CIRC_MINI}" stroke-dashoffset="${offset}"></circle>
+              </svg>
+              <span class="curso-anillo-pct">${pct}%</span>
+            </div>
+            <p class="curso-anillo-nombre">${cursoId.replace('_', ' ')}</p>
+            <p class="curso-anillo-estado muted">${estado}</p>
+          </div>`;
+      }).join('')}
+    </div>
+  `;
+
   ring.style.strokeDashoffset = CIRC - (CIRC * promedio) / 100;
 }
 

@@ -29,10 +29,17 @@
 
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 2px 6px rgba(0, 0, 0, 0.55);
   --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 28px rgba(0, 0, 0, 0.5);
-  --radius: 10px;
-  --radius-sm: 6px;
+  --radius: 12px;
+  --radius-sm: 8px;
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-headline: "Hanken Grotesk", var(--font);
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  /* "Glass cockpit": tarjetas semi-transparentes con blur en vez de un fondo
+     sólido — se activan en .card más abajo, solo en tema oscuro (en claro,
+     el blur contra un fondo claro se ve turbio, no aporta nada). */
+  --glass-bg: rgba(28, 28, 30, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glow-primary: 0 0 40px -8px rgba(255, 159, 28, 0.25);
 }
 
 :root[data-theme="light"] {
@@ -59,6 +66,11 @@
 
   --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
   --shadow-lg: 0 4px 10px rgba(16, 24, 40, .07), 0 14px 30px rgba(16, 24, 40, .12);
+  /* Sin "glass" en tema claro: blur contra un fondo claro se ve turbio en vez
+     de premium — las tarjetas quedan con su fondo sólido de siempre. */
+  --glass-bg: var(--bg-elevated);
+  --glass-border: var(--border);
+  --glow-primary: none;
 }
 /* La preferencia del sistema se resuelve por JS (script inline en index.html,
    y app.js), que fija data-theme='dark'|'light' siempre — por eso alcanza con
@@ -93,10 +105,14 @@ header.topbar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 16px;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
 }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+.brand {
+  display: flex; align-items: center; gap: 8px; color: var(--brand);
+  font-family: var(--font-headline); font-weight: 700; font-size: 18px; letter-spacing: -0.01em;
+}
 .brand .icon { color: var(--brand); }
 .topbar-actions { display: flex; gap: 8px; align-items: center; }
 .icon-btn {
@@ -111,7 +127,9 @@ header.topbar {
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 1200;
   display: flex; justify-content: space-around;
-  background: var(--bg-elevated); border-top: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--glass-border);
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   /* Capa de composición propia: sin esto, el mapa (con su animación de ping
      corriendo sin parar) puede hacer que el navegador recalcule mal el
@@ -151,8 +169,9 @@ main {
 /* ---------- Cards / layout ---------- */
 @keyframes card-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 16px;
@@ -162,7 +181,7 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .card { animation: none; }
 }
-.card h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.card h2 { margin: 0 0 12px; font-family: var(--font-headline); font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .card h2 .icon { color: var(--brand); }
 .card h3 { margin: 0 0 8px; font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
 .card-compact { padding: 12px 14px; }
@@ -171,6 +190,33 @@ main {
 .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+
+/* ---------- Dashboard: hero de bienvenida con glow ambiental ---------- */
+.dash-hero {
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  box-shadow: var(--glow-primary);
+}
+.dash-hero-texto { position: relative; z-index: 1; }
+.dash-hero-saludo { margin: 0 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+.dash-hero-nombre { margin: 0 0 8px; font-family: var(--font-headline); font-size: 24px; font-weight: 800; text-transform: capitalize; }
+.dash-hero-mensaje { margin: 0; color: var(--text-muted); max-width: 46ch; }
+.dash-hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.dash-hero-deco { position: relative; z-index: 1; flex-shrink: 0; display: none; }
+@media (min-width: 560px) { .dash-hero-deco { display: block; } }
+.dash-hero-anillo-out {
+  width: 116px; height: 116px; border: 2px solid var(--brand-weak); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  animation: dash-hero-pulse 2.4s ease-in-out infinite;
+}
+.dash-hero-anillo-in {
+  width: 76px; height: 76px; border: 2px solid var(--brand-weak); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; color: var(--brand);
+}
+@keyframes dash-hero-pulse {
+  0%, 100% { opacity: .55; } 50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .dash-hero-anillo-out { animation: none; } }
 
 /* ---------- Hero: horas totales con anillo ---------- */
 .hero-hours {
@@ -186,6 +232,46 @@ main {
 }
 .ring-label .kpi { font-family: var(--font-mono); font-size: 30px; font-weight: 600; color: var(--brand); line-height: 1.1; }
 .ring-label .kpi-unit { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+
+/* Un anillo chico por curso activo (en vez de una lista de texto) — igual
+   de compacto con 1 solo curso, y escala bien con 2 o 3 en simultáneo. */
+.cursos-anillos { display: flex; flex-wrap: wrap; gap: 20px; }
+.curso-anillo { display: flex; flex-direction: column; align-items: center; text-align: center; width: 84px; }
+.curso-anillo-svg { position: relative; width: 80px; height: 80px; }
+.curso-anillo-svg svg { transform: rotate(-90deg); overflow: visible; }
+.curso-anillo-pct {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--brand);
+}
+.curso-anillo-nombre { margin: 6px 0 0; font-family: var(--font-headline); font-size: 13px; font-weight: 700; }
+.curso-anillo-estado { margin: 1px 0 0; }
+
+/* ---------- Vencimientos: tarjetas con acento por urgencia ---------- */
+.venc-list { display: flex; flex-direction: column; gap: 10px; }
+.venc-item {
+  background: var(--bg-subtle); border: 1px solid var(--border); border-left: 3px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+}
+.venc-item.venc-ok { border-left-color: var(--ok); }
+.venc-item.venc-warn { border-left-color: var(--warn); }
+.venc-item.venc-danger { border-left-color: var(--danger); }
+.venc-item-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.venc-item-tipo { font-weight: 600; }
+.venc-item-bar { margin-bottom: 8px; }
+.venc-item.venc-danger .venc-item-bar > span { background: var(--danger); box-shadow: none; }
+.venc-item.venc-warn .venc-item-bar > span { background: var(--warn); box-shadow: none; }
+.venc-item-acciones { display: flex; gap: 4px; justify-content: flex-end; }
+
+/* Banner de alerta crítica en el menú de Perfil — solo aparece si hay algo
+   realmente vencido (no por "se acerca"), con una acción directa. */
+.alerta-critica {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  background: var(--danger-weak); border: 1px solid var(--danger); border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.alerta-critica-icon { color: var(--danger); flex-shrink: 0; }
+.alerta-critica-texto { flex: 1; min-width: 0; }
+.alerta-critica-titulo { margin: 0; font-weight: 700; color: var(--danger); }
 
 /* ---------- Barras de progreso ---------- */
 .progreso-item { margin-bottom: 16px; }
@@ -341,7 +427,8 @@ main {
 .ticket-overlay { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .ticket-modal {
   position: relative;
-  background: var(--bg-elevated); border: 1px solid var(--border);
+  background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 20px; max-width: 420px; width: 100%;
   max-height: 88vh; overflow-y: auto;
@@ -409,14 +496,21 @@ input.campo-invalido, select.campo-invalido { border-color: var(--danger); backg
 
 /* ---------- Tablas ---------- */
 .table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
+/* Filas como tarjetas separadas (no una grilla conectada de toda la vida):
+   border-spacing en vez de border-collapse, y cada <tr> del cuerpo con su
+   propio fondo + esquinas redondeadas en la primera/última celda — el
+   "hueco" entre filas hace de separador en vez de un borde inferior. */
+table { width: 100%; border-collapse: separate; border-spacing: 0 8px; font-size: 13px; }
+th, td { padding: 10px; text-align: left; white-space: nowrap; }
+th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; padding-bottom: 4px; }
+tbody tr { background: var(--bg-subtle); }
+tbody td:first-child { border-top-left-radius: var(--radius-sm); border-bottom-left-radius: var(--radius-sm); }
+tbody td:last-child { border-top-right-radius: var(--radius-sm); border-bottom-right-radius: var(--radius-sm); }
 /* Barrita de acento a la izquierda al pasar el mouse/tocar — un borde
    transparente por default (no mueve nada al aparecer, solo cambia de
    color) en vez de aparecer de la nada. */
-td { border-left: 2px solid transparent; transition: background .15s ease, border-color .15s ease; }
-tbody tr:hover td { background: var(--bg-subtle); }
+tbody td { border-left: 3px solid transparent; transition: background .15s ease, border-color .15s ease; }
+tbody tr:hover td { background: var(--bg-elevated-2); }
 tbody tr:hover td:first-child { border-left-color: var(--brand); }
 td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
@@ -455,6 +549,79 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 }
 .stat .num { font-family: var(--font-mono); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .stat .lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+
+/* ---------- Aeronaves: grilla tipo bento ---------- */
+.flota-header {
+  display: flex; justify-content: space-between; align-items: flex-end; gap: 12px;
+  flex-wrap: wrap; margin-bottom: 16px;
+}
+.flota-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+@media (min-width: 640px) { .flota-stats { grid-template-columns: repeat(4, 1fr); } }
+.flota-stat {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: blur(12px);
+  border-radius: var(--radius); padding: 12px 14px;
+}
+.flota-stat-accent { border-left: 3px solid var(--brand); }
+.flota-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; margin: 0 0 4px; }
+.flota-stat-valor { font-family: var(--font-headline); font-size: 22px; font-weight: 700; color: var(--brand); margin: 0; }
+
+.aeronave-grid {
+  display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 20px;
+}
+@media (min-width: 640px) { .aeronave-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1000px) { .aeronave-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.aeronave-card {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: blur(12px);
+  border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column;
+  transition: border-color .2s ease;
+}
+.aeronave-card:hover { border-color: var(--brand-weak); }
+/* Sin fotos reales de aeronave todavía: un degradé + ícono grande ocupa el
+   lugar de la miniatura del mock, en vez de dejar un hueco vacío. */
+.aeronave-card-top {
+  position: relative; height: 84px; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--bg-elevated-2), var(--bg-subtle));
+  color: var(--brand); opacity: .85;
+}
+.aeronave-card-matricula {
+  position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.45); backdrop-filter: blur(4px);
+  color: var(--brand); font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: var(--radius-sm); letter-spacing: .03em;
+}
+.aeronave-card-body { padding: 14px 16px; flex-grow: 1; }
+.aeronave-card-titulo { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+.aeronave-card-titulo h3 { font-family: var(--font-headline); font-size: 15px; font-weight: 700; margin: 0 0 2px; }
+.aeronave-card-titulo .muted { margin: 0; }
+.aeronave-card-acciones { display: flex; gap: 2px; flex-shrink: 0; }
+.aeronave-card-acciones .btn.ghost { padding: 4px; }
+.aeronave-card-tarifas { display: flex; flex-direction: column; gap: 6px; }
+.aeronave-tarifa-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.aeronave-tarifa-label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; font-weight: 700; }
+.aeronave-tarifa-label .icon { color: var(--brand); width: 14px; height: 14px; }
+.aeronave-tarifa-valor { font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.aeronave-card-footer {
+  padding: 10px 16px; border-top: 1px solid var(--glass-border); background: var(--bg-subtle);
+  font-size: 11px;
+}
+.aeronave-card-preferida { display: inline-flex; align-items: center; gap: 4px; color: var(--brand); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.aeronave-card-preferida .icon { width: 13px; height: 13px; }
+
+.aeronave-card-nueva {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  gap: 6px; padding: 28px 20px; min-height: 220px;
+  background: transparent; border: 2px dashed var(--border); border-radius: var(--radius);
+  color: var(--text); cursor: pointer; transition: border-color .2s ease, background .2s ease;
+  font: inherit;
+}
+.aeronave-card-nueva:hover { border-color: var(--brand); background: var(--brand-weak); }
+.aeronave-card-nueva-icono { color: var(--text-muted); transition: color .2s ease; }
+.aeronave-card-nueva:hover .aeronave-card-nueva-icono { color: var(--brand); }
+.aeronave-card-nueva-titulo { font-family: var(--font-headline); font-weight: 700; font-size: 14px; margin: 4px 0 0; }
 
 @media (max-width: 760px) {
   .costos-sticky { top: 57px; }
@@ -555,7 +722,8 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 }
 .modal-overlay.visible { opacity: 1; }
 .modal-box {
-  background: var(--bg-elevated); border: 1px solid var(--border);
+  background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 20px; max-width: 380px; width: 100%;
   transform: translateY(8px) scale(.98); transition: transform .18s ease;

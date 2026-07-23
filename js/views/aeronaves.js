@@ -23,17 +23,27 @@ const ViewAeronaves = {
     const aeronaves = await Repo.listarAeronaves();
     this.aeronaves = aeronaves;
 
+    const total = aeronaves.length;
+    const simuladores = aeronaves.filter((a) => a.es_simulador).length;
+    const habituales = aeronaves.filter((a) => a.es_habitual).length;
+
     main.innerHTML = `
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h2 style="margin:0">Tus aeronaves y simuladores</h2>
-          <button class="btn" id="btn-mostrar-form">+ Agregar</button>
+      <div class="flota-header">
+        <div>
+          <h2 style="margin:0 0 2px">Flota de aeronaves</h2>
+          <p class="muted" style="margin:0">Tus aeronaves y simuladores, con sus tarifas horarias.</p>
         </div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Matrícula / Nombre</th><th>Modelo</th><th>Clase</th><th class="num">Tarifa día</th><th class="num">Tarifa noche</th><th>Habitual</th><th></th></tr></thead>
-          <tbody id="tbody-aeronaves"></tbody>
-        </table></div>
+        <button class="btn" id="btn-mostrar-form">${Icons.plusCircle(16)} Agregar</button>
       </div>
+
+      <div class="flota-stats">
+        <div class="flota-stat"><p class="flota-stat-label">Total</p><p class="flota-stat-valor">${total}</p></div>
+        <div class="flota-stat flota-stat-accent"><p class="flota-stat-label">Aeronaves</p><p class="flota-stat-valor">${total - simuladores}</p></div>
+        <div class="flota-stat"><p class="flota-stat-label">Simuladores</p><p class="flota-stat-valor">${simuladores}</p></div>
+        <div class="flota-stat"><p class="flota-stat-label">Preferidas</p><p class="flota-stat-valor">${habituales}</p></div>
+      </div>
+
+      <div class="aeronave-grid" id="grid-aeronaves"></div>
 
       <div class="card" id="card-form-aeronave" style="display:${this.mostrandoForm ? 'block' : 'none'}">
         <h2 id="titulo-form-aeronave">${Icons.plane(18)} Nueva ficha</h2>
@@ -60,7 +70,7 @@ const ViewAeronaves = {
     document.getElementById('tg-tipo-simulador').onclick = () => { this.tipo = 'simulador'; this.editandoId = null; this._renderForm(); };
 
     if (this.mostrandoForm) this._renderForm();
-    this._renderTabla(aeronaves);
+    this._renderGrid(aeronaves);
   },
 
   _renderForm() {
@@ -131,32 +141,61 @@ const ViewAeronaves = {
     return CLASES_AERONAVE.find((c) => c.valor === a.clase)?.label || a.clase;
   },
 
-  _renderTabla(aeronaves) {
-    const tbody = document.getElementById('tbody-aeronaves');
-    if (!aeronaves.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Todavía no cargaste ninguna aeronave.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = aeronaves.map((a) => `
-      <tr>
-        <td>${a.es_simulador
-          ? `<span style="display:inline-flex;align-items:center;gap:6px">${Icons.monitor(14)}${a.matricula}</span>`
-          : a.matricula}</td>
-        <td>${a.marca_modelo}</td>
-        <td>${this._labelClase(a)}</td>
-        <td class="num">${fmtMoneda(a.tarifa_hora_diurna, a.moneda)}</td>
-        <td class="num">${a.es_simulador ? '—' : fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</td>
-        <td>${a.es_habitual ? `<span style="display:inline-flex">${Icons.star(14)}</span>` : ''}</td>
-        <td>
-          <button class="btn ghost" data-accion="editar" data-id="${a.id}">${Icons.edit(16)}</button>
-          <button class="btn ghost" data-accion="borrar" data-id="${a.id}">${Icons.trash(16)}</button>
-        </td>
-      </tr>
+  _renderGrid(aeronaves) {
+    const grid = document.getElementById('grid-aeronaves');
+    const tarjetas = aeronaves.map((a) => `
+      <div class="aeronave-card">
+        <div class="aeronave-card-top">
+          <span class="aeronave-card-icono">${a.es_simulador ? Icons.monitor(28) : Icons.plane(28)}</span>
+          <span class="aeronave-card-matricula">${a.matricula}</span>
+        </div>
+        <div class="aeronave-card-body">
+          <div class="aeronave-card-titulo">
+            <div>
+              <h3>${a.marca_modelo}</h3>
+              <p class="muted">${a.es_simulador ? 'Simulador' : (a.potencia || this._labelClase(a))}</p>
+            </div>
+            <div class="aeronave-card-acciones">
+              <button class="btn ghost" data-accion="editar" data-id="${a.id}" title="Editar">${Icons.edit(16)}</button>
+              <button class="btn ghost" data-accion="borrar" data-id="${a.id}" title="Borrar">${Icons.trash(16)}</button>
+            </div>
+          </div>
+          <div class="aeronave-card-tarifas">
+            <div class="aeronave-tarifa-row">
+              <span class="aeronave-tarifa-label">${Icons.sun(14)} Tarifa diurna</span>
+              <span class="aeronave-tarifa-valor">${fmtMoneda(a.tarifa_hora_diurna, a.moneda)}</span>
+            </div>
+            <div class="aeronave-tarifa-row">
+              <span class="aeronave-tarifa-label">${Icons.moon(14)} Tarifa nocturna</span>
+              <span class="aeronave-tarifa-valor">${a.es_simulador ? '—' : fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="aeronave-card-footer">
+          ${a.es_habitual
+            ? `<span class="aeronave-card-preferida">${Icons.star(13)} Preferida</span>`
+            : `<span class="muted">${a.es_simulador ? 'Simulador' : this._labelClase(a)}</span>`}
+        </div>
+      </div>
     `).join('');
+
+    grid.innerHTML = tarjetas + `
+      <button type="button" class="aeronave-card-nueva" id="btn-nueva-placeholder">
+        <span class="aeronave-card-nueva-icono">${Icons.plusCircle(28)}</span>
+        <p class="aeronave-card-nueva-titulo">Nueva aeronave</p>
+        <p class="muted">Cargá matrícula, clase y tarifas horarias.</p>
+      </button>
+    `;
+
+    if (!aeronaves.length) {
+      grid.insertAdjacentHTML('afterbegin', `<p class="empty-state">Todavía no cargaste ninguna aeronave.</p>`);
+    }
+
+    document.getElementById('btn-nueva-placeholder').onclick = () => document.getElementById('btn-mostrar-form').click();
 
     // Delegación por id — evita serializar la aeronave entera (con notas/modelo
     // que pueden traer comillas) dentro de un atributo onclick.
-    tbody.querySelectorAll('button[data-accion]').forEach((b) => {
+    grid.querySelectorAll('button[data-accion]').forEach((b) => {
       b.onclick = () => {
         if (b.dataset.accion === 'editar') this._editar(b.dataset.id);
         else this._borrar(b.dataset.id);
