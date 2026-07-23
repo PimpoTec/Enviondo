@@ -3,6 +3,19 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 51 (contornos de cards/modales más visibles con brillo alto)
+- [x] El borde de vidrio (`--glass-border`, usado en `.card`, header,
+      bottom-nav, `.modal-box`, `.ticket-modal`, tarjetas de Aeronaves)
+      era `rgba(255,255,255,0.06)` en tema oscuro — casi invisible con el
+      brillo de pantalla al máximo, hacía difícil ver dónde termina una
+      card o un modal. Subido a `0.16`. Los modales (`.modal-box`,
+      `.ticket-modal`) también pasan de `--shadow` a `--shadow-lg` para
+      que se despeguen más del fondo oscurecido detrás.
+- [x] Solo tema oscuro — en claro `--glass-border` ya usa `--border`
+      (un gris sólido, no translúcido), sin el mismo problema.
+- [x] Verificado con Playwright. 96 tests siguen en verde (cambio de
+      tokens visuales nomás).
+
 ## Hecho — tanda 50 (Dashboard: % de progreso combinado centrado bajo el anillo)
 - [x] El texto "Progreso combinado: X% completado" se veía gris, arriba de
       los anillos por curso — se reemplaza por solo el número (ej.

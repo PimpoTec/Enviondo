@@ -38,7 +38,9 @@
      sólido — se activan en .card más abajo, solo en tema oscuro (en claro,
      el blur contra un fondo claro se ve turbio, no aporta nada). */
   --glass-bg: rgba(28, 28, 30, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.06);
+  /* Antes 0.06 — casi invisible con el brillo de pantalla al máximo, hacía
+     difícil distinguir dónde termina una card/modal de la siguiente. */
+  --glass-border: rgba(255, 255, 255, 0.16);
   --glow-primary: 0 0 40px -8px rgba(255, 159, 28, 0.25);
 }
 
@@ -424,7 +426,7 @@ main {
   position: relative;
   background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius); box-shadow: var(--shadow);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 20px; max-width: 420px; width: 100%;
   max-height: 88vh; overflow-y: auto;
   transform: translateY(8px) scale(.98); transition: transform .18s ease;
@@ -859,7 +861,7 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 .modal-box {
   background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius); box-shadow: var(--shadow);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
   padding: 20px; max-width: 380px; width: 100%;
   transform: translateY(8px) scale(.98); transition: transform .18s ease;
 }
