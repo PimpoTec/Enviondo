@@ -3,6 +3,22 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 48 (Aeronaves: tarjetas colapsadas por default)
+- [x] Con una flota grande, mostrar todas las tarjetas abiertas de una
+      (foto + tarifas + acciones cada una) ocupaba toda la pantalla y
+      obligaba a scrollear un montón para ver la lista completa. Ahora
+      cada tarjeta arranca colapsada — una sola fila con matrícula,
+      modelo y base (o "—"/nada si no aplica) — y se expande al
+      tocarla, mostrando exactamente lo mismo que antes (foto/ícono,
+      tarifas diurna/nocturna, botones de editar/borrar/foto,
+      "Preferida"/clase). Cada ficha se expande independiente de las
+      demás (`ViewAeronaves.expandidas`, un Set de ids abiertos) — podés
+      tener varias abiertas a la vez o ninguna.
+- [x] Verificado con Playwright (oscuro y claro): grilla colapsada,
+      grilla con dos fichas expandidas (una aeronave, un simulador) para
+      confirmar que el detalle de ambos tipos se ve bien. 92 tests en
+      verde (sin tocar lógica pura).
+
 ## Hecho — tanda 47 (Aeronaves: base del aeródromo en la tarjeta)
 - [x] Reordenado qué muestra cada parte de la tarjeta de Aeronaves: el
       título grande ahora es la **matrícula** (antes el modelo), el

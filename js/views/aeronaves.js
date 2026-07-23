@@ -17,6 +17,7 @@ const ViewAeronaves = {
   tipo: 'aeronave', // 'aeronave' | 'simulador'
   mostrandoForm: false,
   aeronaves: [],
+  expandidas: new Set(), // ids de fichas abiertas — colapsadas por default, para no ocupar toda la pantalla con una flota grande
 
   async render() {
     const main = document.getElementById('main-content');
@@ -145,45 +146,56 @@ const ViewAeronaves = {
     return CLASES_AERONAVE.find((c) => c.valor === a.clase)?.label || a.clase;
   },
 
+  // Colapsada por default (solo matrícula/modelo/base, una línea) — con
+  // una flota grande, mostrar todas las tarjetas abiertas de una hacía
+  // scrollear un montón para ver la lista completa. Al tocar la fila se
+  // expande y aparece todo lo que ya había (foto, tarifas, acciones).
   _renderGrid(aeronaves) {
     const grid = document.getElementById('grid-aeronaves');
-    const tarjetas = aeronaves.map((a) => `
+    const tarjetas = aeronaves.map((a) => {
+      const abierta = this.expandidas.has(a.id);
+      return `
       <div class="aeronave-card">
-        <div class="aeronave-card-top"${a.foto_url ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.45)), url('${a.foto_url.replace(/'/g, '%27')}');background-size:cover;background-position:center"` : ''}>
-          ${!a.foto_url ? `<span class="aeronave-card-icono">${a.es_simulador ? Icons.monitor(28) : Icons.plane(28)}</span>` : ''}
-          ${!a.es_simulador ? `<span class="aeronave-card-base">${a.base_aerodromo || '—'}</span>` : ''}
-          <button type="button" class="aeronave-card-foto-btn" data-accion="foto" data-id="${a.id}" title="${a.foto_url ? 'Cambiar foto' : 'Agregar foto'}">${Icons.camera(14)}</button>
-          ${a.foto_url ? `<button type="button" class="aeronave-card-foto-quitar" data-accion="quitar-foto" data-id="${a.id}" title="Quitar foto">${Icons.x(12)}</button>` : ''}
-        </div>
-        <div class="aeronave-card-body">
-          <div class="aeronave-card-titulo">
-            <div>
-              <h3>${a.matricula}</h3>
-              <p class="muted">${a.marca_modelo}</p>
-            </div>
+        <button type="button" class="aeronave-card-resumen" data-toggle="${a.id}">
+          <span class="aeronave-card-resumen-icono">${a.es_simulador ? Icons.monitor(18) : Icons.plane(18)}</span>
+          <span class="aeronave-card-resumen-texto">
+            <span class="aeronave-card-resumen-matricula">${a.matricula}</span>
+            <span class="muted">${a.marca_modelo}</span>
+          </span>
+          ${!a.es_simulador ? `<span class="badge neutral">${a.base_aerodromo || '—'}</span>` : ''}
+          <span class="aeronave-card-resumen-chevron${abierta ? ' abierta' : ''}">${Icons.chevronRight(16)}</span>
+        </button>
+        ${abierta ? `
+        <div class="aeronave-card-detalle">
+          <div class="aeronave-card-top"${a.foto_url ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.45)), url('${a.foto_url.replace(/'/g, '%27')}');background-size:cover;background-position:center"` : ''}>
+            ${!a.foto_url ? `<span class="aeronave-card-icono">${a.es_simulador ? Icons.monitor(28) : Icons.plane(28)}</span>` : ''}
+            <button type="button" class="aeronave-card-foto-btn" data-accion="foto" data-id="${a.id}" title="${a.foto_url ? 'Cambiar foto' : 'Agregar foto'}">${Icons.camera(14)}</button>
+            ${a.foto_url ? `<button type="button" class="aeronave-card-foto-quitar" data-accion="quitar-foto" data-id="${a.id}" title="Quitar foto">${Icons.x(12)}</button>` : ''}
+          </div>
+          <div class="aeronave-card-body">
             <div class="aeronave-card-acciones">
               <button class="btn ghost" data-accion="editar" data-id="${a.id}" title="Editar">${Icons.edit(16)}</button>
               <button class="btn ghost" data-accion="borrar" data-id="${a.id}" title="Borrar">${Icons.trash(16)}</button>
             </div>
-          </div>
-          <div class="aeronave-card-tarifas">
-            <div class="aeronave-tarifa-row">
-              <span class="aeronave-tarifa-label">${Icons.sun(14)} Tarifa diurna</span>
-              <span class="aeronave-tarifa-valor">${fmtMoneda(a.tarifa_hora_diurna, a.moneda)}</span>
+            <div class="aeronave-card-tarifas">
+              <div class="aeronave-tarifa-row">
+                <span class="aeronave-tarifa-label">${Icons.sun(14)} Tarifa diurna</span>
+                <span class="aeronave-tarifa-valor">${fmtMoneda(a.tarifa_hora_diurna, a.moneda)}</span>
+              </div>
+              <div class="aeronave-tarifa-row">
+                <span class="aeronave-tarifa-label">${Icons.moon(14)} Tarifa nocturna</span>
+                <span class="aeronave-tarifa-valor">${a.es_simulador ? '—' : fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</span>
+              </div>
             </div>
-            <div class="aeronave-tarifa-row">
-              <span class="aeronave-tarifa-label">${Icons.moon(14)} Tarifa nocturna</span>
-              <span class="aeronave-tarifa-valor">${a.es_simulador ? '—' : fmtMoneda(a.tarifa_hora_nocturna, a.moneda)}</span>
-            </div>
           </div>
-        </div>
-        <div class="aeronave-card-footer">
-          ${a.es_habitual
-            ? `<span class="aeronave-card-preferida">${Icons.star(13)} Preferida</span>`
-            : `<span class="muted">${a.es_simulador ? 'Simulador' : this._labelClase(a)}</span>`}
-        </div>
-      </div>
-    `).join('');
+          <div class="aeronave-card-footer">
+            ${a.es_habitual
+              ? `<span class="aeronave-card-preferida">${Icons.star(13)} Preferida</span>`
+              : `<span class="muted">${a.es_simulador ? 'Simulador' : this._labelClase(a)}</span>`}
+          </div>
+        </div>` : ''}
+      </div>`;
+    }).join('');
 
     grid.innerHTML = tarjetas + `
       <button type="button" class="aeronave-card-nueva" id="btn-nueva-placeholder">
@@ -199,6 +211,14 @@ const ViewAeronaves = {
     }
 
     document.getElementById('btn-nueva-placeholder').onclick = () => document.getElementById('btn-mostrar-form').click();
+
+    grid.querySelectorAll('button[data-toggle]').forEach((b) => {
+      b.onclick = () => {
+        const id = b.dataset.toggle;
+        if (this.expandidas.has(id)) this.expandidas.delete(id); else this.expandidas.add(id);
+        this._renderGrid(this.aeronaves);
+      };
+    });
 
     const inputFoto = document.getElementById('input-foto-aeronave');
     inputFoto.onchange = () => {
