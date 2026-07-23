@@ -3,6 +3,23 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 47 (Aeronaves: base del aeródromo en la tarjeta)
+- [x] Reordenado qué muestra cada parte de la tarjeta de Aeronaves: el
+      título grande ahora es la **matrícula** (antes el modelo), el
+      subtítulo debajo es el **modelo** (antes potencia/clase), y la
+      etiqueta arriba a la derecha de la foto/degradé pasa a ser la
+      **base** — el aeródromo donde está guardada la aeronave (ej.
+      "SADF", "MOR"), en vez de repetir la matrícula ahí. Campo nuevo
+      `base_aerodromo` (opcional, con autocompletado de aeródromo como
+      "Desde"/"Hasta" en Nuevo vuelo) — `sql/agregar_base_aeronave.sql`
+      y `schema.sql` actualizados, documentado en README § 9. Sin base
+      cargada, la etiqueta muestra "—" en vez de romper o inventar un
+      valor. No aplica a simuladores (no tienen aeródromo base): ahí no
+      se muestra ninguna etiqueta en esa esquina.
+- [x] Verificado con Playwright: tarjetas con base cargada, sin base, y
+      simulador; formulario con el campo nuevo en su lugar. 92 tests en
+      verde (sin tocar lógica pura).
+
 ## Hecho — tanda 46 (feedback puntual sobre la tanda 45: Dashboard, Bitácora, Aeronaves, Totales)
 - [x] **Dashboard**: el anillo de progreso general ya se veía centrado; los
       anillos individuales por curso (ej. con licencia + habilitación en

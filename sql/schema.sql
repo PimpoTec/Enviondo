@@ -615,4 +615,7 @@ create policy "aeronaves_fotos_update_own" on storage.objects for update
 create policy "aeronaves_fotos_delete_own" on storage.objects for delete
   using (bucket_id = 'aeronaves-fotos' and auth.uid()::text = (storage.foldername(name))[1]);
 
+-- Base (aeródromo) de la aeronave — opcional, solo aeronaves reales.
+alter table aeronaves add column if not exists base_aerodromo text;
+
 -- Fin del esquema.

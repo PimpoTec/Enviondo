@@ -102,6 +102,7 @@ const ViewAeronaves = {
         <div class="grid cols-2">
           <div class="field"><label>Matrícula</label><input id="a-matricula" placeholder="LV-ABC"></div>
           <div class="field"><label>Modelo</label><input id="a-marca" placeholder="Cessna 152"></div>
+          <div class="field"><label>Base (aeródromo)</label><input type="text" id="a-base" maxlength="4" placeholder="SADF" style="text-transform:uppercase"></div>
           <div class="field"><label>Potencia</label><input id="a-potencia" placeholder="110 HP"></div>
           <div class="field"><label>Clase</label>
             <select id="a-clase">
@@ -136,6 +137,7 @@ const ViewAeronaves = {
 
     document.getElementById('btn-guardar-aeronave').onclick = () => this._guardar();
     document.getElementById('btn-cancelar-aeronave').onclick = () => { this.editandoId = null; this.mostrandoForm = false; this.render(); };
+    if (this.tipo === 'aeronave' && typeof Autocomplete !== 'undefined') Autocomplete.attachAerodromo(document.getElementById('a-base'));
   },
 
   _labelClase(a) {
@@ -149,15 +151,15 @@ const ViewAeronaves = {
       <div class="aeronave-card">
         <div class="aeronave-card-top"${a.foto_url ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.45)), url('${a.foto_url.replace(/'/g, '%27')}');background-size:cover;background-position:center"` : ''}>
           ${!a.foto_url ? `<span class="aeronave-card-icono">${a.es_simulador ? Icons.monitor(28) : Icons.plane(28)}</span>` : ''}
-          <span class="aeronave-card-matricula">${a.matricula}</span>
+          ${!a.es_simulador ? `<span class="aeronave-card-base">${a.base_aerodromo || '—'}</span>` : ''}
           <button type="button" class="aeronave-card-foto-btn" data-accion="foto" data-id="${a.id}" title="${a.foto_url ? 'Cambiar foto' : 'Agregar foto'}">${Icons.camera(14)}</button>
           ${a.foto_url ? `<button type="button" class="aeronave-card-foto-quitar" data-accion="quitar-foto" data-id="${a.id}" title="Quitar foto">${Icons.x(12)}</button>` : ''}
         </div>
         <div class="aeronave-card-body">
           <div class="aeronave-card-titulo">
             <div>
-              <h3>${a.marca_modelo}</h3>
-              <p class="muted">${a.es_simulador ? 'Simulador' : (a.potencia || this._labelClase(a))}</p>
+              <h3>${a.matricula}</h3>
+              <p class="muted">${a.marca_modelo}</p>
             </div>
             <div class="aeronave-card-acciones">
               <button class="btn ghost" data-accion="editar" data-id="${a.id}" title="Editar">${Icons.edit(16)}</button>
@@ -253,6 +255,7 @@ const ViewAeronaves = {
     document.getElementById('a-tarifa-dia').value = a.tarifa_hora_diurna;
     document.getElementById('a-moneda').value = a.moneda;
     if (this.tipo === 'aeronave') {
+      document.getElementById('a-base').value = a.base_aerodromo || '';
       document.getElementById('a-potencia').value = a.potencia || '';
       document.getElementById('a-clase').value = a.clase || 'monomotor';
       document.getElementById('a-medio').value = a.medio;
@@ -286,6 +289,7 @@ const ViewAeronaves = {
       aeronave = {
         id: this.editandoId || undefined,
         matricula, marca_modelo,
+        base_aerodromo: document.getElementById('a-base').value.trim().toUpperCase() || null,
         potencia: document.getElementById('a-potencia').value || null,
         clase: document.getElementById('a-clase').value,
         medio: document.getElementById('a-medio').value,

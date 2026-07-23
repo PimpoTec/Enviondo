@@ -285,6 +285,11 @@ Se sube directo a Supabase Storage, sin ningún servicio de terceros.
    ficha de Aeronaves. Sin correr este paso, la app sigue andando igual
    (el botón de foto no hace nada hasta que exista la columna).
 
+También podés cargar la **base** (aeródromo donde está guardada la
+aeronave, ej. "SADF", "MOR") — se muestra en la tarjeta de la grilla.
+Solo hace falta correr `sql/agregar_base_aeronave.sql` (o `schema.sql`
+de nuevo); sin ese paso, el campo queda vacío pero no rompe nada.
+
 ---
 
 ## 10) Qué falta / mejoras futuras
