@@ -172,6 +172,7 @@ const ViewTotales = {
 
     try { renderDetalleProgreso(configsPorCurso, agg); } catch (err) { console.error('Error renderizando progreso de licencia:', err); }
     if (vuelos.length) { try { renderMapaRutas(vuelos); } catch (err) { console.error('Error renderizando el mapa de rutas:', err); } }
+    animarStats(main);
   },
 };
 
@@ -239,7 +240,19 @@ function renderDetalleProgreso(configsPorCurso, agg) {
 }
 
 function stat(label, valor, sufijo = ' hs') {
-  return `<div class="stat"><div class="num">${(valor ?? 0)}${sufijo}</div><div class="lbl">${label}</div></div>`;
+  const v = valor ?? 0;
+  // data-valor/data-sufijo: el número arranca en 0 y sube animado (ver
+  // animarStats, llamado al final de render()) — más "vivo" que aparecer
+  // de golpe. Si por lo que sea no corre el JS, igual queda el valor real
+  // (rehidratado en el próximo render), nunca queda pegado en 0.
+  return `<div class="stat"><div class="num" data-valor="${v}" data-sufijo="${sufijo}">0${sufijo}</div><div class="lbl">${label}</div></div>`;
+}
+
+function animarStats(root) {
+  if (typeof animarNumero !== 'function') return;
+  root.querySelectorAll('.stat .num[data-valor]').forEach((el) => {
+    animarNumero(el, Number(el.dataset.valor), { sufijo: el.dataset.sufijo || '' });
+  });
 }
 
 // Mapa "glass cockpit" (Leaflet + OpenStreetMap): marcador por aeródromo

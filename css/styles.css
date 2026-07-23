@@ -28,6 +28,7 @@
   --danger-weak: rgba(232, 117, 108, 0.14);
 
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 2px 6px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 28px rgba(0, 0, 0, 0.5);
   --radius: 10px;
   --radius-sm: 6px;
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -57,6 +58,7 @@
   --danger-weak: rgba(194, 59, 50, 0.1);
 
   --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+  --shadow-lg: 0 4px 10px rgba(16, 24, 40, .07), 0 14px 30px rgba(16, 24, 40, .12);
 }
 /* La preferencia del sistema se resuelve por JS (script inline en index.html,
    y app.js), que fija data-theme='dark'|'light' siempre — por eso alcanza con
@@ -147,6 +149,7 @@ main {
 .costos-sticky .mini-card .value { font-family: var(--font-mono); font-size: 18px; font-weight: 600; color: var(--brand); margin-top: 2px; font-variant-numeric: tabular-nums; }
 
 /* ---------- Cards / layout ---------- */
+@keyframes card-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -154,6 +157,10 @@ main {
   box-shadow: var(--shadow);
   padding: 16px;
   margin-bottom: 16px;
+  animation: card-in .3s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card { animation: none; }
 }
 .card h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .card h2 .icon { color: var(--brand); }
@@ -405,7 +412,12 @@ input.campo-invalido, select.campo-invalido { border-color: var(--danger); backg
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
 th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
+/* Barrita de acento a la izquierda al pasar el mouse/tocar — un borde
+   transparente por default (no mueve nada al aparecer, solo cambia de
+   color) en vez de aparecer de la nada. */
+td { border-left: 2px solid transparent; transition: background .15s ease, border-color .15s ease; }
 tbody tr:hover td { background: var(--bg-subtle); }
+tbody tr:hover td:first-child { border-left-color: var(--brand); }
 td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* Panel de edición rápida de la Bitácora: una fila que se abre debajo de
@@ -434,9 +446,15 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 .badge.danger { background: var(--danger-weak); color: var(--danger); }
 
 .muted { color: var(--text-muted); font-size: 12px; }
-.stat { text-align: center; }
+/* Chip de fondo sutil (no un .card entero, quedaría muy pesado repetido
+   8 veces en una grilla) — separa cada número visualmente, estilo tarjeta
+   de KPI de un dashboard, en vez de números sueltos flotando en el aire. */
+.stat {
+  text-align: center; background: var(--bg-subtle); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 6px; transition: background .15s ease, border-color .15s ease;
+}
 .stat .num { font-family: var(--font-mono); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.stat .lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.stat .lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
 
 @media (max-width: 760px) {
   .costos-sticky { top: 57px; }

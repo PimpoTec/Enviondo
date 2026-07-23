@@ -42,7 +42,7 @@ const ViewDashboard = {
                 stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="402"></circle>
             </svg>
             <div class="ring-label">
-              <span class="kpi">${agg.tiempo_total}</span>
+              <span class="kpi" id="hero-horas-total">0</span>
               <span class="kpi-unit">Horas${agg.adiestrador_simulador > 0 ? ` · ${agg.adiestrador_simulador} sim.` : ''}</span>
             </div>
           </div>
@@ -674,7 +674,10 @@ function renderHeroProgreso(configsPorCurso, agg) {
   const bar = document.getElementById('hero-bar');
   const pctLabel = document.getElementById('hero-pct');
   const ring = document.getElementById('ring-fill');
+  const horasTotal = document.getElementById('hero-horas-total');
   const CIRC = 402; // 2 * PI * r(64)
+
+  if (horasTotal && typeof animarNumero === 'function') animarNumero(horasTotal, agg.tiempo_total);
 
   const conRequisitos = configsPorCurso.filter(({ config }) => config.length);
   if (!conRequisitos.length) {

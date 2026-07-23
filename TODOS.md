@@ -3,6 +3,42 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 44 (pulido visual "profesional y moderno": Dashboard, Bitácora, Totales)
+- [x] A pedido, primer pasada de una mejora visual más grande — usando
+      21st.dev (`mcp__21ST_CHAT__search_picker`) como inspiración
+      (stat cards con conteo animado, tablas con hover suave, la ficha
+      de vuelo tipo "boarding pass" ya coincidía con esa dirección)
+      adaptada a mano al sistema de diseño vanilla CSS existente (nada
+      de React/Tailwind, es solo referencia visual).
+- [x] **Base global**: token `--shadow-lg` (elevación para estados
+      destacados), animación de entrada sutil en `.card`
+      (`@keyframes card-in`, respeta `prefers-reduced-motion`), y un
+      helper nuevo `animarNumero()` (`js/app.js`) — cuenta desde 0 hasta
+      el valor final con ease-out cúbico en vez de aparecer de golpe,
+      sin dependencias.
+- [x] **Dashboard**: el número de horas totales del hero (centro del
+      anillo de progreso) ahora cuenta animado en vez de aparecer fijo.
+- [x] **Totales**: `.stat` (usado en las 4 grillas de agregados) pasa de
+      "número suelto" a una tarjeta de KPI de verdad — chip de fondo,
+      borde, y el valor cuenta animado (`stat()` guarda el valor real en
+      `data-valor`, `animarStats()` lo anima al terminar de renderizar;
+      si el JS no corre por lo que sea, igual queda el valor correcto).
+- [x] **Bitácora**: filas de la tabla con una barrita de acento naranja
+      que aparece a la izquierda al tocar/pasar el mouse (transición de
+      color, no aparece de la nada), sobre el mismo highlight de fondo
+      que ya existía.
+- [x] Verificado con Playwright en tema oscuro y claro: el número del
+      hero efectivamente cuenta (valor intermedio ≠ inicial ni final
+      capturado a mitad de la animación), las tarjetas de stat se ven
+      con el chip nuevo, y el acento de hover de la tabla aparece
+      correctamente en ambos temas. 88 tests siguen en verde (cambios
+      visuales, sin tocar lógica pura).
+- [x] Pendiente si se quiere seguir esta misma línea: el mapa de rutas y
+      la ficha de vuelo ya habían tenido su propio rediseño en tandas
+      anteriores (23, 32) y ya están alineados con esta dirección — no
+      se tocaron de nuevo acá. Buen próximo paso: pedir puntualmente qué
+      parte se ve floja todavía para una segunda pasada más específica.
+
 ## Hecho — tanda 43 (ficha de vuelo de Bitácora: de fila de tabla a modal)
 - [x] Reportado con foto: al tocar un vuelo, la fila de detalle que se
       abría debajo desalineaba las columnas de las OTRAS filas de la

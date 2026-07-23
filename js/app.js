@@ -34,6 +34,29 @@ function labelHora(base) {
   return `${base} (${obtenerPrefHorario() === 'local' ? 'Hora local' : 'UTC'})`;
 }
 
+// Anima un número contando desde 0 hasta el valor final en vez de aparecer
+// de golpe — sensación más "viva" en los números grandes (horas totales,
+// KPIs de Totales). Respeta los decimales del valor final y, si el usuario
+// pidió menos movimiento en el sistema, no anima nada (prefers-reduced-motion).
+function animarNumero(el, valorFinal, { duracionMs = 700, sufijo = '' } = {}) {
+  const numero = Number(valorFinal);
+  if (!Number.isFinite(numero)) { el.textContent = valorFinal + sufijo; return; }
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = numero + sufijo;
+    return;
+  }
+  const decimales = (String(valorFinal).split('.')[1] || '').length;
+  const t0 = performance.now();
+  function paso(ahora) {
+    const p = Math.min(1, (ahora - t0) / duracionMs);
+    const suavizado = 1 - Math.pow(1 - p, 3); // ease-out cúbico
+    el.textContent = (numero * suavizado).toFixed(decimales) + sufijo;
+    if (p < 1) requestAnimationFrame(paso);
+  }
+  requestAnimationFrame(paso);
+}
+window.animarNumero = animarNumero;
+
 function actualizarBannerOffline() {
   document.getElementById('offline-banner').style.display = navigator.onLine ? 'none' : 'block';
 }
