@@ -618,4 +618,10 @@ create policy "aeronaves_fotos_delete_own" on storage.objects for delete
 -- Base (aeródromo) de la aeronave — opcional, solo aeronaves reales.
 alter table aeronaves add column if not exists base_aerodromo text;
 
+-- Encuadre vertical de la foto de aeronave (0-100, 50=centro) — ver
+-- sql/agregar_posicion_foto_aeronave.sql para el detalle comentado.
+alter table aeronaves add column if not exists foto_posicion integer not null default 50;
+alter table aeronaves drop constraint if exists aeronaves_foto_posicion_check;
+alter table aeronaves add constraint aeronaves_foto_posicion_check check (foto_posicion between 0 and 100);
+
 -- Fin del esquema.

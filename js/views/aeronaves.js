@@ -167,11 +167,16 @@ const ViewAeronaves = {
         </button>
         ${abierta ? `
         <div class="aeronave-card-detalle">
-          <div class="aeronave-card-top"${a.foto_url ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.45)), url('${a.foto_url.replace(/'/g, '%27')}');background-size:cover;background-position:center"` : ''}>
+          <div class="aeronave-card-top"${a.foto_url ? ` style="background-image:linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.45)), url('${a.foto_url.replace(/'/g, '%27')}');background-size:cover;background-position:center ${a.foto_posicion ?? 50}%"` : ''}>
             ${!a.foto_url ? `<span class="aeronave-card-icono">${a.es_simulador ? Icons.monitor(28) : Icons.plane(28)}</span>` : ''}
             <button type="button" class="aeronave-card-foto-btn" data-accion="foto" data-id="${a.id}" title="${a.foto_url ? 'Cambiar foto' : 'Agregar foto'}">${Icons.camera(14)}</button>
             ${a.foto_url ? `<button type="button" class="aeronave-card-foto-quitar" data-accion="quitar-foto" data-id="${a.id}" title="Quitar foto">${Icons.x(12)}</button>` : ''}
           </div>
+          ${a.foto_url ? `
+          <div class="aeronave-foto-ajuste">
+            <label class="muted" style="margin:0">${Icons.tag('camera', 'Ajustar encuadre')}</label>
+            <input type="range" min="0" max="100" value="${a.foto_posicion ?? 50}" class="aeronave-foto-slider" data-id="${a.id}">
+          </div>` : ''}
           <div class="aeronave-card-body">
             <div class="aeronave-card-acciones">
               <button class="btn ghost" data-accion="editar" data-id="${a.id}" title="Editar">${Icons.edit(16)}</button>
@@ -237,6 +242,17 @@ const ViewAeronaves = {
         else if (b.dataset.accion === 'quitar-foto') this._quitarFoto(b.dataset.id);
       };
     });
+
+    // Arrastrar el slider mueve la vista previa al toque (sin red); soltarlo
+    // (change) recién ahí guarda — así arrastrar no dispara un guardado por
+    // cada pixel de movimiento.
+    grid.querySelectorAll('input.aeronave-foto-slider').forEach((input) => {
+      input.addEventListener('input', () => {
+        const top = input.closest('.aeronave-card-detalle').querySelector('.aeronave-card-top');
+        if (top) top.style.backgroundPosition = `center ${input.value}%`;
+      });
+      input.addEventListener('change', () => this._guardarPosicionFoto(input.dataset.id, input.value));
+    });
   },
 
   async _subirFoto(id, file) {
@@ -258,6 +274,18 @@ const ViewAeronaves = {
       this.render();
     } catch (err) {
       UI.toast('Error al quitar la foto: ' + (err.message || err), 'error');
+    }
+  },
+
+  // No hace falta un render() completo acá: la vista previa ya se movió al
+  // vuelo con el evento "input" del slider — esto solo persiste el valor.
+  async _guardarPosicionFoto(id, posicion) {
+    const a = this.aeronaves.find((x) => x.id === id);
+    if (a) a.foto_posicion = Number(posicion);
+    try {
+      await Repo.actualizarPosicionFoto(id, Number(posicion));
+    } catch (err) {
+      UI.toast('Error al guardar el encuadre: ' + (err.message || err), 'error');
     }
   },
 

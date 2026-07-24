@@ -290,6 +290,13 @@ aeronave, ej. "SADF", "MOR") — se muestra en la tarjeta de la grilla.
 Solo hace falta correr `sql/agregar_base_aeronave.sql` (o `schema.sql`
 de nuevo); sin ese paso, el campo queda vacío pero no rompe nada.
 
+Si el recorte automático de la miniatura (foto ancha/vertical forzada a
+una tira baja) te deja afuera la parte importante de la foto, hay un
+control de "Ajustar encuadre" (un slider) en la propia ficha para
+corregirlo sin volver a subirla. Necesita `sql/agregar_posicion_foto_aeronave.sql`
+(o `schema.sql` de nuevo); sin correrlo, el control mueve la vista previa
+pero no guarda el cambio (tira error al soltar el slider).
+
 ---
 
 ## 10) Qué falta / mejoras futuras

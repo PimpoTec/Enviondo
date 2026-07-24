@@ -85,6 +85,14 @@ const Repo = {
     if (error) throw error;
     Cache.invalidar('aeronaves');
   },
+  // Encuadre vertical de la miniatura (0-100, 50=centro) — para corregir un
+  // recorte automático que dejó afuera la parte importante de la foto, sin
+  // tener que volver a subirla. Ver sql/agregar_posicion_foto_aeronave.sql.
+  async actualizarPosicionFoto(aeronaveId, posicion) {
+    const { error } = await window.db.from('aeronaves').update({ foto_posicion: Math.max(0, Math.min(100, Math.round(posicion))) }).eq('id', aeronaveId);
+    if (error) throw error;
+    Cache.invalidar('aeronaves');
+  },
 
   // ---- Vuelos ----
   // "Borrar" es soft-delete (deleted_at) — el vuelo sale de la bitácora,

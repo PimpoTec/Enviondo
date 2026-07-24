@@ -3,6 +3,26 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 52 (Aeronaves: ajustar el encuadre de la foto)
+- [x] La miniatura de la foto es una tira ancha y baja (160px de alto,
+      antes 110 — se subió un poco para recortar menos de entrada); con
+      fotos verticales u horizontales de cualquier proporción, el
+      recorte automático centrado a veces dejaba afuera la parte
+      importante (ej. solo cielo y el timón de cola). Se agregó un
+      control "Ajustar encuadre" (slider) debajo de la foto, en la
+      ficha expandida: mueve el punto vertical donde se centra el
+      recorte (`background-position`), en vivo mientras arrastrás, y
+      recién guarda al soltarlo (no un guardado por cada pixel).
+- [x] Campo nuevo `aeronaves.foto_posicion` (0-100, 50=centro,
+      `sql/agregar_posicion_foto_aeronave.sql` + `schema.sql`,
+      documentado en README § 9). `Repo.actualizarPosicionFoto()`
+      (`js/db.js`). Sin correr el SQL, el slider mueve la vista previa
+      pero tira error al guardar (columna inexistente) — documentado.
+- [x] Verificado con Playwright: arrastrar el slider mueve la vista
+      previa correctamente (probado con una foto sintética de 3 franjas
+      de color para confirmar qué parte queda visible en cada posición).
+      96 tests en verde (sin lógica pura nueva que testear).
+
 ## Hecho — tanda 51 (contornos de cards/modales más visibles con brillo alto)
 - [x] El borde de vidrio (`--glass-border`, usado en `.card`, header,
       bottom-nav, `.modal-box`, `.ticket-modal`, tarjetas de Aeronaves)
