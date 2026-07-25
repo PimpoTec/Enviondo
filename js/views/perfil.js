@@ -28,6 +28,15 @@ const MENU_PERFIL = [
   { id: 'papelera', icon: 'trash', label: 'Papelera', desc: 'Vuelos borrados' },
 ];
 
+const LABELS_VENCIMIENTO = {
+  CMA: 'Certificado Médico Aeronáutico',
+  habilitacion: 'Habilitación',
+  IFR: 'Habilitación IFR',
+  currency_nocturno: 'Currency nocturno',
+  repaso_vuelo: 'Repaso de vuelo (61.135)',
+  otro: 'Otro',
+};
+
 function estadoVencimiento(v) {
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
   const fv = Calc.parseFechaLocal(v.fecha_vencimiento);
@@ -36,6 +45,84 @@ function estadoVencimiento(v) {
   if (dias < 0) return { estado: 'danger', icon: 'xCircle', texto: `Vencido hace ${Math.abs(dias)} días`, dias, umbral };
   if (dias <= umbral) return { estado: 'warn', icon: 'alertTriangle', texto: `Vence en ${dias} días`, dias, umbral };
   return { estado: 'ok', icon: 'checkCircle', texto: `Vigente (${dias} días)`, dias, umbral };
+}
+
+// Experiencia reciente (RAAC 61.140): ventana de 90 días en general, 180
+// para Piloto Privado/Planeador/Globo. Si hay cursos de ambos grupos
+// activos a la vez, se usa la más estricta (90) — más seguro que asumir
+// la más laxa cuando no está claro cuál manda.
+function calcularVentanaCurrency(cursosActivos) {
+  const GRUPO_ESTRICTO = ['PCA', 'PCA_HVI', 'TLA'];
+  const GRUPO_AMPLIO = ['PPA', 'APPL'];
+  if (cursosActivos.some((c) => GRUPO_ESTRICTO.includes(c))) return 90;
+  if (cursosActivos.some((c) => GRUPO_AMPLIO.includes(c))) return 180;
+  return 90;
+}
+
+// Implementa el flujograma de la Guía RAAC Parte 61 (61.135 Repaso de
+// Vuelo, 61.140 Experiencia Reciente, 61.060(a)(2) pérdida de atribuciones
+// por inactividad) para responder "¿puedo volar hoy?" — nunca inventa un
+// repaso que no se cargó; en ese caso pide cargarlo en vez de asumir nada.
+// Pura (sin DOM), para poder testearla — ver tests/perfil.test.js.
+function calcularEstadoHabilitacion({ repasoVuelo, vuelos, diasVentanaCurrency }) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+
+  const fechasVuelos = vuelos.map((v) => Calc.parseFechaLocal(v.fecha)).filter(Boolean);
+  const ultimoVuelo = fechasVuelos.length ? new Date(Math.max(...fechasVuelos)) : null;
+  const mesesInactividad = ultimoVuelo ? (hoy - ultimoVuelo) / (1000 * 60 * 60 * 24 * 30.44) : 0;
+
+  // Más grave que un repaso vencido nomás: no volar NADA en 24 meses hace
+  // perder automáticamente TODAS las atribuciones (61.060(a)(2)) — ya no
+  // alcanza un repaso simple, hace falta reentrenamiento formal + examen.
+  if (ultimoVuelo && mesesInactividad > 24) {
+    return {
+      nivel: 'danger',
+      titulo: 'Atribuciones perdidas por inactividad',
+      detalle: 'Más de 24 meses sin volar: se pierden automáticamente todas las atribuciones de la licencia/habilitación (RAAC 61.060(a)(2)). Ya no alcanza un repaso de vuelo simple — hace falta un reentrenamiento formal con un instructor y rendir un examen práctico de pericia ante ANAC o un examinador designado.',
+    };
+  }
+
+  if (!repasoVuelo) {
+    return {
+      nivel: 'neutral',
+      titulo: 'Cargá tu último repaso de vuelo',
+      detalle: 'Para saber si podés volar solo o necesitás un instructor, cargá un vencimiento de tipo "Repaso de vuelo (61.135)" con la fecha del último que hiciste (vence a los 24 meses).',
+    };
+  }
+
+  const estRepaso = estadoVencimiento(repasoVuelo);
+  if (estRepaso.estado === 'danger') {
+    return {
+      nivel: 'danger',
+      titulo: 'No podés volar solo',
+      detalle: 'Tu repaso de vuelo (61.135) está vencido — no podés actuar como piloto al mando bajo ninguna circunstancia sin un instructor. Programá un repaso (mínimo 1h de teoría + 1h de vuelo) con un Instructor de Vuelo antes de cualquier otra cosa.',
+    };
+  }
+
+  // Repaso vigente: la experiencia reciente (61.140) decide si podés llevar
+  // pasajeros o solo autoreentrenarte volando solo.
+  const hace = new Date(hoy); hace.setDate(hace.getDate() - diasVentanaCurrency);
+  const recientes = vuelos.filter((v) => Calc.parseFechaLocal(v.fecha) >= hace);
+  const aterrDia = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_dia), 0);
+  const aterrNoche = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_noche), 0);
+  const okDia = aterrDia >= 3, okNoche = aterrNoche >= 3;
+
+  if (okDia && okNoche) {
+    return {
+      nivel: 'ok',
+      titulo: '¡Estás al día!',
+      detalle: `Repaso de vuelo vigente y experiencia reciente cumplida (3 despegues y aterrizajes en los últimos ${diasVentanaCurrency} días) — podés volar como piloto al mando y llevar pasajeros normalmente.`,
+    };
+  }
+
+  const faltantes = [];
+  if (!okDia) faltantes.push('de día');
+  if (!okNoche) faltantes.push('de noche');
+  return {
+    nivel: 'warn',
+    titulo: 'Auto-reentrenamiento: podés volar, pero solo',
+    detalle: `Tu repaso de vuelo está vigente pero te falta experiencia reciente ${faltantes.join(' y ')} (3 despegues y aterrizajes en los últimos ${diasVentanaCurrency} días). Podés volar SOLO — sin pasajeros ni carga — para completar los circuitos de tránsito y recuperar la vigencia; anotalo vos mismo en tu libro.`,
+  };
 }
 
 const ViewPerfil = {
@@ -96,10 +183,17 @@ const ViewPerfil = {
         this._bindPreferencias();
         if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
       } else if (this.seccion === 'alertas') {
-        const [vencimientos, vuelos] = await Promise.all([Repo.listarVencimientos(), Repo.listarVuelos()]);
+        const [vencimientos, vuelos, cursosActivos] = await Promise.all([
+          Repo.listarVencimientos(), Repo.listarVuelos(), Repo.getCursosActivos(),
+        ]);
+        const diasVentana = calcularVentanaCurrency(cursosActivos);
         main.innerHTML = volver + this._htmlAlertas(vencimientos);
         this._bindAlertas();
-        try { renderCurrency(vuelos); } catch (err) { console.error('Error renderizando currency:', err); }
+        try { renderCurrency(vuelos, diasVentana); } catch (err) { console.error('Error renderizando currency:', err); }
+        try {
+          const repasoVuelo = vencimientos.filter((v) => v.tipo === 'repaso_vuelo').sort((a, b) => b.fecha_vencimiento.localeCompare(a.fecha_vencimiento))[0] || null;
+          renderEstadoHabilitacion(calcularEstadoHabilitacion({ repasoVuelo, vuelos, diasVentanaCurrency: diasVentana }));
+        } catch (err) { console.error('Error renderizando el estado de habilitación:', err); }
       } else if (this.seccion === 'notificaciones') {
         this.notifConfig = await Repo.getNotifConfig();
         this.permisoNotif = Notificaciones.permiso();
@@ -409,6 +503,12 @@ const ViewPerfil = {
     this._vencimientosVista = vencimientos;
     return `
       <div class="card">
+        <h2>${Icons.shieldCheck(18)} ¿Podés volar hoy?</h2>
+        <p class="muted" style="margin:0 0 10px">Según la Guía RAAC Parte 61 (repaso de vuelo 61.135 + experiencia reciente 61.140) — necesita el vencimiento "Repaso de vuelo" cargado abajo para saber si podés volar solo o con instructor.</p>
+        <div id="estado-habilitacion"></div>
+      </div>
+
+      <div class="card">
         <h2>${Icons.idCard(18)} Vencimientos</h2>
         <div class="grid cols-4">
           <div class="field"><label>Tipo</label>
@@ -416,6 +516,7 @@ const ViewPerfil = {
               <option value="CMA">Certificado Médico Aeronáutico</option>
               <option value="habilitacion">Habilitación</option>
               <option value="IFR">Habilitación IFR</option>
+              <option value="repaso_vuelo">Repaso de vuelo (61.135)</option>
               <option value="currency_nocturno">Currency nocturno</option>
               <option value="otro">Otro</option>
             </select>
@@ -448,7 +549,7 @@ const ViewPerfil = {
             return `
             <div class="venc-item venc-${est.estado}" data-id="${v.id}">
               <div class="venc-item-top">
-                <span class="venc-item-tipo">${v.tipo}${v.rodante ? ` <span class="muted" style="font-size:11px">(cada ${v.intervalo_dias}d)</span>` : ''}</span>
+                <span class="venc-item-tipo">${LABELS_VENCIMIENTO[v.tipo] || v.tipo}${v.rodante ? ` <span class="muted" style="font-size:11px">(cada ${v.intervalo_dias}d)</span>` : ''}</span>
                 <span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span>
               </div>
               <p class="muted" style="margin:2px 0 8px">Vence ${fmtFecha(v.fecha_vencimiento)}${v.notas ? ` · ${v.notas}` : ''}</p>
@@ -461,7 +562,7 @@ const ViewPerfil = {
           }).join('') : '<p class="empty-state">Todavía no cargaste ningún vencimiento.</p>'}
         </div>
 
-        <h3 style="margin-top:14px">Currency (RAAC 61.57, referencial)</h3>
+        <h3 style="margin-top:14px">Currency (RAAC 61.140, referencial)</h3>
         <div id="currency-lista"></div>
       </div>
     `;
@@ -790,16 +891,28 @@ const ViewPerfil = {
   },
 };
 
-function renderCurrency(vuelos) {
+// diasVentana: 90 general, 180 para Piloto Privado/Planeador/Globo (ver
+// calcularVentanaCurrency) — antes estaba fijo en 90 para todos los cursos.
+function renderCurrency(vuelos, diasVentana = 90) {
   const cont = document.getElementById('currency-lista');
-  const hace90 = new Date(); hace90.setHours(0, 0, 0, 0); hace90.setDate(hace90.getDate() - 90);
-  const recientes = vuelos.filter((v) => Calc.parseFechaLocal(v.fecha) >= hace90);
+  const hace = new Date(); hace.setHours(0, 0, 0, 0); hace.setDate(hace.getDate() - diasVentana);
+  const recientes = vuelos.filter((v) => Calc.parseFechaLocal(v.fecha) >= hace);
   const aterrDia = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_dia), 0);
   const aterrNoche = recientes.reduce((s, v) => s + Calc.n(v.aterrizajes_noche), 0);
   const okDia = aterrDia >= 3, okNoche = aterrNoche >= 3;
   cont.innerHTML = `
-    <div class="chip"><span class="badge ${okDia ? 'ok' : 'warn'}">${Icons[okDia ? 'checkCircle' : 'alertTriangle'](12)} ${aterrDia}/3</span> Despegues y aterrizajes (día, 90 días)</div>
-    <div class="chip"><span class="badge ${okNoche ? 'ok' : 'warn'}">${Icons[okNoche ? 'checkCircle' : 'alertTriangle'](12)} ${aterrNoche}/3</span> Ídem nocturno (90 días)</div>
+    <div class="chip"><span class="badge ${okDia ? 'ok' : 'warn'}">${Icons[okDia ? 'checkCircle' : 'alertTriangle'](12)} ${aterrDia}/3</span> Despegues y aterrizajes (día, ${diasVentana} días)</div>
+    <div class="chip"><span class="badge ${okNoche ? 'ok' : 'warn'}">${Icons[okNoche ? 'checkCircle' : 'alertTriangle'](12)} ${aterrNoche}/3</span> Ídem nocturno (${diasVentana} días)</div>
+  `;
+}
+
+function renderEstadoHabilitacion(estado) {
+  const cont = document.getElementById('estado-habilitacion');
+  cont.innerHTML = `
+    <div class="venc-item venc-${estado.nivel}" style="margin:0">
+      <div class="venc-item-top"><span class="venc-item-tipo">${estado.titulo}</span></div>
+      <p class="muted" style="margin:4px 0 0">${estado.detalle}</p>
+    </div>
   `;
 }
 

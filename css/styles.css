@@ -252,6 +252,7 @@ main {
 .venc-item.venc-ok { border-left-color: var(--ok); }
 .venc-item.venc-warn { border-left-color: var(--warn); }
 .venc-item.venc-danger { border-left-color: var(--danger); }
+.venc-item.venc-neutral { border-left-color: var(--text-muted); }
 .venc-item-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .venc-item-tipo { font-weight: 600; }
 .venc-item-bar { margin-bottom: 8px; }

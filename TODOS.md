@@ -3,6 +3,45 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 53 (Vencimientos: repaso de vuelo, currency por curso, "¿podés volar hoy?")
+- [x] A partir de una guía de consulta rápida sobre la RAAC Parte 61
+      (repaso de vuelo 61.135, experiencia reciente 61.140, pérdida de
+      atribuciones por inactividad 61.060(a)(2)) que compartió el
+      usuario, se revisó qué le faltaba a Vencimientos:
+  - **Repaso de vuelo** no existía como tipo de vencimiento — se agregó
+    "Repaso de vuelo (61.135)" a la lista de tipos.
+  - **Currency (experiencia reciente) fija en 90 días para todos** —
+    la RAAC da 180 días para Piloto Privado/Planeador/Globo, no solo
+    90. Nueva `calcularVentanaCurrency(cursosActivos)`: 90 si hay un
+    curso comercial/línea activo (PCA, PCA_HVI, TLA — gana el más
+    estricto si hay mezcla), 180 si el más avanzado activo es
+    PPA/APPL, 90 por default. Se aplica tanto a los chips de currency
+    como al nuevo estado de habilitación de abajo.
+  - **Cita normativa incorrecta**: el encabezado decía "Currency (RAAC
+    61.57, referencial)" — la sección real es la 61.140. Corregido.
+  - **Bug de rótulos**: la lista de vencimientos mostraba el código
+    crudo (`habilitacion`, `currency_nocturno`) en vez de una
+    etiqueta legible — le faltaba el mapeo que sí tienen los
+    requisitos de licencia. Nuevo `LABELS_VENCIMIENTO`.
+  - **Faltaba el "auto-reentrenamiento"** — la app mostraba currency
+    en crudo (X/3 aterrizajes) sin decir qué significa eso en
+    términos prácticos (¿puedo volar? ¿con pasajeros? ¿solo?). Nueva
+    tarjeta "¿Podés volar hoy?" arriba de todo en Alertas, que
+    implementa el flujograma completo de la guía a partir de datos
+    reales (el vencimiento de tipo repaso de vuelo + los vuelos
+    cargados) — nunca inventa un repaso que no se cargó, en ese caso
+    pide cargarlo. Lógica pura en `calcularEstadoHabilitacion()`
+    (`js/views/perfil.js`), 4 estados: sin datos (neutral), repaso
+    vencido → no podés volar solo (danger), repaso vigente + sin
+    experiencia reciente → auto-reentrenamiento volando solo (warn),
+    todo al día (ok), y el caso más severo — más de 24 meses sin
+    volar nada → pérdida total de atribuciones, no alcanza un repaso
+    simple (danger, con su propio mensaje).
+- [x] Verificado con Playwright los 4 estados (oscuro y claro) y que la
+      lista de vencimientos ya muestra las etiquetas legibles. 107
+      tests en verde (11 nuevos: `calcularVentanaCurrency` y
+      `calcularEstadoHabilitacion`).
+
 ## Hecho — tanda 52 (Aeronaves: ajustar el encuadre de la foto)
 - [x] La miniatura de la foto es una tira ancha y baja (160px de alto,
       antes 110 — se subió un poco para recortar menos de entrada); con
