@@ -154,12 +154,12 @@ const ViewTotales = {
       <div class="card">
         <h2>${Icons.barChart(18)} Totales acumulados</h2>
         <div class="grid cols-4">
-          ${stat('PIC', agg.total_pic)}
+          ${stat('PIC', agg.total_pic, ' hs', 'PIC = Piloto al mando')}
           ${stat('Copiloto', agg.total_copiloto)}
           ${stat('Día', agg.total_dia)}
           ${stat('Noche', agg.total_noche)}
           ${stat('Travesía', agg.total_travesia)}
-          ${stat('Travesía PIC', agg.travesia_pic)}
+          ${stat('Travesía PIC', agg.travesia_pic, ' hs', 'Vuelos de travesía (no locales) donde fuiste piloto al mando')}
         </div>
       </div>
 
@@ -328,13 +328,13 @@ function renderDetalleProgreso(configsPorCurso, agg) {
   }).join('');
 }
 
-function stat(label, valor, sufijo = ' hs') {
+function stat(label, valor, sufijo = ' hs', title = '') {
   const v = valor ?? 0;
   // data-valor/data-sufijo: el número arranca en 0 y sube animado (ver
   // animarStats, llamado al final de render()) — más "vivo" que aparecer
   // de golpe. Si por lo que sea no corre el JS, igual queda el valor real
   // (rehidratado en el próximo render), nunca queda pegado en 0.
-  return `<div class="stat"><div class="num" data-valor="${v}" data-sufijo="${sufijo}">0${sufijo}</div><div class="lbl">${label}</div></div>`;
+  return `<div class="stat"><div class="num" data-valor="${v}" data-sufijo="${sufijo}">0${sufijo}</div><div class="lbl"${title ? ` title="${title}"` : ''}>${label}</div></div>`;
 }
 
 function animarStats(root) {

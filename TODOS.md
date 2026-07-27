@@ -3,6 +3,20 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 61 (más pendientes de la auditoría de onboarding: privacidad + jerga en Totales)
+- [x] Nota de privacidad en el panel de "Crear cuenta" ("Tu libro de vuelo
+      es privado — solo vos podés verlo y editarlo, ni siquiera otro
+      piloto que use esta misma app") — la auditoría había notado que la
+      app nunca aclara esto en ningún lado, aunque ya era cierto por RLS;
+      para un piloto nuevo decidiendo confiarle sus datos a la app, esa
+      aclaración en el momento de crear la cuenta importa.
+- [x] Tooltip (`title`) en las tarjetas "PIC" y "Travesía PIC" de Totales
+      → Totales acumulados, explicando la sigla — quedaba jerga ANAC sin
+      explicar en esa pantalla (el resto ya tenía aclaraciones, ver
+      "Discriminación de horas" en la misma vista).
+- [x] Verificado con Playwright (signup en oscuro), 122 tests en verde,
+      sin tocar CSS.
+
 ## Hecho — tanda 60 (ítem 5 de la auditoría: mínimos de licencia personalizables, versión híbrida)
 - [x] El plan original de "volver a per-user" chocaba con una decisión ya
       tomada antes (ver comentario en `sql/schema.sql` línea ~350): los
