@@ -17,6 +17,8 @@ const ViewNuevoVuelo = {
   editVuelo: null,
   params: null,
   _borradorCampos: null, // valores de campos a restaurar después de pintar el form (una sola vez)
+  _trackPuntos: null, // puntos [lat,lon] recién parseados de un archivo subido esta sesión (null = no se tocó)
+  _quitarTrack: false, // true si se pidió sacar el track que ya tenía el vuelo (editando)
 
   async render(params) {
     const main = document.getElementById('main-content');
@@ -53,8 +55,12 @@ const ViewNuevoVuelo = {
         this.esPiloto = true;
         this._borradorCampos = null;
       }
+      this._trackPuntos = null;
+      this._quitarTrack = false;
     } else if (esNavegacionFresca) {
       this._borradorCampos = null; // editando o precargado: no hay borrador que aplicar
+      this._trackPuntos = null;
+      this._quitarTrack = false;
     }
 
     const desdeParam = this.params?.get('desde');
@@ -336,6 +342,12 @@ const ViewNuevoVuelo = {
         <textarea id="f-observaciones" rows="2"></textarea>
       </div>
 
+      <div class="field">
+        <label>${Icons.tag('mapPin', 'Track GPS (opcional)')}</label>
+        <input type="file" id="f-track" accept=".csv,.kml">
+        <p class="muted" id="f-track-estado" style="margin:4px 0 0"></p>
+      </div>
+
       <div class="card" style="background:var(--bg-subtle);border:none;box-shadow:none;margin-bottom:12px">
         <div class="grid cols-3">
           <div class="stat"><div class="num" id="prev-tiempo">0.0</div><div class="lbl">Tiempo total</div></div>
@@ -410,6 +422,9 @@ const ViewNuevoVuelo = {
 
     document.getElementById('f-aeronave').addEventListener('change', () => this._actualizarPreview());
 
+    document.getElementById('f-track').addEventListener('change', (e) => this._manejarArchivoTrack(e.target.files[0]));
+    this._actualizarEstadoTrack();
+
     const idsRapido = ['f-tiempo-total', 'f-horas-noche'];
     idsRapido.forEach((id) => document.getElementById(id).addEventListener('input', () => this._actualizarPreview()));
 
@@ -424,6 +439,46 @@ const ViewNuevoVuelo = {
       this._borrarBorrador();
       this.render();
     };
+  },
+
+  // Track GPS real (opcional): un .csv o .kml descargado de FlightRadar24
+  // para un vuelo con transponder ADS-B. Se parsea acá mismo, del lado del
+  // cliente — no hace falta subir el archivo a ningún lado, solo se
+  // guardan los puntos [lat,lon] resultantes.
+  async _manejarArchivoTrack(file) {
+    if (!file) return;
+    const estado = document.getElementById('f-track-estado');
+    estado.textContent = 'Leyendo archivo…';
+    try {
+      const texto = await file.text();
+      const puntos = TrackParser.parsearArchivoTrack(file.name, texto);
+      if (!puntos.length) {
+        this._trackPuntos = null;
+        estado.innerHTML = Icons.tag('alertTriangle', 'No se encontraron coordenadas en el archivo — ¿es un export de FlightRadar24?');
+        return;
+      }
+      this._trackPuntos = puntos;
+      this._quitarTrack = false;
+      estado.innerHTML = Icons.tag('checkCircle', `Track cargado: ${puntos.length} puntos.`);
+    } catch (err) {
+      this._trackPuntos = null;
+      estado.innerHTML = Icons.tag('xCircle', err.message || 'No se pudo leer el archivo.');
+    }
+  },
+
+  _actualizarEstadoTrack() {
+    const estado = document.getElementById('f-track-estado');
+    if (this._trackPuntos) {
+      estado.innerHTML = Icons.tag('checkCircle', `Track cargado: ${this._trackPuntos.length} puntos.`);
+    } else if (this._quitarTrack) {
+      estado.innerHTML = Icons.tag('alertTriangle', 'Se va a sacar el track al guardar.');
+    } else if (this.editVuelo?.ruta_track?.length) {
+      estado.innerHTML = `${Icons.tag('mapPin', `Ya tiene un track cargado (${this.editVuelo.ruta_track.length} puntos)`)} — subí un archivo para reemplazarlo, o <a href="#" id="link-quitar-track">sacalo</a>.`;
+      const link = document.getElementById('link-quitar-track');
+      if (link) link.onclick = (e) => { e.preventDefault(); this._quitarTrack = true; this._actualizarEstadoTrack(); };
+    } else {
+      estado.textContent = '';
+    }
   },
 
   _sincronizarHasta() {
@@ -541,6 +596,12 @@ const ViewNuevoVuelo = {
       instrumentos_real: 0, instrumentos_capota: 0, adiestrador_simulador: 0,
       instructor_nombre: null, instructor_matricula: null,
     };
+
+    // Track GPS: solo se toca el campo si esta vez se subió un archivo
+    // nuevo o se pidió sacarlo explícitamente — si no, un update parcial
+    // (editar) deja el track que ya tenía sin tocar.
+    if (this._trackPuntos) campos.ruta_track = this._trackPuntos;
+    else if (this._quitarTrack) campos.ruta_track = null;
 
     if (this.modoDetallado) {
       campos.instruccion_vuelo = Calc.n(document.getElementById('d-instruccion_vuelo').value);

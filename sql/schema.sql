@@ -624,4 +624,8 @@ alter table aeronaves add column if not exists foto_posicion integer not null de
 alter table aeronaves drop constraint if exists aeronaves_foto_posicion_check;
 alter table aeronaves add constraint aeronaves_foto_posicion_check check (foto_posicion between 0 and 100);
 
+-- Track GPS real del vuelo (opcional, puntos [lat,lon] parseados de un
+-- .csv/.kml de FlightRadar24) — ver sql/agregar_track_vuelo.sql.
+alter table vuelos add column if not exists ruta_track jsonb;
+
 -- Fin del esquema.

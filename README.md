@@ -299,7 +299,35 @@ pero no guarda el cambio (tira error al soltar el slider).
 
 ---
 
-## 10) Qué falta / mejoras futuras
+## 10) Track GPS real del vuelo (opcional)
+
+Al cargar o editar un vuelo, se puede subir un archivo `.csv` o `.kml` —
+los que se pueden descargar de [FlightRadar24](https://www.flightradar24.com/)
+para un vuelo puntual con transponder ADS-B ("Download" → CSV o KML en la
+página del vuelo). Se parsea del lado del cliente (`js/trackParser.js`,
+sin subir el archivo a ningún lado ni depender de un servicio externo) y
+se guardan los puntos `[lat, lon]` del recorrido — se muestra como un
+mini mapa en la ficha del vuelo (Bitácora → tocar el vuelo), con el
+trazado real en vez de la línea recta origen-destino. Es opcional y por
+vuelo — nada se calcula ni se agrega si no subís nada.
+
+1. Correr `sql/agregar_track_vuelo.sql` en el **SQL Editor** de Supabase
+   (o pegar `schema.sql` completo de nuevo). Crea la columna
+   `vuelos.ruta_track` (jsonb).
+2. Nada más — el campo de archivo ya aparece en el formulario de Nuevo
+   vuelo. Sin correr el SQL, subir un archivo tira error al guardar (la
+   columna no existe); el resto del vuelo se puede seguir cargando igual.
+
+Los `.kmz` (KML comprimido) no están soportados por ahora — hace falta
+descomprimir un zip del lado del cliente, fuera de alcance de esta
+primera versión. Un track muy largo (miles de posiciones, típico de un
+vuelo de varias horas) se muestrea a un máximo de 500 puntos antes de
+guardarlo — a la escala en que se ve un vuelo entero en el mapa no se
+nota la diferencia, y evita inflar la fila.
+
+---
+
+## 11) Qué falta / mejoras futuras
 
 - Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
   `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está

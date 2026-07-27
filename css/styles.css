@@ -918,6 +918,15 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 }
 .mapa-wrap .leaflet-container { background: var(--bg-subtle); font-family: var(--font); }
 
+/* Mini mapa del recorrido real (FlightRadar24) en la ficha de un vuelo —
+   mismo tratamiento visual que .mapa-wrap, más chico (no necesita zoom ni
+   scroll propio, es un vistazo nomás). */
+.ticket-track-mapa {
+  position: relative; z-index: 0; height: 180px; border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--bg-subtle);
+}
+.ticket-track-mapa .leaflet-container { background: var(--bg-subtle); font-family: var(--font); }
+
 .mapa-panel {
   background: rgba(28, 30, 35, 0.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow);

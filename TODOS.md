@@ -3,6 +3,37 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 54 (track GPS real del vuelo: subir un .csv/.kml de FlightRadar24)
+- [x] En Nuevo Vuelo (y al editar), campo opcional "Track GPS" — subís el
+      `.csv` o `.kml` que se puede descargar de FlightRadar24 para un
+      vuelo puntual con transponder ADS-B, y se parsea del lado del
+      cliente (`js/trackParser.js`, nada de servicios externos ni subir
+      el archivo a ningún lado): CSV con la columna `Position` ("lat,lon"
+      entre comillas, formato real de FR24) o KML con `<coordinates>`
+      (ojo el orden: lon,lat, no lat,lon). Se guardan los puntos
+      resultantes, muestreados a un máximo de 500 (un track de horas
+      puede traer miles) — campo nuevo `vuelos.ruta_track` (jsonb),
+      `sql/agregar_track_vuelo.sql` + `schema.sql`, documentado en
+      README § 10. Los `.kmz` no están soportados (haría falta
+      descomprimir un zip del lado del cliente).
+- [x] Editar un vuelo respeta el track que ya tenía si no se sube uno
+      nuevo (update parcial — el campo ni se toca), con la opción de
+      sacarlo explícitamente sin reemplazarlo por otro.
+- [x] En la ficha de Bitácora (tocar un vuelo), si tiene track cargado
+      se ve un mini mapa con el recorrido real (Leaflet, mismo estilo
+      "glass cockpit" que el mapa de rutas de Totales) en vez de/además
+      de la línea recta origen-destino — con reintento si Leaflet
+      (cargado `defer`) todavía no bajó, y mensaje si no carga.
+- [x] Deliberadamente fuera de alcance por ahora: incorporar estos
+      tracks reales al mapa AGREGADO de Totales (hoy dibuja líneas
+      rectas entre aeródromos promediados) — es un vuelo a la vez,
+      pensado para la ficha individual.
+- [x] Verificado con Playwright: el campo de archivo en el formulario,
+      la carga de un CSV de ejemplo (mensaje "Track cargado: N puntos"),
+      y la degradación prolija de la ficha cuando Leaflet no puede
+      cargar (mismo comportamiento ya probado del mapa de Totales). 118
+      tests en verde (11 nuevos para el parser CSV/KML).
+
 ## Hecho — tanda 53 (Vencimientos: repaso de vuelo, currency por curso, "¿podés volar hoy?")
 - [x] A partir de una guía de consulta rápida sobre la RAAC Parte 61
       (repaso de vuelo 61.135, experiencia reciente 61.140, pérdida de

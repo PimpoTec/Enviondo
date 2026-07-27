@@ -365,6 +365,10 @@ const ViewBitacora = {
         <div class="ticket-dato"><p class="ticket-lbl">Costo</p><p class="ticket-val">${fmtMoneda(costo.monto, costo.moneda)}</p></div>
       </div>
 
+      ${v.ruta_track && v.ruta_track.length ? `
+      <p class="ticket-lbl" style="margin:14px 0 6px">${Icons.tag('mapPin', 'Recorrido real (FlightRadar24)')}</p>
+      <div class="ticket-track-mapa" id="ticket-track-mapa-${v.id}"></div>` : ''}
+
       ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', v.observaciones)}</p>` : ''}
       <div class="btn-row" style="margin-top:14px">
         <button class="btn secondary" data-accion="editar-desde-detalle" data-id="${v.id}">${Icons.tag('edit', 'Edición rápida')}</button>
@@ -391,6 +395,7 @@ const ViewBitacora = {
     `;
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
+    if (v.ruta_track && v.ruta_track.length) this._renderTrackMapa(v);
 
     let cerradoPorHistorial = false;
     const cerrar = () => {
@@ -413,6 +418,35 @@ const ViewBitacora = {
       this.filaEditando = v.id;
       this._renderLista();
     };
+  },
+
+  // Mapa "glass cockpit" (mismo estilo que el de Totales) con el recorrido
+  // real cargado desde un .csv/.kml de FlightRadar24 — reintenta un rato
+  // por si Leaflet (cargado `defer`) todavía no terminó de bajar.
+  _renderTrackMapa(v, intentos = 0) {
+    const cont = document.getElementById(`ticket-track-mapa-${v.id}`);
+    if (!cont) return; // se cerró el modal mientras tanto
+    if (typeof L === 'undefined') {
+      if (intentos < 20) { setTimeout(() => this._renderTrackMapa(v, intentos + 1), 250); return; }
+      cont.innerHTML = '<p class="muted" style="padding:10px;margin:0">No se pudo cargar el mapa (revisá tu conexión).</p>';
+      return;
+    }
+
+    const puntos = v.ruta_track;
+    const map = L.map(cont, { scrollWheelZoom: false, zoomControl: false, attributionControl: false });
+    const tilesOscuros = temaActual() !== 'light';
+    const tileUrl = tilesOscuros
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    L.tileLayer(tileUrl, { maxZoom: 19, subdomains: 'abcd' }).addTo(map);
+    L.control.attribution({ prefix: false, position: 'bottomleft' }).addAttribution('© OpenStreetMap © CARTO').addTo(map);
+
+    const linea = L.polyline(puntos, { color: '#ff9f1c', weight: 3 }).addTo(map);
+    L.circleMarker(puntos[0], { radius: 5, color: '#5cc98a', fillColor: '#5cc98a', fillOpacity: 1 }).addTo(map)
+      .bindTooltip('Despegue', { permanent: false });
+    L.circleMarker(puntos[puntos.length - 1], { radius: 5, color: '#e8756c', fillColor: '#e8756c', fillOpacity: 1 }).addTo(map)
+      .bindTooltip('Aterrizaje', { permanent: false });
+    map.fitBounds(linea.getBounds(), { padding: [16, 16] });
   },
 
   // Edición rápida sin salir de la Bitácora — a propósito NO toca los
