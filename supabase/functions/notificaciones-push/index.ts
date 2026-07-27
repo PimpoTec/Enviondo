@@ -58,7 +58,11 @@ try {
 }
 
 // GMT-3 fijo (Argentina no usa horario de verano) — suficiente para esta
-// app; evita traer una librería de zonas horarias a un Edge Function.
+// app; evita traer una librería de zonas horarias a un Edge Function. Se usa
+// solo para el "día" de un vencimiento (fecha_vencimiento no tiene hora —
+// elegir la medianoche de Argentina como límite del día, no la de UTC, es
+// la elección correcta ahí y no tiene relación con la ambigüedad de
+// hora_prevista de más abajo, ver referenciaVueloProgramadoMs).
 const OFFSET_ARG_MS = 3 * 60 * 60 * 1000;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -97,6 +101,20 @@ async function mandarATodos(userId: string, payload: { title: string; body: stri
   return { total: (subs ?? []).length, enviados, ultimoError };
 }
 
+// Momento real (ms desde época) de un vuelo programado. `hora_prevista` se
+// carga en la preferencia de huso horario vigente en el DISPOSITIVO al
+// cargarlo (obtenerPrefHorario() en js/app.js) — un ajuste local al
+// navegador, ni siquiera guardado en la fila, así que no hay forma de saber
+// con certeza qué preferencia se usó para una fila puntual. Se asume UTC:
+// es el default del cliente (obtenerPrefHorario() devuelve 'utc' si nunca
+// se tocó "Hora local" en Preferencias) y la convención del resto del
+// formato ANAC en esta app (hora_salida_utc/hora_llegada_utc). Si cargás
+// tus vuelos programados en hora de Argentina en vez de UTC, activá "Hora
+// local" en Preferencias antes de agendarlos.
+function referenciaVueloProgramadoMs(fecha: string, hora: string): number {
+  return new Date(`${fecha}T${hora}Z`).getTime();
+}
+
 function estadoVencimiento(fechaVencimiento: string, umbralDias: number) {
   const hoy = new Date();
   const hoyUTC = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
@@ -128,7 +146,7 @@ async function procesarRecordatorio(r: any) {
     if (!p) { await admin.from('recordatorios').delete().eq('id', r.id); return; } // el evento ya no existe: limpiamos el recordatorio huérfano
     evento = p;
     const hora = p.hora_prevista || '12:00:00';
-    referenciaMs = new Date(`${p.fecha}T${hora}Z`).getTime() + OFFSET_ARG_MS;
+    referenciaMs = referenciaVueloProgramadoMs(p.fecha, hora);
     claveActual = `${p.fecha}T${hora}`;
     const matricula = p.aeronaves?.matricula || 'tu aeronave';
     const ruta = p.desde && p.hasta ? ` (${p.desde} → ${p.hasta})` : '';
@@ -203,8 +221,8 @@ async function correrCron() {
     for (const p of programados ?? []) {
       if (programadosConRecordatorio.has(p.id)) continue;
       const hora = p.hora_prevista || '12:00:00';
-      const fechaHoraLocal = new Date(`${p.fecha}T${hora}Z`).getTime() + OFFSET_ARG_MS;
-      const horasFaltan = (fechaHoraLocal - ahora) / 3600000;
+      const fechaHoraMs = referenciaVueloProgramadoMs(p.fecha, hora);
+      const horasFaltan = (fechaHoraMs - ahora) / 3600000;
       if (horasFaltan < 0 || horasFaltan > (horas_antes_vuelo || 12)) continue;
       const matricula = p.aeronaves?.matricula || 'tu aeronave';
       const ruta = p.desde && p.hasta ? ` (${p.desde} → ${p.hasta})` : '';

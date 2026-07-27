@@ -3,6 +3,41 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 66 (auditoría, ronda 3: bug de huso horario en notificaciones-push)
+- [x] Tercera pasada: Edge Functions (`supabase/functions/*.ts`), cobertura
+      de RLS en las 11 tablas del schema (todas con RLS + políticas propias,
+      sin agujeros), Dashboard con datos reales (varios cursos activos en
+      simultáneo, carrusel de vuelos programados) — sin problemas nuevos
+      en esas partes.
+- [x] **Bug real, confirmado con el usuario antes de tocarlo** (código de
+      servidor, no se puede probar en este entorno sin Deno/el proyecto
+      real): `supabase/functions/notificaciones-push/index.ts` calculaba
+      el momento real de un "vuelo programado" asumiendo que
+      `hora_prevista` siempre está en hora de Argentina (le sumaba 3
+      horas para pasarla a UTC). Pero el cliente (`obtenerPrefHorario()`
+      en `js/app.js`) usa **UTC por default** — "Hora local" es una
+      preferencia que hay que activar a mano en Preferencias, ni siquiera
+      se guarda por cuenta (es local al dispositivo). El usuario confirmó
+      que carga sus vuelos programados en UTC — con el código viejo, el
+      push de "vuelo programado próximo" le habría llegado con 3 horas de
+      desfasaje.
+  - Fix: nueva función compartida `referenciaVueloProgramadoMs(fecha,
+    hora)` que interpreta `hora_prevista` como UTC (sin sumar el offset
+    de Argentina) — se usa en las dos partes del archivo que hacían este
+    cálculo por separado (antes duplicado, ahora un solo lugar). El
+    ajuste de +3h para el "día" de un vencimiento (que no tiene hora,
+    elegir medianoche de Argentina como límite del día) queda intacto —
+    es un caso distinto, sin relación con este bug.
+  - ⚠️ **Esto necesita redesplegarse a mano** (no viaja solo con el push
+    al repo): `supabase functions deploy notificaciones-push
+    --project-ref TU-PROJECT-REF --no-verify-jwt` (ver README.md, sección 8).
+  - Verificado: mismo número de errores de TypeScript antes y después del
+    cambio (todos son de tipos/globals de Deno que no resuelven fuera de
+    ese runtime, no hay error nuevo) — no hay forma de correr este
+    archivo de verdad en este entorno, así que no se pudo probar en vivo.
+- [x] 122 tests del frontend en verde (sin cambios ahí, esta tanda tocó
+      solo la Edge Function).
+
 ## Hecho — tanda 65 (Papelera a tarjetas — la única observación pendiente de la auditoría a fondo)
 - [x] La tabla de Papelera (Perfil) desbordaba en mobile angosto (390px) y
       obligaba a scrollear horizontal para ver "Tiempo" y los botones de
