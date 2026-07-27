@@ -367,7 +367,10 @@ const ViewBitacora = {
 
       ${v.ruta_track && v.ruta_track.length ? `
       <p class="ticket-lbl" style="margin:14px 0 6px">${Icons.tag('mapPin', 'Recorrido real (FlightRadar24)')}</p>
-      <div class="ticket-track-mapa" id="ticket-track-mapa-${v.id}"></div>` : ''}
+      <div class="ticket-track-mapa-wrap">
+        <div class="ticket-track-mapa" id="ticket-track-mapa-${v.id}"></div>
+        <button type="button" class="ticket-track-expandir" data-accion="expandir-mapa" data-id="${v.id}" title="Ampliar mapa">${Icons.maximize(16)}</button>
+      </div>` : ''}
 
       ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', v.observaciones)}</p>` : ''}
       <div class="btn-row" style="margin-top:14px">
@@ -397,12 +400,19 @@ const ViewBitacora = {
     requestAnimationFrame(() => overlay.classList.add('visible'));
     if (v.ruta_track && v.ruta_track.length) this._renderTrackMapa(v);
 
+    // El botón flotante de "nuevo registro" queda tapando el mapa de la
+    // ficha (mismo rincón inferior derecho) — se oculta mientras la ficha
+    // está abierta y vuelve al cerrarla.
+    const fab = document.querySelector('.fab');
+    if (fab) fab.style.display = 'none';
+
     let cerradoPorHistorial = false;
     const cerrar = () => {
       overlay.classList.remove('visible');
       setTimeout(() => overlay.remove(), 180);
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('popstate', onPopState);
+      if (fab) fab.style.display = '';
       if (!cerradoPorHistorial) history.back();
     };
     const onPopState = () => { cerradoPorHistorial = true; cerrar(); };
@@ -413,6 +423,8 @@ const ViewBitacora = {
     document.addEventListener('keydown', onKey);
     overlay.querySelector('.ticket-modal-cerrar').onclick = cerrar;
     overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cerrar(); });
+    const btnExpandir = overlay.querySelector('button[data-accion="expandir-mapa"]');
+    if (btnExpandir) btnExpandir.onclick = () => this._expandirMapa(v);
     overlay.querySelector('button[data-accion="editar-desde-detalle"]').onclick = () => {
       cerrar();
       this.filaEditando = v.id;
@@ -421,8 +433,8 @@ const ViewBitacora = {
   },
 
   // Mapa "glass cockpit" (mismo estilo que el de Totales) con el recorrido
-  // real cargado desde un .csv/.kml de FlightRadar24 — reintenta un rato
-  // por si Leaflet (cargado `defer`) todavía no terminó de bajar.
+  // real cargado desde un .kml de FlightRadar24 — reintenta un rato por si
+  // Leaflet (cargado `defer`) todavía no terminó de bajar.
   _renderTrackMapa(v, intentos = 0) {
     const cont = document.getElementById(`ticket-track-mapa-${v.id}`);
     if (!cont) return; // se cerró el modal mientras tanto
@@ -431,9 +443,50 @@ const ViewBitacora = {
       cont.innerHTML = '<p class="muted" style="padding:10px;margin:0">No se pudo cargar el mapa (revisá tu conexión).</p>';
       return;
     }
-
-    const puntos = v.ruta_track;
     const map = L.map(cont, { scrollWheelZoom: false, zoomControl: false, attributionControl: false });
+    this._dibujarTrackEnMapa(map, v.ruta_track);
+  },
+
+  // Mini mapa fijo (sin zoom/scroll propio) → modal grande para ver el
+  // recorrido en detalle y poder acercar/alejar (zoom con rueda, pellizco
+  // o los botones +/-, según el dispositivo).
+  _expandirMapa(v) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay ticket-track-overlay-grande';
+    overlay.innerHTML = `
+      <div class="ticket-track-modal-grande">
+        <button class="ticket-modal-cerrar" aria-label="Cerrar">${Icons.x(18)}</button>
+        <div id="ticket-track-mapa-grande"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    this._renderTrackMapaGrande(v);
+
+    const cerrar = () => {
+      overlay.classList.remove('visible');
+      setTimeout(() => overlay.remove(), 180);
+      document.removeEventListener('keydown', onKey);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') cerrar(); };
+    document.addEventListener('keydown', onKey);
+    overlay.querySelector('.ticket-modal-cerrar').onclick = cerrar;
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) cerrar(); });
+  },
+
+  _renderTrackMapaGrande(v, intentos = 0) {
+    const cont = document.getElementById('ticket-track-mapa-grande');
+    if (!cont) return; // se cerró el modal mientras tanto
+    if (typeof L === 'undefined') {
+      if (intentos < 20) { setTimeout(() => this._renderTrackMapaGrande(v, intentos + 1), 250); return; }
+      cont.innerHTML = '<p class="muted" style="padding:10px;margin:0">No se pudo cargar el mapa (revisá tu conexión).</p>';
+      return;
+    }
+    const map = L.map(cont, { zoomControl: true, attributionControl: false });
+    this._dibujarTrackEnMapa(map, v.ruta_track);
+  },
+
+  _dibujarTrackEnMapa(map, puntos) {
     const tilesOscuros = temaActual() !== 'light';
     const tileUrl = tilesOscuros
       ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'

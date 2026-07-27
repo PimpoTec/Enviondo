@@ -920,12 +920,33 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
 
 /* Mini mapa del recorrido real (FlightRadar24) en la ficha de un vuelo —
    mismo tratamiento visual que .mapa-wrap, más chico (no necesita zoom ni
-   scroll propio, es un vistazo nomás). */
+   scroll propio, es un vistazo nomás — para eso está el botón de ampliar). */
+.ticket-track-mapa-wrap { position: relative; }
 .ticket-track-mapa {
   position: relative; z-index: 0; height: 180px; border-radius: var(--radius-sm);
   overflow: hidden; background: var(--bg-subtle);
 }
 .ticket-track-mapa .leaflet-container { background: var(--bg-subtle); font-family: var(--font); }
+.ticket-track-expandir {
+  position: absolute; top: 8px; right: 8px; z-index: 1; border: none; cursor: pointer;
+  width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(4px); color: #fff; transition: background .15s ease;
+}
+.ticket-track-expandir:hover { background: rgba(0,0,0,.75); }
+
+/* Modal grande del recorrido — casi pantalla completa, con zoom real
+   (rueda/pellizco/botones), para ver el track en detalle. Selector doble
+   (en vez de solo .ticket-track-overlay-grande) para ganarle en
+   especificidad al padding:20px de .modal-overlay definido más abajo en
+   este archivo, sin depender del orden de aparición. */
+.modal-overlay.ticket-track-overlay-grande { padding: 0; }
+.ticket-track-modal-grande {
+  position: relative; width: 100%; height: 100%; max-width: 100%;
+  background: var(--bg); display: flex;
+}
+.ticket-track-modal-grande #ticket-track-mapa-grande { width: 100%; height: 100%; }
+.ticket-track-modal-grande #ticket-track-mapa-grande .leaflet-container { background: var(--bg-subtle); font-family: var(--font); }
+.ticket-track-modal-grande .ticket-modal-cerrar { position: absolute; top: 14px; right: 14px; z-index: 500; }
 
 .mapa-panel {
   background: rgba(28, 30, 35, 0.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);

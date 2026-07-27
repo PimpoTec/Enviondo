@@ -301,15 +301,18 @@ pero no guarda el cambio (tira error al soltar el slider).
 
 ## 10) Track GPS real del vuelo (opcional)
 
-Al cargar o editar un vuelo, se puede subir un archivo `.csv` o `.kml` —
-los que se pueden descargar de [FlightRadar24](https://www.flightradar24.com/)
-para un vuelo puntual con transponder ADS-B ("Download" → CSV o KML en la
-página del vuelo). Se parsea del lado del cliente (`js/trackParser.js`,
-sin subir el archivo a ningún lado ni depender de un servicio externo) y
-se guardan los puntos `[lat, lon]` del recorrido — se muestra como un
-mini mapa en la ficha del vuelo (Bitácora → tocar el vuelo), con el
-trazado real en vez de la línea recta origen-destino. Es opcional y por
-vuelo — nada se calcula ni se agrega si no subís nada.
+Al cargar o editar un vuelo, se puede subir el archivo `.kml` que se
+descarga de [FlightRadar24](https://www.flightradar24.com/) para un
+vuelo puntual con transponder ADS-B ("Download" → KML en la página del
+vuelo — el CSV que ofrece la misma página no siempre viene en un formato
+parseable, así que por ahora solo se soporta KML). Se parsea del lado
+del cliente (`js/trackParser.js`, sin subir el archivo a ningún lado ni
+depender de un servicio externo) y se guardan los puntos `[lat, lon]`
+del recorrido — se muestra como un mini mapa en la ficha del vuelo
+(Bitácora → tocar el vuelo, con un botón para ampliarlo a pantalla
+completa y hacer zoom), con el trazado real en vez de la línea recta
+origen-destino. Es opcional y por vuelo — nada se calcula ni se agrega
+si no subís nada.
 
 1. Correr `sql/agregar_track_vuelo.sql` en el **SQL Editor** de Supabase
    (o pegar `schema.sql` completo de nuevo). Crea la columna

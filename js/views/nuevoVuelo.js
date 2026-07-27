@@ -343,8 +343,9 @@ const ViewNuevoVuelo = {
       </div>
 
       <div class="field">
-        <label>${Icons.tag('mapPin', 'Track GPS (opcional)')}</label>
-        <input type="file" id="f-track" accept=".csv,.kml">
+        <label>${Icons.tag('mapPin', 'Track GPS (opcional, solo .kml)')}</label>
+        <input type="file" id="f-track" accept=".kml">
+        <p class="muted" style="margin:4px 0 0">El .kml que se descarga de FlightRadar24 para este vuelo (si tenía transponder ADS-B).</p>
         <p class="muted" id="f-track-estado" style="margin:4px 0 0"></p>
       </div>
 
@@ -441,10 +442,11 @@ const ViewNuevoVuelo = {
     };
   },
 
-  // Track GPS real (opcional): un .csv o .kml descargado de FlightRadar24
-  // para un vuelo con transponder ADS-B. Se parsea acá mismo, del lado del
-  // cliente — no hace falta subir el archivo a ningún lado, solo se
-  // guardan los puntos [lat,lon] resultantes.
+  // Track GPS real (opcional): el .kml descargado de FlightRadar24 para un
+  // vuelo con transponder ADS-B (el .csv de FlightRadar24 no siempre viene
+  // en el formato esperado — por ahora solo se ofrece .kml, que es
+  // confiable). Se parsea acá mismo, del lado del cliente — no hace falta
+  // subir el archivo a ningún lado, solo se guardan los puntos [lat,lon].
   async _manejarArchivoTrack(file) {
     if (!file) return;
     const estado = document.getElementById('f-track-estado');

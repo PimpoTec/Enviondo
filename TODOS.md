@@ -3,6 +3,29 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 55 (ajustes al track GPS: FAB tapando el mapa, ampliar y zoom, solo .kml)
+- [x] El botón flotante "+" (nuevo registro) de Bitácora quedaba tapando
+      el mini mapa de la ficha (mismo rincón inferior derecho) — se
+      oculta mientras la ficha está abierta y vuelve al cerrarla.
+- [x] El mini mapa de la ficha no tenía zoom ni scroll propio (a
+      propósito, para no pelear con el scroll de la página) — se agregó
+      un botón "Ampliar mapa" que abre un modal casi de pantalla
+      completa con el mismo recorrido, zoom real habilitado (rueda,
+      pellizco, botones +/-) para verlo en detalle. Lógica de dibujado
+      del mapa (tiles, línea, marcadores de despegue/aterrizaje)
+      compartida entre el mini mapa y el grande (`_dibujarTrackEnMapa`),
+      en vez de duplicada.
+- [x] El campo de subida pasa a aceptar solo `.kml` (antes ofrecía
+      `.csv` también) — el CSV de FlightRadar24 no vino en el formato
+      esperado en la práctica; por ahora se saca de la UI para no
+      prometer algo que no anda, dejando aclarado "(opcional, solo
+      .kml)" en el campo. El parser de CSV queda en `js/trackParser.js`
+      (con sus tests) por si se retoma más adelante, simplemente no se
+      ofrece desde el formulario.
+- [x] Verificado con Playwright: el FAB se oculta con la ficha abierta,
+      el botón de ampliar abre el mapa grande y lo cierra volviendo a la
+      ficha sin romper nada. 118 tests en verde (sin tocar lógica pura).
+
 ## Hecho — tanda 54 (track GPS real del vuelo: subir un .csv/.kml de FlightRadar24)
 - [x] En Nuevo Vuelo (y al editar), campo opcional "Track GPS" — subís el
       `.csv` o `.kml` que se puede descargar de FlightRadar24 para un
