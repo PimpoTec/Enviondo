@@ -494,7 +494,7 @@ const ViewBitacora = {
     L.tileLayer(tileUrl, { maxZoom: 19, subdomains: 'abcd' }).addTo(map);
     L.control.attribution({ prefix: false, position: 'bottomleft' }).addAttribution('© OpenStreetMap © CARTO').addTo(map);
 
-    const linea = L.polyline(puntos, { color: '#ff9f1c', weight: 3 }).addTo(map);
+    const linea = L.polyline(puntos, { color: '#ff9f1c', weight: 2 }).addTo(map);
     L.circleMarker(puntos[0], { radius: 5, color: '#5cc98a', fillColor: '#5cc98a', fillOpacity: 1 }).addTo(map)
       .bindTooltip('Despegue', { permanent: false });
     L.circleMarker(puntos[puntos.length - 1], { radius: 5, color: '#e8756c', fillColor: '#e8756c', fillOpacity: 1 }).addTo(map)
