@@ -589,6 +589,10 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-
   transition: background .15s ease, border-color .15s ease;
 }
 .vuelo-item:hover { background: var(--bg-elevated-2); border-left-color: var(--brand); }
+/* Variante sin click-to-open (ej. Papelera) — misma tarjeta, sin el cursor
+   ni el resalte de hover que sugieren que tocarla hace algo. */
+.vuelo-item.no-click { cursor: default; }
+.vuelo-item.no-click:hover { background: var(--bg-subtle); border-left-color: transparent; }
 .vuelo-item-fecha { display: flex; flex-direction: column; min-width: 74px; }
 .vuelo-item-fecha-dia { font-family: var(--font-headline); font-size: 14px; font-weight: 700; }
 .vuelo-item-fecha-anio { font-size: 11px; }

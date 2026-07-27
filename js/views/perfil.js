@@ -786,28 +786,40 @@ const ViewPerfil = {
   // ==========================================================================
   // PAPELERA
   // ==========================================================================
+  // Tarjetas (no tabla): con 4-5 datos + 2 acciones, una tabla desbordaba
+  // en mobile angosto y obligaba a scrollear horizontal para ver "Tiempo"
+  // y los botones — mismo patrón que ya usa Bitácora para sus vuelos.
   _htmlPapelera(papelera) {
     return `
       <div class="card">
         <h2>${Icons.trash(18)} Papelera ${papelera.length ? `<span class="badge warn">${papelera.length}</span>` : ''}</h2>
         ${papelera.length
-          ? `<p class="muted">Los vuelos borrados quedan acá hasta que los restaurés o los borrés definitivamente — nunca desaparecen solos.</p>
-             <div class="table-wrap"><table>
-               <thead><tr><th>Fecha</th><th>Ruta</th><th>Aeronave</th><th class="num">Tiempo</th><th></th></tr></thead>
-               <tbody>
-                 ${papelera.map((v) => `
-                   <tr>
-                     <td>${fmtFecha(v.fecha)}</td>
-                     <td>${v.desde} → ${v.hasta}</td>
-                     <td>${v.aeronaves?.matricula || '—'}</td>
-                     <td class="num">${v.tiempo_total} hs</td>
-                     <td>
-                       <button class="btn ghost" data-accion="restaurar-vuelo" data-id="${v.id}">${Icons.tag('checkCircle', 'Restaurar')}</button>
-                       <button class="btn ghost" data-accion="borrar-vuelo-permanente" data-id="${v.id}">${Icons.trash(16)}</button>
-                     </td>
-                   </tr>`).join('')}
-               </tbody>
-             </table></div>`
+          ? `<p class="muted" style="margin-bottom:12px">Los vuelos borrados quedan acá hasta que los restaurés o los borrés definitivamente — nunca desaparecen solos.</p>
+             <div class="vuelo-lista">
+               ${papelera.map((v) => {
+                 const esTerr = v.desde === 'TERR' && v.hasta === 'TERR';
+                 const esLocal = v.desde === v.hasta;
+                 return `
+                 <div class="vuelo-item no-click">
+                   <div class="vuelo-item-fecha">
+                     <span class="vuelo-item-fecha-dia">${fmtFecha(v.fecha)}</span>
+                   </div>
+                   <div class="vuelo-item-aeronave">
+                     <span class="icon">${Icons.plane(16)}</span>
+                     <div>
+                       <p class="vuelo-item-matricula">${v.aeronaves?.matricula || '—'}</p>
+                       <p class="muted vuelo-item-modelo">${v.aeronaves?.marca_modelo || ''}</p>
+                     </div>
+                   </div>
+                   <div class="vuelo-item-ruta">${esTerr ? 'Simulador' : `${v.desde}${esLocal ? '' : ` <span class="muted">→</span> ${v.hasta}`}`}</div>
+                   <div class="vuelo-item-tiempo"><span>${v.tiempo_total} hs</span></div>
+                   <div class="vuelo-item-acciones">
+                     <button class="btn ghost" data-accion="restaurar-vuelo" data-id="${v.id}" title="Restaurar">${Icons.checkCircle(15)}</button>
+                     <button class="btn ghost" data-accion="borrar-vuelo-permanente" data-id="${v.id}" title="Borrar para siempre">${Icons.trash(15)}</button>
+                   </div>
+                 </div>`;
+               }).join('')}
+             </div>`
           : `<p class="muted" style="margin:0">Vacía — los vuelos que borres van a aparecer acá primero.</p>`}
       </div>
     `;

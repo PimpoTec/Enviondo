@@ -3,6 +3,25 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 65 (Papelera a tarjetas — la única observación pendiente de la auditoría a fondo)
+- [x] La tabla de Papelera (Perfil) desbordaba en mobile angosto (390px) y
+      obligaba a scrollear horizontal para ver "Tiempo" y los botones de
+      restaurar/borrar — lo había dejado como observación opcional en la
+      tanda 64. Se pasó a tarjetas (`.vuelo-item`, el mismo componente que
+      ya usa Bitácora) en vez de tabla — mismos datos, sin scroll
+      horizontal. Confirmado con Playwright: `scrollWidth` del body pasó
+      de desbordar a coincidir exactamente con el viewport (390px).
+- [x] De paso, un turno de adiestrador terrestre (marcador `TERR`/`TERR`)
+      en la Papelera mostraba literalmente "TERR → TERR" en la columna de
+      ruta — ahora dice "Simulador", igual que ya hace la ficha de vuelo
+      de Bitácora para el mismo caso.
+- [x] Nueva clase `.vuelo-item.no-click` (sin cursor pointer ni resalte de
+      hover) para reusar la tarjeta en un lugar donde tocarla no abre nada.
+- [x] De paso, se marcó como resuelta (tanda 60) una nota vieja y
+      desactualizada en TODOS.md sobre "mínimos de licencia por usuario"
+      que había quedado sin tildar.
+- [x] 122 tests en verde, verificado visualmente en claro y oscuro.
+
 ## Hecho — tanda 64 (auditoría a fondo, todas las áreas — visual + código)
 - [x] Pasada completa: se leyó línea por línea lo que faltaba (`js/ui.js`,
       `js/dolar.js`, `js/aerodromos.js`, `DESIGN.md`, `css/styles.css`
@@ -200,10 +219,11 @@ Marcá `[x]` a medida que se completan.
 - [x] Verificado con Playwright (fixtures locales, sin tocar la base real):
       la tarjeta de primeros pasos y el punto del badge se ven bien en
       claro y oscuro. 119 tests en verde.
-- [ ] Pendiente (5, mayor esfuerzo, no se tocó): separar los mínimos de
-      licencia por usuario en vez de tabla global compartida por todos —
-      solo hace falta si de verdad va a haber varios pilotos usando la
-      app en simultáneo con reglas distintas.
+- [x] ~~Pendiente (5, mayor esfuerzo): separar los mínimos de licencia por
+      usuario en vez de tabla global compartida~~ — resuelto en tanda 60
+      con una versión híbrida (global de referencia, editable solo por
+      el admin, + personalización opcional por usuario) en vez de volver
+      a per-user completo.
 
 ## Hecho — tanda 58 (revisión completa de la app simulando un piloto nuevo — bug de pantalla en blanco)
 - [x] Se revisó toda la app (README, cada vista, el bootstrap) simulando un
