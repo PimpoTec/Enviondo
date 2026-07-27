@@ -3,6 +3,39 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 68 (monitoreo básico de errores, propio — sin Sentry ni terceros)
+- [x] Quedaba pendiente de la tanda 66/67: "si algo se rompe para un
+      usuario hoy no te enterás salvo que te escriba". El usuario pidió
+      encararlo directo ("hacelo") sin especificar servicio — como no hay
+      cuenta de Sentry ni nada de terceros configurado, se armó algo
+      propio y chico con lo que la app ya tiene (Supabase).
+- [x] **`sql/agregar_registro_errores.sql`** (+ `schema.sql`): tabla nueva
+      `error_logs`. RLS: cualquier usuario logueado inserta SUS PROPIOS
+      errores; solo la cuenta admin (reutiliza `is_licencias_admin()`, ya
+      existía) puede leerlos o borrarlos.
+- [x] **`js/errorLog.js`** (nuevo, se carga bien temprano en `index.html`
+      para agarrar errores lo antes posible): escucha `window.onerror` y
+      `unhandledrejection` globales y guarda un registro corto (mensaje,
+      stack, URL, user agent) — best effort a propósito: sin sesión
+      todavía, sin señal, o sin la tabla creada, el intento de guardar
+      falla en silencio y no interrumpe nada. Tope de 20 reportes por
+      sesión (por si algo entra en loop de errores).
+- [x] **`js/router.js`**: el catch que ya existía para "la pantalla falló
+      al renderizar" (que hasta ahora solo mostraba el cartel y hacía
+      `console.error`, sin quedar registrado en ningún lado) ahora también
+      llama a `ErrorLog.registrar` — ese caso nunca llega a ser un
+      "unhandled error" (ya está atrapado), así que el listener global no
+      lo vería solo.
+- [x] **Perfil → Preferencias → Admin**: nueva tarjeta "Errores recientes"
+      (hasta 50, más nuevos primero) al lado del panel de licencias
+      existente — con botón de "Borrar todos". `Repo.listarErroresRecientes`
+      / `Repo.borrarTodosLosErrores` en `js/db.js`.
+- [x] Verificado con Playwright (fixture con datos simulados), 126 tests
+      en verde. El usuario avisó que no está en su PC — igual que con la
+      Edge Function de notificaciones, esto necesita correr el SQL nuevo
+      en Supabase para funcionar de verdad; mientras tanto no rompe nada
+      (el panel de admin avisa si falta la tabla).
+
 ## Hecho — tanda 67 (fotos de aeronave huérfanas — lo único de código para "soportar 100 usuarios")
 - [x] El usuario preguntó si la app hoy soportaría ~100 usuarios reales.
       Repaso: aislamiento de datos (RLS en las 11 tablas, confirmado en la

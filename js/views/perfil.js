@@ -445,6 +445,7 @@ const ViewPerfil = {
       </div>
 
       <div id="bloque-licencias"></div>
+      <div id="bloque-errores"></div>
     `;
   },
 
@@ -474,7 +475,7 @@ const ViewPerfil = {
         document.querySelectorAll('#pref-admin button').forEach((x) => x.classList.toggle('active', x === b));
         this.mostrarAdmin = b.dataset.valor === '1';
         if (this.mostrarAdmin) await this._renderPanelAdmin();
-        else document.getElementById('bloque-licencias').innerHTML = '';
+        else { document.getElementById('bloque-licencias').innerHTML = ''; document.getElementById('bloque-errores').innerHTML = ''; }
       };
     });
   },
@@ -501,6 +502,50 @@ const ViewPerfil = {
     cont.querySelectorAll('button[data-accion="borrar-config"]').forEach((b) => {
       b.onclick = () => this._borrarConfig(b.dataset.id);
     });
+    await this._renderErroresRecientes();
+  },
+
+  // Monitoreo básico propio (sin Sentry ni nada de terceros): errores que
+  // le pasaron a CUALQUIER usuario de la app, capturados solos por
+  // js/errorLog.js — así te enterás de que algo se rompió sin depender de
+  // que alguien te escriba.
+  async _renderErroresRecientes() {
+    const cont = document.getElementById('bloque-errores');
+    if (!cont) return;
+    let errores = [];
+    try {
+      errores = await Repo.listarErroresRecientes();
+    } catch (err) {
+      cont.innerHTML = `<div class="card"><h2>${Icons.tag('alertTriangle', 'Errores recientes')}</h2><p class="muted">${Icons.tag('alertTriangle', 'No se pudo leer el registro — ¿corriste sql/agregar_registro_errores.sql? (' + (err.message || err) + ')')}</p></div>`;
+      return;
+    }
+    cont.innerHTML = `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h2 style="margin:0">${Icons.tag('alertTriangle', 'Errores recientes')} ${errores.length ? `<span class="badge warn">${errores.length}</span>` : ''}</h2>
+          ${errores.length ? '<button class="btn ghost" id="btn-limpiar-errores">Borrar todos</button>' : ''}
+        </div>
+        <p class="muted" style="margin:0 0 10px">Últimos ${errores.length} de hasta 50 — de cualquier usuario de la app, capturados solos (no hace falta que nadie te avise).</p>
+        ${errores.length ? errores.map((e) => `
+          <div class="doc-card" style="margin-bottom:8px">
+            <div class="doc-head">
+              <span class="doc-tipo">${new Date(e.created_at).toLocaleString('es-AR')}</span>
+            </div>
+            <p style="margin:0 0 4px;font-weight:600;word-break:break-word">${e.mensaje}</p>
+            <p class="muted" style="margin:0;word-break:break-all">${e.url || ''}</p>
+          </div>`).join('') : '<p class="muted" style="margin:0">Sin errores registrados — todo tranquilo.</p>'}
+      </div>
+    `;
+    const btnLimpiar = document.getElementById('btn-limpiar-errores');
+    if (btnLimpiar) btnLimpiar.onclick = async () => {
+      if (!(await UI.confirmar('¿Borrar todos los errores registrados?', { ok: 'Borrar', peligro: true }))) return;
+      try {
+        await Repo.borrarTodosLosErrores();
+        this._renderErroresRecientes();
+      } catch (err) {
+        UI.toast('Error al borrar: ' + (err.message || err), 'error');
+      }
+    };
   },
 
   _tablaCursoAdmin(curso, requisitos) {

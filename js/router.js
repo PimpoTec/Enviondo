@@ -56,6 +56,10 @@ async function navegar() {
   } catch (err) {
     console.error(err);
     main.innerHTML = `<div class="card"><p>${Icons.tag('alertTriangle', 'Ocurrió un error cargando esta pantalla.')}</p><p class="muted">${err.message || err}</p></div>`;
+    // Este catch ya maneja el error (la pantalla no queda rota), así que
+    // nunca llega a ser un "unhandled error" que agarre window.onerror —
+    // se reporta acá a mano para que quede el mismo registro.
+    if (window.ErrorLog) ErrorLog.registrar(`Error renderizando #${ruta.id}: ${err.message || err}`, err.stack);
   } finally {
     cancelarSkeleton();
   }

@@ -306,6 +306,22 @@ const Repo = {
     const user = await usuarioActual();
     return !!user?.email && user.email.toLowerCase() === window.ADMIN_EMAIL.toLowerCase();
   },
+
+  // ---- Registro de errores (ver js/errorLog.js): solo la cuenta admin
+  // puede leerlos/borrarlos, RLS lo hace cumplir del lado del servidor. ----
+  async listarErroresRecientes() {
+    const { data, error } = await window.db.from('error_logs')
+      .select('*').order('created_at', { ascending: false }).limit(50);
+    if (error) throw error;
+    return data;
+  },
+  async borrarTodosLosErrores() {
+    // Sin filtro no borra nada por seguridad en Supabase (necesita un
+    // `.eq`/`.gt`/etc.) — created_at siempre está seteado, así que este
+    // filtro trivial cubre "todas las filas" sin excluir ninguna.
+    const { error } = await window.db.from('error_logs').delete().not('id', 'is', null);
+    if (error) throw error;
+  },
   async listarConfigLicencia(cursoId) {
     const [globales, personales] = await Promise.all([
       Cache.conCache('config_licencia_' + cursoId, async () => {

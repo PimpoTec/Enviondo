@@ -11,11 +11,11 @@
 // corregido.
 // ============================================================================
 
-const CACHE = 'libro-vuelo-v68';
+const CACHE = 'libro-vuelo-v69';
 const ARCHIVOS_SHELL = [
   './', './index.html', './manifest.webmanifest',
   './css/styles.css',
-  './js/config.js', './js/icons.js', './js/ui.js',
+  './js/config.js', './js/errorLog.js', './js/icons.js', './js/ui.js',
   './js/supabaseClient.js', './js/calc.js', './js/trackParser.js', './js/dolar.js', './js/exportadorAnac.js', './js/cache.js', './js/offline.js',
   './js/auth.js', './js/db.js', './js/notificaciones.js', './js/recordatorios.js', './js/router.js', './js/app.js',
   './js/views/dashboard.js', './js/views/nuevoVuelo.js', './js/views/bitacora.js',

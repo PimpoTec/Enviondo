@@ -353,7 +353,31 @@ a usar el valor de referencia cuando quieras.
 
 ---
 
-## 12) Qué falta / mejoras futuras
+## 12) Registro de errores (opcional)
+
+Monitoreo básico y propio, sin depender de ningún servicio de terceros
+(Sentry y similares necesitan cuenta/API key que esta app no tiene
+configurada). `js/errorLog.js` agarra solo los errores no manejados que
+le pasan a CUALQUIER usuario (`window.onerror`, promesas rechazadas sin
+catch, y las pantallas que fallan al renderizar) y guarda un registro
+corto — mensaje, URL, cuándo — en una tabla nueva. Solo la cuenta admin
+(ver sección 6) los puede leer, en Perfil → Preferencias → Admin.
+
+1. Correr `sql/agregar_registro_errores.sql` en el **SQL Editor** de
+   Supabase (o pegar `schema.sql` completo de nuevo). Crea la tabla
+   `error_logs` con RLS: cualquier usuario logueado puede insertar (reportar
+   sus propios errores), pero solo el admin puede leer o borrar.
+2. Nada más — sin correr el SQL, el intento de guardar un error falla en
+   silencio (no rompe nada, simplemente no queda registrado) y el panel de
+   admin muestra un aviso de que falta correr la migración.
+
+Es "best effort" a propósito: si guardar el error falla (sin sesión
+todavía, sin señal, tabla sin crear), no reintenta ni interrumpe nada —
+nunca puede ser la causa de un problema nuevo.
+
+---
+
+## 13) Qué falta / mejoras futuras
 
 - Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
   `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está
