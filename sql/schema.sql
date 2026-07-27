@@ -628,4 +628,35 @@ alter table aeronaves add constraint aeronaves_foto_posicion_check check (foto_p
 -- .csv/.kml de FlightRadar24) — ver sql/agregar_track_vuelo.sql.
 alter table vuelos add column if not exists ruta_track jsonb;
 
+-- ============================================================================
+-- MÍNIMOS DE LICENCIA PERSONALIZADOS (opcional) — licencias_requisitos
+-- sigue siendo la tabla global de referencia (RAAC vigente, editable solo
+-- por el admin); esta tabla nueva deja que CUALQUIER piloto guarde su
+-- propio valor para un requisito puntual (ej. su escuela le pide otra
+-- cosa) sin tocar el de nadie más. Ver sql/agregar_licencias_requisitos_personal.sql.
+-- ============================================================================
+create table if not exists licencias_requisitos_personal (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references auth.users(id) on delete cascade,
+  curso_id         text not null,
+  nombre_requisito text not null,
+  minimo_horas     numeric(8,2) not null default 0,
+  updated_at       timestamptz not null default now(),
+  unique (user_id, curso_id, nombre_requisito)
+);
+
+alter table licencias_requisitos_personal enable row level security;
+drop policy if exists "licencias_requisitos_personal_select_own" on licencias_requisitos_personal;
+drop policy if exists "licencias_requisitos_personal_insert_own" on licencias_requisitos_personal;
+drop policy if exists "licencias_requisitos_personal_update_own" on licencias_requisitos_personal;
+drop policy if exists "licencias_requisitos_personal_delete_own" on licencias_requisitos_personal;
+create policy "licencias_requisitos_personal_select_own" on licencias_requisitos_personal
+  for select using (auth.uid() = user_id);
+create policy "licencias_requisitos_personal_insert_own" on licencias_requisitos_personal
+  for insert with check (auth.uid() = user_id);
+create policy "licencias_requisitos_personal_update_own" on licencias_requisitos_personal
+  for update using (auth.uid() = user_id);
+create policy "licencias_requisitos_personal_delete_own" on licencias_requisitos_personal
+  for delete using (auth.uid() = user_id);
+
 -- Fin del esquema.

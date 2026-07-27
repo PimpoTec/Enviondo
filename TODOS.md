@@ -3,6 +3,44 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 60 (ítem 5 de la auditoría: mínimos de licencia personalizables, versión híbrida)
+- [x] El plan original de "volver a per-user" chocaba con una decisión ya
+      tomada antes (ver comentario en `sql/schema.sql` línea ~350): los
+      mínimos de licencia son la misma RAAC para todos, tenerlos per-user
+      "estaba mal pensado" — un usuario nuevo tendría que cargar a mano
+      ~20 valores en vez de verlos precargados. Se lo señalé al usuario
+      antes de tocar nada y eligió una versión **híbrida**.
+- [x] **`licencias_requisitos` (global, RAAC, editable solo por el admin)
+      sigue exactamente igual, sin tocar.** Nueva tabla
+      `licencias_requisitos_personal` (por `user_id`, RLS propia — mismo
+      criterio que aeronaves/vencimientos) para que CUALQUIER piloto
+      guarde su propio valor en un requisito puntual (ej. su escuela le
+      pide 250 hs totales de PCA en vez de las 200 de referencia) sin
+      tocar el de nadie más. Migración:
+      `sql/agregar_licencias_requisitos_personal.sql` (+ `schema.sql`).
+- [x] `js/db.js`: `Repo.listarConfigLicencia(cursoId)` ahora trae los
+      globales + las personalizaciones propias y las mezcla con la nueva
+      función pura `_mezclarConfigPersonal(globales, personales)` (donde
+      no personalizaste nada, se ve el de referencia tal cual; donde sí,
+      se reemplaza y se marca `personalizado: true`). Nuevas
+      `Repo.personalizarConfigLicencia(cursoId, requisito, horas)` y
+      `Repo.quitarPersonalizacionConfigLicencia(cursoId, requisito)`
+      (volver al de referencia). `listarConfigLicenciaTodos()` (panel de
+      admin) queda sin mezclar a propósito — el admin edita la fuente de
+      verdad tal cual es.
+- [x] `js/views/perfil.js`: nueva tarjeta "Mínimos de tu licencia" en
+      Datos Personales (visible para cualquier usuario, no solo admin),
+      con un botón de guardar por fila y, si ya personalizaste ese
+      requisito, un ✕ para volver al valor de referencia. El panel de
+      administrador (edición del valor GLOBAL) sigue intacto en
+      Preferencias, sin cambios.
+- [x] 3 tests nuevos para `_mezclarConfigPersonal` en `tests/db.test.js`
+      (sin personalización, con una personalización puntual, sin
+      requisitos globales). Verificado visualmente con Playwright
+      (fixture local). 122 tests en verde.
+- [x] README.md: nueva sección 11 "Mínimos de licencia personalizados
+      (opcional)"; renumerada la de "Qué falta" a 12.
+
 ## Hecho — tanda 59 (primeros 4 puntos de la auditoría de onboarding, priorizados y aplicados)
 - [x] **1) Tarjeta "Primeros pasos" en el Dashboard** (`_htmlPrimerosPasos` en
       `js/views/dashboard.js`): mientras no cargaste ningún vuelo, aparece

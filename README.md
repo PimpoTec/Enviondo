@@ -330,7 +330,30 @@ nota la diferencia, y evita inflar la fila.
 
 ---
 
-## 11) Qué falta / mejoras futuras
+## 11) Mínimos de licencia personalizados (opcional)
+
+Los mínimos de horas de cada curso (Perfil → Datos Personales → "Mínimos
+de tu licencia") vienen precargados con los valores de referencia de la
+RAAC vigente — una tabla global, la misma para todos los pilotos, que solo
+edita la cuenta admin (ver sección 6 más abajo) cuando cambia la
+normativa. Si tu escuela/CIAC te exige otra cosa para algún requisito
+puntual (ej. 250 hs totales en vez de las 200 de referencia para PCA),
+podés guardar tu **propio** valor para ese requisito sin tocar el de
+referencia ni el de ningún otro usuario — un ícono de "✕" al lado vuelve
+a usar el valor de referencia cuando quieras.
+
+1. Correr `sql/agregar_licencias_requisitos_personal.sql` en el **SQL
+   Editor** de Supabase (o pegar `schema.sql` completo de nuevo). Crea la
+   tabla `licencias_requisitos_personal` (una fila por usuario+requisito
+   personalizado, con su propia RLS — cada quien solo ve/edita la suya).
+2. Nada más — la sección ya aparece en Perfil → Datos Personales para
+   cualquier curso activo que tenga mínimos de referencia cargados. Sin
+   correr el SQL, el botón de guardar personalización tira error (la
+   tabla no existe); el resto de la app sigue andando igual.
+
+---
+
+## 12) Qué falta / mejoras futuras
 
 - Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
   `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está

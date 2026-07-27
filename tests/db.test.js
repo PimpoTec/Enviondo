@@ -8,7 +8,7 @@ const { window } = loadApp([
   path.join(ROOT, 'js/calc.js'),
   path.join(ROOT, 'js/db.js'),
 ]);
-const { agregarVuelos, valorRequisito, ordenarAeronavesPorUso } = window;
+const { agregarVuelos, valorRequisito, ordenarAeronavesPorUso, _mezclarConfigPersonal } = window;
 
 test('agregarVuelos suma tiempo_total y costo de varios vuelos', () => {
   const vuelos = [
@@ -85,4 +85,31 @@ test('ordenarAeronavesPorUso: ignora vuelos de simulador (sin aeronave_id) sin r
   const vuelos = [{ aeronave_id: null, fecha: '2026-07-20' }];
   const orden = ordenarAeronavesPorUso(aeronaves, vuelos);
   assert.equal(orden.length, 1);
+});
+
+// ---- _mezclarConfigPersonal: mínimos de referencia + personalizaciones ----
+test('_mezclarConfigPersonal: sin personalizaciones, devuelve los globales tal cual (personalizado: false)', () => {
+  const globales = [{ id: 'g1', curso_id: 'PPA', nombre_requisito: 'total', minimo_horas: 40, orden: 1 }];
+  const out = _mezclarConfigPersonal(globales, []);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].minimo_horas, 40);
+  assert.equal(out[0].personalizado, false);
+});
+
+test('_mezclarConfigPersonal: con una personalización, reemplaza el mínimo de ESE requisito y lo marca', () => {
+  const globales = [
+    { id: 'g1', curso_id: 'PCA', nombre_requisito: 'total', minimo_horas: 200, orden: 1 },
+    { id: 'g2', curso_id: 'PCA', nombre_requisito: 'pic', minimo_horas: 100, orden: 2 },
+  ];
+  const personales = [{ curso_id: 'PCA', nombre_requisito: 'total', minimo_horas: 250 }];
+  const out = _mezclarConfigPersonal(globales, personales);
+  assert.equal(out.find((r) => r.nombre_requisito === 'total').minimo_horas, 250);
+  assert.equal(out.find((r) => r.nombre_requisito === 'total').personalizado, true);
+  assert.equal(out.find((r) => r.nombre_requisito === 'pic').minimo_horas, 100);
+  assert.equal(out.find((r) => r.nombre_requisito === 'pic').personalizado, false);
+});
+
+test('_mezclarConfigPersonal: sin ningún requisito global, devuelve vacío aunque haya personalizaciones sueltas', () => {
+  const out = _mezclarConfigPersonal([], [{ curso_id: 'PCA', nombre_requisito: 'total', minimo_horas: 999 }]);
+  assert.equal(out.length, 0);
 });

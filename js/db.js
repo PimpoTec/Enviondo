@@ -268,23 +268,37 @@ const Repo = {
     Cache.invalidar('datos_piloto');
   },
 
-  // ---- Licencias/requisitos: tabla GLOBAL, compartida por todos los
-  // usuarios. Cualquiera la puede leer; solo la cuenta admin (ver
-  // js/config.js ADMIN_EMAIL) la puede editar — eso lo hace cumplir
-  // Supabase con RLS, no esta capa de JS. ----
+  // ---- Licencias/requisitos: tabla GLOBAL (licencias_requisitos), la
+  // misma RAAC vigente para todos los pilotos — cualquiera la puede leer;
+  // solo la cuenta admin (ver js/config.js ADMIN_EMAIL) la puede editar,
+  // eso lo hace cumplir Supabase con RLS, no esta capa de JS. Un piloto
+  // cuya escuela/CIAC le pida otra cosa para un requisito puntual puede
+  // guardar su PROPIO valor (licencias_requisitos_personal, por user_id)
+  // sin tocar el de nadie más — ver _mezclarConfigPersonal. ----
   async esAdminApp() {
     const user = await usuarioActual();
     return !!user?.email && user.email.toLowerCase() === window.ADMIN_EMAIL.toLowerCase();
   },
   async listarConfigLicencia(cursoId) {
-    return Cache.conCache('config_licencia_' + cursoId, async () => {
-      const { data, error } = await window.db.from('licencias_requisitos')
-        .select('*').eq('curso_id', cursoId).order('orden');
-      if (error) throw error;
-      return data;
-    });
+    const [globales, personales] = await Promise.all([
+      Cache.conCache('config_licencia_' + cursoId, async () => {
+        const { data, error } = await window.db.from('licencias_requisitos')
+          .select('*').eq('curso_id', cursoId).order('orden');
+        if (error) throw error;
+        return data;
+      }),
+      Cache.conCache('config_licencia_personal_' + cursoId, async () => {
+        const { data, error } = await window.db.from('licencias_requisitos_personal')
+          .select('*').eq('curso_id', cursoId);
+        if (error) throw error;
+        return data;
+      }),
+    ]);
+    return _mezclarConfigPersonal(globales, personales);
   },
-  // Todos los requisitos de todos los cursos juntos (panel de admin y backup).
+  // Todos los requisitos de todos los cursos juntos (panel de admin y backup)
+  // — a propósito el valor GLOBAL sin mezclar con personalizaciones de
+  // nadie: el admin tiene que ver y editar la fuente de verdad tal cual es.
   async listarConfigLicenciaTodos() {
     return Cache.conCache('config_licencia_todos', async () => {
       const { data, error } = await window.db.from('licencias_requisitos').select('*').order('curso_id').order('orden');
@@ -313,6 +327,28 @@ const Repo = {
     const { error } = await window.db.from('licencias_requisitos').delete().eq('id', id);
     if (error) throw error;
     _invalidarConfigLicencia();
+  },
+
+  // Guarda (o reemplaza) TU propio mínimo para un requisito puntual — no
+  // toca el valor de referencia global, ni el de ningún otro usuario.
+  // Cualquier piloto puede hacer esto, no hace falta ser admin.
+  async personalizarConfigLicencia(cursoId, nombreRequisito, minimoHoras) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('licencias_requisitos_personal').upsert(
+      { user_id: user.id, curso_id: cursoId, nombre_requisito: nombreRequisito, minimo_horas: minimoHoras, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,curso_id,nombre_requisito' },
+    );
+    if (error) throw error;
+    Cache.invalidar('config_licencia_personal_' + cursoId);
+  },
+  // Vuelve a usar el valor de referencia global para ese requisito (borra
+  // tu personalización puntual).
+  async quitarPersonalizacionConfigLicencia(cursoId, nombreRequisito) {
+    const user = await usuarioActual();
+    const { error } = await window.db.from('licencias_requisitos_personal')
+      .delete().eq('user_id', user.id).eq('curso_id', cursoId).eq('nombre_requisito', nombreRequisito);
+    if (error) throw error;
+    Cache.invalidar('config_licencia_personal_' + cursoId);
   },
 
   // ---- Vencimientos ----
@@ -407,6 +443,21 @@ const Repo = {
   },
 };
 
+// Combina los mínimos de referencia (globales, RAAC) con las
+// personalizaciones puntuales de ESTE usuario para un curso: donde no
+// personalizó nada, se ve el valor global tal cual; donde sí, se reemplaza
+// el minimo_horas por el suyo (se marca `personalizado: true` para que la
+// UI lo distinga). Pura (sin red), para poder testearla — ver tests/db.test.js.
+function _mezclarConfigPersonal(globales, personales) {
+  const porRequisito = {};
+  for (const p of personales) porRequisito[p.nombre_requisito] = p;
+  return globales.map((g) => {
+    const personal = porRequisito[g.nombre_requisito];
+    if (!personal) return { ...g, personalizado: false };
+    return { ...g, minimo_horas: personal.minimo_horas, personalizado: true };
+  });
+}
+
 // Orden de la flota: preferidas primero y, dentro de cada grupo (preferida
 // o no), la que se voló más reciente arriba — así en un selector (Nuevo
 // vuelo, Programar vuelo) lo que realmente usás está a mano arriba, en vez
@@ -481,3 +532,4 @@ window.Repo = Repo;
 window.agregarVuelos = agregarVuelos;
 window.valorRequisito = valorRequisito;
 window.ordenarAeronavesPorUso = ordenarAeronavesPorUso;
+window._mezclarConfigPersonal = _mezclarConfigPersonal;

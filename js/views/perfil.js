@@ -175,6 +175,9 @@ const ViewPerfil = {
         this.cursosActivos = cursosActivos;
         this.datosPiloto = datosPiloto || {};
         if (this.cursosActivos.includes('PCA_HVI')) this.hviSimHoras = await Repo.getHviSimHoras();
+        this.configPorCurso = (await Promise.all(this.cursosActivos.map(async (cursoId) => ({
+          curso: CURSOS.find((c) => c.id === cursoId), config: await Repo.listarConfigLicencia(cursoId),
+        })))).filter(({ config }) => config.length); // ej. HAB_NOC sin requisitos de referencia todavía: no mostrar una tabla vacía
         main.innerHTML = volver + this._htmlPersonales();
         this._bindPersonales();
       } else if (this.seccion === 'preferencias') {
@@ -296,6 +299,8 @@ const ViewPerfil = {
 
       ${this.cursosActivos.includes('PCA_HVI') ? this._htmlRepartoHvi() : ''}
 
+      ${this.configPorCurso.length ? this._htmlMinimosPersonales() : ''}
+
       <div class="card">
         <h2>${Icons.idCard(18)} Datos del piloto</h2>
         <p class="muted" style="margin:0 0 10px">Se usan para completar la cabecera de la Hoja de Libro de Vuelo (ANAC 290/2012) cuando exportás.</p>
@@ -327,6 +332,12 @@ const ViewPerfil = {
     document.getElementById('btn-guardar-datos-piloto').onclick = () => this._guardarDatosPiloto();
     document.getElementById('btn-cambiar-clave').onclick = () => this._cambiarPassword();
     document.getElementById('btn-logout-personales').onclick = () => Auth.cerrarSesion();
+    document.querySelectorAll('button[data-accion="guardar-personal"]').forEach((b) => {
+      b.onclick = () => this._guardarConfigPersonal(b.dataset.curso, b.dataset.requisito);
+    });
+    document.querySelectorAll('button[data-accion="quitar-personal"]').forEach((b) => {
+      b.onclick = () => this._quitarConfigPersonal(b.dataset.curso, b.dataset.requisito);
+    });
     if (this.cursosActivos.includes('PCA_HVI')) {
       document.getElementById('btn-guardar-hvi').onclick = () => this._guardarReparto();
       document.getElementById('hvi-sim').addEventListener('input', (e) => {
@@ -356,6 +367,39 @@ const ViewPerfil = {
           </div>
         </div>
         <button class="btn" id="btn-guardar-hvi">Guardar reparto</button>
+      </div>
+    `;
+  },
+
+  // Mínimos de referencia (RAAC, globales) para tus cursos activos, con la
+  // opción de personalizar un requisito puntual si tu escuela/CIAC te pide
+  // otra cosa — solo te afecta a vos, no toca el valor de nadie más ni el
+  // de referencia (ver Repo.personalizarConfigLicencia en js/db.js).
+  _htmlMinimosPersonales() {
+    return `
+      <div class="card">
+        <h2>${Icons.lock(18)} Mínimos de tu licencia</h2>
+        <p class="muted">Vienen precargados con los valores de referencia (RAAC 61.129 vigente) — si tu escuela/CIAC te exige otra cosa para algún requisito, podés personalizarlo acá abajo; no afecta a nadie más. <strong>Confirmalos igual</strong>, esto no es asesoramiento legal.</p>
+        ${this.configPorCurso.map(({ curso, config }) => `
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+            <h3>${curso.label}</h3>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Requisito</th><th class="num">Mínimo</th><th></th></tr></thead>
+              <tbody>
+                ${config.map((c) => `
+                  <tr>
+                    <td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}${c.personalizado ? ' <span class="badge neutral" style="font-size:10px">Personalizado</span>' : ''}</td>
+                    <td class="num"><input type="number" inputmode="decimal" step="0.5" min="0" style="width:100px;text-align:right" data-curso="${curso.id}" data-requisito="${c.nombre_requisito}" value="${c.minimo_horas}"></td>
+                    <td>
+                      <button class="btn ghost" data-accion="guardar-personal" data-curso="${curso.id}" data-requisito="${c.nombre_requisito}" title="Guardar como tu propio mínimo">${Icons.save(16)}</button>
+                      ${c.personalizado ? `<button class="btn ghost" data-accion="quitar-personal" data-curso="${curso.id}" data-requisito="${c.nombre_requisito}" title="Volver al valor de referencia">${Icons.x(16)}</button>` : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table></div>
+          </div>
+        `).join('')}
       </div>
     `;
   },
@@ -784,6 +828,27 @@ const ViewPerfil = {
       this.render();
     } catch (err) {
       UI.toast('Error al guardar el reparto: ' + (err.message || err), 'error');
+    }
+  },
+
+  async _guardarConfigPersonal(cursoId, requisito) {
+    const input = document.querySelector(`input[data-curso="${cursoId}"][data-requisito="${requisito}"]`);
+    try {
+      await Repo.personalizarConfigLicencia(cursoId, requisito, Calc.n(input.value));
+      UI.toast('Guardado como tu propio mínimo.', 'ok');
+      this.render();
+    } catch (err) {
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
+    }
+  },
+
+  async _quitarConfigPersonal(cursoId, requisito) {
+    try {
+      await Repo.quitarPersonalizacionConfigLicencia(cursoId, requisito);
+      UI.toast('Volviste al valor de referencia.', 'ok');
+      this.render();
+    } catch (err) {
+      UI.toast('Error al volver al valor de referencia: ' + (err.message || err), 'error');
     }
   },
 
