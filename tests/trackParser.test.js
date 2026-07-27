@@ -74,6 +74,34 @@ test('parsearTrackKml: sin ningún <coordinates>, devuelve vacío', () => {
   assertPuntos(parsearTrackKml('<kml><Document></Document></kml>'), []);
 });
 
+test('parsearTrackKml: KML real de FlightRadar24 (folder "Route" de Placemarks <Point> + folder "Trail" de segmentos <LineString> de 2 puntos) usa el Route y no lo duplica con el Trail', () => {
+  const puntosRuta = [
+    ['-58.580868', '-34.450367'],
+    ['-58.582912', '-34.454681'],
+    ['-58.583542', '-34.454956'],
+    ['-58.592667', '-34.456100'],
+  ];
+  const route = puntosRuta
+    .map(([lon, lat]) => `<Placemark><TimeStamp><when>2026-07-25T00:44:45+00:00</when></TimeStamp><Point><altitudeMode>absolute</altitudeMode><coordinates>${lon},${lat},0</coordinates></Point></Placemark>`)
+    .join('');
+  const trail = puntosRuta
+    .slice(0, -1)
+    .map(([lonA, latA], i) => {
+      const [lonB, latB] = puntosRuta[i + 1];
+      return `<Placemark><Style><LineStyle><color>ffffffff</color></LineStyle></Style><MultiGeometry><LineString><coordinates>${lonA},${latA},0 ${lonB},${latB},0</coordinates></LineString></MultiGeometry></Placemark>`;
+    })
+    .join('');
+  const kml = `<?xml version="1.0"?><kml><Document><Folder><name>Route</name>${route}</Folder><Folder><name>Trail</name>${trail}</Folder></Document></kml>`;
+  const puntos = parsearTrackKml(kml);
+  assert.equal(puntos.length, 4);
+  assertPuntos(puntos, [
+    [-34.450367, -58.580868],
+    [-34.454681, -58.582912],
+    [-34.454956, -58.583542],
+    [-34.456100, -58.592667],
+  ]);
+});
+
 test('parsearArchivoTrack: despacha a CSV o KML según la extensión', () => {
   assert.equal(parsearArchivoTrack('vuelo.csv', 'Timestamp,Position\n1,"-34.5,-58.5"').length, 1);
   assert.equal(parsearArchivoTrack('vuelo.kml', '<coordinates>-58.5,-34.5,0</coordinates>').length, 1);

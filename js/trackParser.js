@@ -56,19 +56,36 @@ function parsearTrackCsv(texto) {
   return limitarPuntosTrack(puntos);
 }
 
-// KML: las coordenadas de un <LineString> van en un solo <coordinates>
-// como "lon,lat,alt lon,lat,alt ..." (¡en ese orden — longitud primero!),
-// separadas por espacios o saltos de línea. Con una regex alcanza (no hace
-// falta un parser XML completo para este único tag).
+// KML: las coordenadas van en <coordinates> como "lon,lat,alt lon,lat,alt ..."
+// (¡en ese orden — longitud primero!), separadas por espacios o saltos de
+// línea. Con una regex alcanza (no hace falta un parser XML completo).
 //
-// Un KML de FlightRadar24 puede traer el mismo recorrido dos veces en
-// <Placemark> separados (ej. una capa de línea simple + otra "coloreada
-// por altitud", pensadas para togglear en Google Earth, no para sumar) —
-// concatenar todos los bloques de <coordinates> tal cual aparecen dibuja
-// el trayecto encimado con el mismo dos veces, con el típico efecto de
-// "línea doble" zigzagueando. Nos quedamos solo con el bloque más largo
-// (el que mejor representa el recorrido completo) en vez de sumarlos todos.
+// Un KML real de FlightRadar24 no trae un único <LineString> con todo el
+// recorrido: trae un folder "Route" con UN <Placemark><Point> por cada
+// posición reportada (uno por Placemark, en orden cronológico — el track
+// real, de la mejor fidelidad), y ADEMÁS un folder "Trail" con cientos de
+// <Placemark><LineString> cortitos de 2 puntos cada uno, que van encadenando
+// esos mismos puntos de a pares (solo sirven para pintar el trayecto por
+// tramos de color en Google Earth). Si se suman los bloques de <coordinates>
+// tal cual aparecen, el recorrido de "Route" se dibuja una vez y enseguida
+// "Trail" lo vuelve a retrazar de punta a punta — el típico efecto de
+// "línea doble"/"cargó todo dos veces".
+//
+// Por eso: si hay varios <Placemark> de <Point> (el folder "Route"), esos
+// puntos SON el recorrido real — se usan esos y se ignora todo lo demás.
+// Si no hay (KML "simple", de una sola línea, sin ese desglose), se cae al
+// comportamiento viejo: quedarse con el bloque de <coordinates> más largo
+// (por si el mismo recorrido viene duplicado en más de un Placemark).
 function parsearTrackKml(texto) {
+  const puntosDeRoute = [];
+  const regexPoint = /<Point\b[^>]*>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>[\s\S]*?<\/Point>/gi;
+  let mp;
+  while ((mp = regexPoint.exec(texto))) {
+    const [lon, lat] = mp[1].trim().split(',').map(Number);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) puntosDeRoute.push([lat, lon]);
+  }
+  if (puntosDeRoute.length >= 3) return limitarPuntosTrack(puntosDeRoute);
+
   const bloques = [];
   const regex = /<coordinates>([\s\S]*?)<\/coordinates>/gi;
   let m;

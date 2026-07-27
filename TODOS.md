@@ -3,6 +3,44 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 57 (track GPS: el fix de la "línea doble" de la tanda 56 no alcanzaba — solo 2 puntos)
+- [x] El usuario subió el `.kml` real que le daba problemas y, después del
+      fix de la tanda 56, el mapa pasó a mostrarle una sola línea recta
+      entre el punto de despegue y el de aterrizaje (2 puntos nomás) — el
+      recorrido detallado se perdió del todo. Se leyó el archivo real para
+      diagnosticar en vez de seguir adivinando.
+- [x] **Causa real** (distinta de lo que se había asumido en la tanda 56):
+      un KML de FlightRadar24 no trae el recorrido completo en un único
+      `<LineString>` grande. Trae un folder **"Route"** con un
+      `<Placemark><Point>` por cada posición reportada (uno por cada fix
+      del GPS, en orden cronológico — el recorrido real, de máxima
+      fidelidad) y además un folder **"Trail"** con cientos de
+      `<Placemark><LineString>` cortitos de solo 2 puntos cada uno, que
+      encadenan esos mismos puntos de a pares (sirven nada más para pintar
+      el trayecto por tramos de color en Google Earth). El fix de la
+      tanda 56 ("quedarse con el bloque de `<coordinates>` más largo")
+      terminaba agarrando uno de esos segmentos sueltos de 2 puntos del
+      Trail — de ahí la línea recta.
+      - Esto también explica mejor el bug original de "línea doble": no
+        eran dos copias completas del recorrido superpuestas, sino el
+        recorrido de "Route" dibujado una vez seguido inmediatamente por
+        el mismo trayecto retrazado de a pares por "Trail".
+- [x] **Fix**: `parsearTrackKml` ahora junta los puntos de todos los
+      `<Placemark>` de `<Point>` (el folder "Route") cuando hay 3 o más —
+      esos son el recorrido real — e ignora el resto. Si el KML no tiene
+      ese desglose (un archivo "simple", de una sola línea), se mantiene
+      el comportamiento de la tanda 56 como respaldo: quedarse con el
+      bloque de `<coordinates>` más largo.
+  - ⚠️ De nuevo: esto arregla los **archivos que se suban de acá en
+    adelante**. El vuelo que el usuario ya probó necesita que se vuelva a
+    subir el mismo `.kml` (Bitácora → el vuelo → Editar todo → subir el
+    archivo de nuevo) para que el recorrido guardado se corrija.
+- [x] Test nuevo con la estructura real (folder "Route" de `<Point>` +
+      folder "Trail" de segmentos `<LineString>`), verificado además contra
+      el archivo `.kml` real adjuntado por el usuario (1555 puntos de
+      Route → 500 tras el muestreo, recorrido completo y no una línea
+      recta). 119 tests en verde.
+
 ## Hecho — tanda 56 (track GPS: línea más fina + bug de "línea doble" en el recorrido)
 - [x] Línea del recorrido más fina (`weight` 3 → 2 en `_dibujarTrackEnMapa`,
       compartido por el mini mapa y el mapa ampliado).
