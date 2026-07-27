@@ -8,7 +8,7 @@ const { window } = loadApp([
   path.join(ROOT, 'js/calc.js'),
   path.join(ROOT, 'js/db.js'),
 ]);
-const { agregarVuelos, valorRequisito, ordenarAeronavesPorUso, _mezclarConfigPersonal } = window;
+const { agregarVuelos, valorRequisito, ordenarAeronavesPorUso, _mezclarConfigPersonal, _borrarFotoStorage } = window;
 
 test('agregarVuelos suma tiempo_total y costo de varios vuelos', () => {
   const vuelos = [
@@ -112,4 +112,35 @@ test('_mezclarConfigPersonal: con una personalización, reemplaza el mínimo de 
 test('_mezclarConfigPersonal: sin ningún requisito global, devuelve vacío aunque haya personalizaciones sueltas', () => {
   const out = _mezclarConfigPersonal([], [{ curso_id: 'PCA', nombre_requisito: 'total', minimo_horas: 999 }]);
   assert.equal(out.length, 0);
+});
+
+// ---- _borrarFotoStorage: limpieza de la foto vieja al reemplazar/sacar una ----
+test('_borrarFotoStorage: extrae el path después de "/aeronaves-fotos/" y llama remove() con ese path', async () => {
+  const removidos = [];
+  window.db = { storage: { from: (bucket) => ({ remove: async (paths) => { removidos.push({ bucket, paths }); return { error: null }; } }) } };
+  await _borrarFotoStorage('https://xyz.supabase.co/storage/v1/object/public/aeronaves-fotos/user123/aero1-111.jpg');
+  assert.equal(removidos.length, 1);
+  assert.equal(removidos[0].bucket, 'aeronaves-fotos');
+  // Los arrays que salen del sandbox de loadApp son de otro "realm" —
+  // deepEqual los compara por estructura pero falla la referencia.
+  assert.equal(JSON.stringify(removidos[0].paths), JSON.stringify(['user123/aero1-111.jpg']));
+});
+
+test('_borrarFotoStorage: decodifica caracteres de la URL (ej. espacios como %20)', async () => {
+  const removidos = [];
+  window.db = { storage: { from: () => ({ remove: async (paths) => { removidos.push(paths); return { error: null }; } }) } };
+  await _borrarFotoStorage('https://xyz.supabase.co/storage/v1/object/public/aeronaves-fotos/user123/foto%20vieja.jpg');
+  assert.equal(JSON.stringify(removidos[0]), JSON.stringify(['user123/foto vieja.jpg']));
+});
+
+test('_borrarFotoStorage: URL que no matchea el patrón esperado, no llama a Storage ni tira error', async () => {
+  let llamado = false;
+  window.db = { storage: { from: () => ({ remove: async () => { llamado = true; return { error: null }; } }) } };
+  await assert.doesNotReject(_borrarFotoStorage('https://otro-dominio.com/algo.jpg'));
+  assert.equal(llamado, false);
+});
+
+test('_borrarFotoStorage: si Storage tira una excepción, no se propaga (best-effort)', async () => {
+  window.db = { storage: { from: () => ({ remove: async () => { throw new Error('403 forbidden'); } }) } };
+  await assert.doesNotReject(_borrarFotoStorage('https://xyz.supabase.co/storage/v1/object/public/aeronaves-fotos/user123/aero1-111.jpg'));
 });

@@ -83,11 +83,17 @@ const Repo = {
   // Sube la foto a Storage (bucket público "aeronaves-fotos", carpeta
   // propia = user_id — ver sql/agregar_foto_aeronave.sql) y guarda la URL
   // pública en la ficha. Nombre de archivo único por subida (no se
-  // reemplaza el objeto anterior en Storage): para un uso personal el
-  // costo de esos objetos "huérfanos" al cambiar de foto es despreciable,
-  // y así no hay que llevar la cuenta de la extensión del archivo previo.
+  // reemplaza el objeto anterior en Storage, así no hay que llevar la
+  // cuenta de la extensión del archivo previo) — pero si ya había una
+  // foto, se borra del Storage después de confirmar la nueva, para que
+  // no se acumulen archivos huérfanos cada vez que alguien cambia de
+  // foto (con un solo usuario el costo es despreciable, pero con muchos
+  // pilotos usando la misma app suma).
   async subirFotoAeronave(aeronaveId, file) {
     const user = await usuarioActual();
+    const { data: actual } = await window.db.from('aeronaves').select('foto_url').eq('id', aeronaveId).maybeSingle();
+    const fotoVieja = actual?.foto_url || null;
+
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
     const path = `${user.id}/${aeronaveId}-${Date.now()}.${ext}`;
     const { error: errorSubida } = await window.db.storage.from('aeronaves-fotos').upload(path, file);
@@ -95,12 +101,15 @@ const Repo = {
     const { data } = window.db.storage.from('aeronaves-fotos').getPublicUrl(path);
     const { error } = await window.db.from('aeronaves').update({ foto_url: data.publicUrl }).eq('id', aeronaveId);
     if (error) throw error;
+    if (fotoVieja) await _borrarFotoStorage(fotoVieja);
     Cache.invalidar('aeronaves');
     return data.publicUrl;
   },
   async quitarFotoAeronave(aeronaveId) {
+    const { data: actual } = await window.db.from('aeronaves').select('foto_url').eq('id', aeronaveId).maybeSingle();
     const { error } = await window.db.from('aeronaves').update({ foto_url: null }).eq('id', aeronaveId);
     if (error) throw error;
+    if (actual?.foto_url) await _borrarFotoStorage(actual.foto_url);
     Cache.invalidar('aeronaves');
   },
   // Encuadre vertical de la miniatura (0-100, 50=centro) — para corregir un
@@ -461,6 +470,22 @@ const Repo = {
   },
 };
 
+// Borra del bucket "aeronaves-fotos" el archivo detrás de una URL pública
+// (ver subirFotoAeronave/quitarFotoAeronave) — best-effort: si la URL no
+// matchea el patrón esperado o el borrado falla (permisos, ya no existe),
+// no tira error ni bloquea nada — la ficha ya quedó actualizada, que es lo
+// que el usuario ve; en el peor caso queda un archivo huérfano más, el
+// mismo estado de siempre antes de este cleanup.
+async function _borrarFotoStorage(fotoUrl) {
+  try {
+    const marcador = '/aeronaves-fotos/';
+    const idx = fotoUrl.indexOf(marcador);
+    if (idx === -1) return;
+    const path = decodeURIComponent(fotoUrl.slice(idx + marcador.length));
+    await window.db.storage.from('aeronaves-fotos').remove([path]);
+  } catch { /* best-effort, no bloquea nada */ }
+}
+
 // Combina los mínimos de referencia (globales, RAAC) con las
 // personalizaciones puntuales de ESTE usuario para un curso: donde no
 // personalizó nada, se ve el valor global tal cual; donde sí, se reemplaza
@@ -569,3 +594,4 @@ window.valorRequisito = valorRequisito;
 window.valorNocturnasAjustado = valorNocturnasAjustado;
 window.ordenarAeronavesPorUso = ordenarAeronavesPorUso;
 window._mezclarConfigPersonal = _mezclarConfigPersonal;
+window._borrarFotoStorage = _borrarFotoStorage;

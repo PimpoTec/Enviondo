@@ -3,6 +3,32 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 67 (fotos de aeronave huérfanas — lo único de código para "soportar 100 usuarios")
+- [x] El usuario preguntó si la app hoy soportaría ~100 usuarios reales.
+      Repaso: aislamiento de datos (RLS en las 11 tablas, confirmado en la
+      tanda 66), onboarding self-service, mínimos de licencia compartidos
+      con personalización por usuario, notificaciones ya procesando a
+      todos — todo eso YA está resuelto en código. Lo que faltaría es
+      infraestructura/operación (plan de Supabase, límites de las APIs
+      públicas de terceros, monitoreo de errores), no código — salvo un
+      punto concreto que sí es código:
+- [x] **Fotos de aeronave huérfanas**: `Repo.subirFotoAeronave` nunca
+      borraba el archivo viejo del bucket `aeronaves-fotos` al reemplazar
+      una foto (decisión explícita para un solo usuario, el costo era
+      despreciable) — con más pilotos usando la misma app, esos archivos
+      huérfanos se acumulan sin límite. Ahora `subirFotoAeronave` y
+      `quitarFotoAeronave` (`js/db.js`) borran el archivo anterior del
+      Storage después de confirmar el cambio en la tabla — best-effort
+      (`_borrarFotoStorage`), si falla no bloquea nada, solo queda un
+      huérfano más (el mismo estado que había antes de este fix).
+- [x] 4 tests nuevos para `_borrarFotoStorage` (extrae el path de la URL
+      pública, decodifica `%20` etc., no rompe con una URL que no matchea
+      el patrón, no propaga si Storage tira una excepción). 126 tests en
+      verde.
+- [x] Pendiente, no se tocó todavía (el usuario lo va a decidir aparte):
+      monitoreo básico de errores — hoy si algo se rompe para un usuario
+      no hay forma de enterarse salvo que te escriba.
+
 ## Hecho — tanda 66 (auditoría, ronda 3: bug de huso horario en notificaciones-push)
 - [x] Tercera pasada: Edge Functions (`supabase/functions/*.ts`), cobertura
       de RLS en las 11 tablas del schema (todas con RLS + políticas propias,
