@@ -375,7 +375,7 @@ const ViewBitacora = {
       ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', v.observaciones)}</p>` : ''}
       <div class="btn-row" style="margin-top:14px">
         <button class="btn secondary" data-accion="editar-desde-detalle" data-id="${v.id}">${Icons.tag('edit', 'Edición rápida')}</button>
-        <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar todo</button>
+        <button class="btn ghost" data-accion="editar-todo" data-id="${v.id}">Editar todo</button>
       </div>
     `;
   },
@@ -430,6 +430,7 @@ const ViewBitacora = {
       this.filaEditando = v.id;
       this._renderLista();
     };
+    overlay.querySelector('button[data-accion="editar-todo"]').onclick = () => Router.irA('nuevo-vuelo?editar=' + v.id);
   },
 
   // Mapa "glass cockpit" (mismo estilo que el de Totales) con el recorrido
@@ -530,7 +531,7 @@ const ViewBitacora = {
         <div class="btn-row">
           <button class="btn" data-accion="guardar-inline">Guardar</button>
           <button class="btn ghost" data-accion="cancelar-inline">Cancelar</button>
-          <button class="btn ghost" onclick="Router.irA('nuevo-vuelo?editar=${v.id}')">Editar todo</button>
+          <button class="btn ghost" data-accion="editar-todo-inline">Editar todo</button>
         </div>
       </div>
     `;
@@ -544,6 +545,7 @@ const ViewBitacora = {
       this.filaEditando = null;
       this._renderLista();
     };
+    panel.querySelector('[data-accion="editar-todo-inline"]').onclick = () => Router.irA('nuevo-vuelo?editar=' + id);
   },
 
   async _guardarEdicionInline(id) {

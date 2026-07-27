@@ -22,12 +22,24 @@ const ViewExportar = {
 
   async render() {
     const main = document.getElementById('main-content');
-    this.aeronaves = await Repo.listarAeronaves();
+    const [aeronaves, vuelos] = await Promise.all([Repo.listarAeronaves(), Repo.listarVuelos()]);
+    this.aeronaves = aeronaves;
+    // Años con al menos un vuelo cargado — para el atajo de "Año" de abajo,
+    // que completa Desde/Hasta solo (1/ene al 31/dic) en vez de tener que
+    // poner las dos fechas a mano cada vez que se quiere exportar un año
+    // entero (el caso más común, ya que la Hoja ANAC arma "un archivo por año").
+    const anios = [...new Set(vuelos.map((v) => v.fecha.slice(0, 4)))].sort().reverse();
 
     main.innerHTML = `
       <div class="card">
         <h2>${Icons.download(18)} Exportar</h2>
         <div class="grid cols-4">
+          <div class="field"><label>Año <span class="muted">(atajo)</span></label>
+            <select id="ex-anio">
+              <option value="">Elegí un año…</option>
+              ${anios.map((a) => `<option value="${a}">${a}</option>`).join('')}
+            </select>
+          </div>
           <div class="field"><label>Desde</label><input type="date" id="ex-desde"></div>
           <div class="field"><label>Hasta</label><input type="date" id="ex-hasta"></div>
           <div class="field"><label>Aeronave</label>
@@ -62,6 +74,11 @@ const ViewExportar = {
       </div>
     `;
 
+    document.getElementById('ex-anio').onchange = (e) => {
+      const anio = e.target.value;
+      document.getElementById('ex-desde').value = anio ? `${anio}-01-01` : '';
+      document.getElementById('ex-hasta').value = anio ? `${anio}-12-31` : '';
+    };
     document.getElementById('btn-export-anac').onclick = () => this._exportarAnac();
     document.getElementById('btn-export-xlsx').onclick = () => this._exportarXlsx();
     document.getElementById('btn-export-pdf').onclick = () => this._exportarPdf();

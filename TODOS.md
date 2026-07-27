@@ -3,6 +3,31 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 62 (backlog viejo: selector de año en Exportar + onclick inline a delegación)
+- [x] **Selector de año en Exportar**: nuevo campo "Año (atajo)" que lista
+      los años con al menos un vuelo cargado — al elegir uno completa
+      Desde/Hasta solo (1/ene al 31/dic), en vez de tener que poner las
+      dos fechas a mano cada vez (el caso más común, ya que la Hoja ANAC
+      arma un archivo por año). No reemplaza Desde/Hasta, es un atajo.
+- [x] **`onclick` inline con UUID interpolado → delegación** (prolijidad,
+      sin bug real detrás — los UUIDs no tienen comillas ni caracteres
+      raros): "Editar todo" en la ficha de vuelo y en la edición inline de
+      Bitácora; guardar/borrar requisito en el panel de admin de Perfil;
+      restaurar/borrar definitivo en la Papelera. Los `onclick` que solo
+      llaman `Router.irA('ruta-fija')` con una ruta estática (sin datos
+      de usuario) se dejaron como estaban — migrarlos no aporta nada.
+- [x] **Backfill de `costo_congelado` en vuelos viejos en USD: evaluado y
+      descartado.** `Calc.costoRegistrado` ya resuelve bien el caso hoy —
+      un vuelo viejo sin costo congelado muestra el costo calculado con
+      la tarifa VIGENTE en la moneda real de la aeronave (ej. USD), lo
+      cual es más honesto que rellenar `costo_congelado` con una
+      estimación en pesos usando el dólar de HOY: eso lo guardaría como
+      si fuera "lo que realmente se pagó" en su momento, cuando no hay
+      forma de saber la cotización histórica real. Mejor dejarlo como
+      estimado-en-vivo y visible en USD que fingir precisión que no existe.
+- [x] Verificado: 122 tests en verde, visual con Playwright del selector
+      de año en Exportar.
+
 ## Hecho — tanda 61 (más pendientes de la auditoría de onboarding: privacidad + jerga en Totales)
 - [x] Nota de privacidad en el panel de "Crear cuenta" ("Tu libro de vuelo
       es privado — solo vos podés verlo y editarlo, ni siquiera otro
@@ -1303,11 +1328,10 @@ Perfil estabas) se pierde, como si nunca hubiera estado.
 
 ## Pendiente / ideas a futuro
 - [ ] **Papelera** sigue solo en Perfil (aceptable: acción poco frecuente).
-- [ ] **Hoja ANAC**: el rango de fechas YA se puede elegir (filtros
-      Desde/Hasta de Exportar, se aplican a las 4 opciones de export) —
-      lo que falta, si hiciera falta más, es un selector de año directo
-      en vez de tener que poner las dos fechas a mano.
-- [ ] **Backfill** de `costo_congelado` en vuelos viejos en USD (no hay cómo
-      saber la cotización histórica exacta; quedaría estimado).
-- [ ] Migrar el resto de `onclick` inline (bitácora, vencimientos) a
-      delegación, por prolijidad (hoy solo interpolan UUIDs, sin riesgo).
+- [x] ~~Hoja ANAC: selector de año directo~~ — hecho en tanda 62.
+- [x] ~~Backfill de `costo_congelado` en vuelos viejos en USD~~ — evaluado
+      en tanda 62 y descartado a propósito (ver esa entrada: el fallback
+      actual, en vivo y en USD, es más honesto que una estimación en
+      pesos con el dólar de hoy).
+- [x] ~~Migrar el resto de `onclick` inline (bitácora, vencimientos) a
+      delegación~~ — hecho en tanda 62.

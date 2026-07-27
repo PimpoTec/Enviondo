@@ -504,6 +504,12 @@ const ViewPerfil = {
     CURSOS.forEach((curso) => {
       document.getElementById(`btn-agregar-${curso.id}`).onclick = () => this._agregarRequisito(curso.id);
     });
+    cont.querySelectorAll('button[data-accion="guardar-config"]').forEach((b) => {
+      b.onclick = () => this._guardarConfig(b.dataset.id);
+    });
+    cont.querySelectorAll('button[data-accion="borrar-config"]').forEach((b) => {
+      b.onclick = () => this._borrarConfig(b.dataset.id);
+    });
   },
 
   _tablaCursoAdmin(curso, requisitos) {
@@ -518,8 +524,8 @@ const ViewPerfil = {
                 <td>${LABELS_REQUISITO[c.nombre_requisito] || c.nombre_requisito}</td>
                 <td class="num"><input type="number" inputmode="decimal" step="0.5" min="0" style="width:100px;text-align:right" data-id="${c.id}" value="${c.minimo_horas}"></td>
                 <td>
-                  <button class="btn ghost" onclick="ViewPerfil._guardarConfig('${c.id}')">${Icons.save(16)}</button>
-                  <button class="btn ghost" onclick="ViewPerfil._borrarConfig('${c.id}')">${Icons.trash(16)}</button>
+                  <button class="btn ghost" data-accion="guardar-config" data-id="${c.id}">${Icons.save(16)}</button>
+                  <button class="btn ghost" data-accion="borrar-config" data-id="${c.id}">${Icons.trash(16)}</button>
                 </td>
               </tr>
             `).join('') || '<tr><td colspan="3" class="empty-state">Sin requisitos.</td></tr>'}
@@ -805,8 +811,8 @@ const ViewPerfil = {
                      <td>${v.aeronaves?.matricula || '—'}</td>
                      <td class="num">${v.tiempo_total} hs</td>
                      <td>
-                       <button class="btn ghost" onclick="ViewPerfil._restaurarVuelo('${v.id}')">${Icons.tag('checkCircle', 'Restaurar')}</button>
-                       <button class="btn ghost" onclick="ViewPerfil._borrarVueloPermanente('${v.id}')">${Icons.trash(16)}</button>
+                       <button class="btn ghost" data-accion="restaurar-vuelo" data-id="${v.id}">${Icons.tag('checkCircle', 'Restaurar')}</button>
+                       <button class="btn ghost" data-accion="borrar-vuelo-permanente" data-id="${v.id}">${Icons.trash(16)}</button>
                      </td>
                    </tr>`).join('')}
                </tbody>
@@ -816,7 +822,14 @@ const ViewPerfil = {
     `;
   },
 
-  _bindPapelera() {},
+  _bindPapelera() {
+    document.querySelectorAll('button[data-accion="restaurar-vuelo"]').forEach((b) => {
+      b.onclick = () => this._restaurarVuelo(b.dataset.id);
+    });
+    document.querySelectorAll('button[data-accion="borrar-vuelo-permanente"]').forEach((b) => {
+      b.onclick = () => this._borrarVueloPermanente(b.dataset.id);
+    });
+  },
 
   // ==========================================================================
   // ACCIONES COMPARTIDAS
