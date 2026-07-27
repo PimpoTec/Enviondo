@@ -143,7 +143,10 @@ const ViewAeronaves = {
 
   _labelClase(a) {
     if (a.es_simulador) return 'Simulador';
-    return CLASES_AERONAVE.find((c) => c.valor === a.clase)?.label || a.clase;
+    // Una ficha vieja (de antes de que existiera la columna `clase`, o
+    // cargada por SQL directo) puede no tener nada acá — sin el fallback
+    // final, el pie de la tarjeta mostraba literalmente "undefined".
+    return CLASES_AERONAVE.find((c) => c.valor === a.clase)?.label || a.clase || '—';
   },
 
   // Colapsada por default (solo matrícula/modelo/base, una línea) — con

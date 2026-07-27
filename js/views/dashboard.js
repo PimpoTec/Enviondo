@@ -700,19 +700,8 @@ async function cargarMetar(icao, elId, tipo = 'metar') {
   _mostrarUltimaCacheOFallback(el, icao, tipo);
 }
 
-// Cuando "Habilitación de Vuelo Nocturno" (HAB_NOC) está activa junto a otro
-// curso que también pide horas nocturnas (ej. PCA pide 5), las horas
-// nocturnas voladas van primero a completar la habilitación (sus 3 hs) —
-// recién las que sobran después de eso cuentan para el otro curso. No es
-// que las mismas horas cuenten dos veces para dos requisitos distintos.
-function valorNocturnasAjustado(cursoId, agg, configsPorCurso) {
-  const habNoc = configsPorCurso.find((c) => c.cursoId === 'HAB_NOC');
-  if (!habNoc) return agg.total_noche;
-  const reqHabNoc = habNoc.config.find((r) => r.nombre_requisito === 'nocturnas');
-  const minimoHabNoc = Calc.n(reqHabNoc?.minimo_horas);
-  if (cursoId === 'HAB_NOC') return Math.min(agg.total_noche, minimoHabNoc);
-  return Math.max(0, Calc.round2(agg.total_noche - minimoHabNoc));
-}
+// valorNocturnasAjustado vive en js/db.js (junto a valorRequisito — la usa
+// también Totales).
 
 // Promedio ponderado por tamaño del requisito, no un promedio simple de
 // porcentajes: si un curso pide 200 hs y otro (ej. HAB_NOC) pide 3, ese de

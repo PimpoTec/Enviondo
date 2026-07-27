@@ -3,6 +3,71 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 64 (auditoría a fondo, todas las áreas — visual + código)
+- [x] Pasada completa: se leyó línea por línea lo que faltaba (`js/ui.js`,
+      `js/dolar.js`, `js/aerodromos.js`, `DESIGN.md`, `css/styles.css`
+      completo, `js/views/aeronaves.js`, `js/exportadorAnac.js`) y se
+      renderizó con datos realistas (no vacíos) en Playwright, en claro y
+      oscuro, lo que todavía no se había visto armado: Bitácora (lista +
+      ficha + filtros + edición inline), Aeronaves (tarjetas con foto real
+      y slider de encuadre, colapsadas/expandidas), Totales (con vuelos
+      variados, progreso de licencia, discriminaciones) y Perfil (menú con
+      badges, Alertas con los 4 estados de vencimiento + "¿Podés volar
+      hoy?", Papelera).
+- [x] **Bug real #1 — Aeronaves**: una ficha sin `clase` cargada (aeronave
+      vieja de antes de que existiera esa columna, o importada por SQL
+      directo) mostraba literalmente la palabra **"undefined"** en el pie
+      de la tarjeta en vez de nada o un guion. `_labelClase` en
+      `js/views/aeronaves.js` ahora cae a '—' en ese caso.
+- [x] **Fragilidad real #2 — dependencias entre vistas por orden de
+      carga**: encontré (probando con fixtures que no cargaban TODOS los
+      archivos de `index.html`, que es justo la situación que expondría
+      esto) que `js/views/totales.js` usa `LABELS_REQUISITO` (declarado
+      con `const` en `js/views/perfil.js`, que carga DESPUÉS en
+      `index.html`) y `valorNocturnasAjustado` (declarado en
+      `js/views/dashboard.js`, que carga ANTES — ese caso sí "funciona" en
+      la app real por orden de carga, pero de pura casualidad). Hoy esto
+      no rompe nada en producción porque ninguna vista ejecuta su
+      `render()` hasta que TODOS los `<script>` ya cargaron — pero es una
+      dependencia implícita frágil: con esos mismos síntomas descubrí que
+      `distanciaNm` (definido en totales.js) lo usan también Dashboard y
+      Bitácora, con el mismo patrón. Se resolvió moviendo las 3 piezas
+      compartidas a los archivos que YA cargan antes que cualquier vista:
+      `LABELS_REQUISITO`/`CLAVES_REQUISITO_DISPONIBLES`/
+      `valorNocturnasAjustado` → `js/db.js` (junto a `valorRequisito`,
+      mismo dominio); `distanciaNm` → `js/calc.js`. Cero cambio de
+      comportamiento, solo se saca la dependencia de la casualidad de
+      orden. `tests/dashboard.test.js` actualizado (cargaba totales.js
+      solo por esto — ya no hace falta).
+- [x] **Descubrimiento al pasar, sin bug asociado**: mientras diagnosticaba
+      lo de arriba until entendí por qué un `window.Repo = {mock}` mío no
+      pisaba el `Repo` real en un test manual — un `const Repo = {...}` a
+      nivel de archivo crea un binding léxico global separado de la
+      propiedad `window.Repo`, así que reasignar `window.Repo` después no
+      alcanza para que otro código que usa el identificador suelto
+      `Repo` vea el cambio (haría falta mutar las propiedades del mismo
+      objeto en vez de reemplazarlo). No afecta a la app real — ahí nunca
+      se reasigna `Repo`/`window.Repo` — quedó solo como una lección para
+      mis propios fixtures de prueba, documentada acá por si vuelve a
+      pasar.
+- [x] **Observación menor, no se tocó**: la tabla de Papelera (Perfil) en
+      mobile angosto (390px) desborda su ancho (5 columnas) — es
+      scrolleable (`.table-wrap { overflow-x: auto }` funciona, confirmado
+      con Playwright) así que no hay contenido inaccesible, pero obliga a
+      scrollear para ver "Tiempo" y los botones de restaurar/borrar. Dado
+      que Papelera ya está marcada como "acción poco frecuente" y
+      arreglarlo bien implicaría rediseñarla a tarjetas (como ya se hizo
+      con Bitácora), se deja como mejora opcional a futuro, no como
+      corrección de esta tanda.
+- [x] Revisado sin encontrar problemas: `js/ui.js` (toasts/modales),
+      `js/dolar.js` (fallbacks de cotización), `js/notificaciones.js`,
+      `js/recordatorios.js`, `js/exportadorAnac.js` (arrastre de totales
+      entre hojas/años, ya cubierto por 43 tests propios), y todo
+      `css/styles.css` contra `DESIGN.md` (tokens, tipografía, radios,
+      sombras — consistente en toda la app).
+- [x] 122 tests en verde. Todo verificado visualmente con Playwright
+      (fixtures locales, sin tocar la base real), en claro y oscuro.
+
 ## Hecho — tanda 63 (auditoría, ronda 2: offline/sync — bug real de vuelos que quedaban encolados para siempre)
 - [x] Segunda pasada de auditoría, esta vez sobre partes de la app que no
       se habían mirado todavía: offline/sync (`js/offline.js`),

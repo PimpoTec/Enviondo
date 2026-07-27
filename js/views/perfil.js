@@ -5,18 +5,9 @@
 // completas); el resto se muestra adentro de Perfil mismo.
 // ============================================================================
 
-// Claves de requisito que la app efectivamente sabe calcular con tus
-// vuelos. Si el admin agrega un requisito con otra clave, va a quedar
-// guardado pero el progreso va a mostrar 0 — no hay una fórmula para
-// inventarlo.
-const CLAVES_REQUISITO_DISPONIBLES = ['total', 'pic', 'travesia_pic', 'nocturnas', 'instrumentos', 'instrumentos_sim', 'aterrizajes_noche', 'remolques'];
-
-const LABELS_REQUISITO = {
-  total: 'Total', pic: 'Piloto al mando (PIC)', travesia_pic: 'Travesía como PIC',
-  nocturnas: 'Nocturnas', instrumentos: 'Instrumentos (real + capota)',
-  instrumentos_sim: 'Instrumentos en simulador (FSTD)',
-  aterrizajes_noche: 'Aterrizajes nocturnos', remolques: 'Remolques',
-};
+// CLAVES_REQUISITO_DISPONIBLES y LABELS_REQUISITO viven en js/db.js (las usa
+// también js/views/totales.js, que se carga ANTES que este archivo — ver el
+// comentario ahí).
 
 const MENU_PERFIL = [
   { id: 'personales', icon: 'person', label: 'Datos Personales', desc: 'Cursos, licencia, contraseña' },

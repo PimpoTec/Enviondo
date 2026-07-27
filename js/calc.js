@@ -137,6 +137,25 @@ function horasEntre(horaSalida, horaLlegada) {
   return minutosAHoras(minutos);
 }
 
+// Distancia en línea recta (círculo máximo) entre dos puntos, en millas
+// náuticas (NM, la unidad de distancia estándar en aviación) — fórmula de
+// haversine con el radio terrestre en NM. No es la distancia realmente
+// volada (eso depende de la ruta/viento real), es una referencia.
+// Vive acá (no en un solo views/*.js) porque la usan tanto Totales (mapa de
+// rutas) como Bitácora (ficha del vuelo) y Dashboard (buscar el METAR más
+// cercano) — calc.js se carga antes que cualquier vista, así que es un
+// lugar seguro de verdad (antes vivía en totales.js, y las otras dos
+// vistas dependían de que ya hubiera cargado por casualidad de orden).
+function distanciaNm(lat1, lon1, lat2, lon2) {
+  const R_NM = 3440.065;
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R_NM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+window.distanciaNm = distanciaNm;
+
 window.Calc = {
   CAMPOS_TIEMPO, CAMPOS_DISCRIMINACION,
   n, round2, calcularTotales, calcularCosto, costoRegistrado, parseFechaLocal,

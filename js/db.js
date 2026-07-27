@@ -15,6 +15,24 @@ const CURSOS = [
   { id: 'HAB_NOC', label: 'Habilitación de Vuelo Nocturno (RAAC vigente)' },
 ];
 
+// Claves de requisito que la app efectivamente sabe calcular con tus
+// vuelos (ver valorRequisito más abajo). Si el admin agrega un requisito
+// con otra clave, va a quedar guardado pero el progreso va a mostrar 0 —
+// no hay una fórmula para inventarlo. Viven acá (no en perfil.js, que las
+// usaba antes) porque js/views/totales.js también las necesita y se carga
+// ANTES que perfil.js en index.html — declararlas en perfil.js funcionaba
+// de pura casualidad de timing (nada las usa hasta que el usuario navega a
+// una pantalla, mucho después de que todos los <script> ya cargaron), pero
+// quedaba como una dependencia implícita frágil entre dos vistas. db.js se
+// carga antes que cualquier vista, así que es un lugar seguro de verdad.
+const CLAVES_REQUISITO_DISPONIBLES = ['total', 'pic', 'travesia_pic', 'nocturnas', 'instrumentos', 'instrumentos_sim', 'aterrizajes_noche', 'remolques'];
+const LABELS_REQUISITO = {
+  total: 'Total', pic: 'Piloto al mando (PIC)', travesia_pic: 'Travesía como PIC',
+  nocturnas: 'Nocturnas', instrumentos: 'Instrumentos (real + capota)',
+  instrumentos_sim: 'Instrumentos en simulador (FSTD)',
+  aterrizajes_noche: 'Aterrizajes nocturnos', remolques: 'Remolques',
+};
+
 // getSession() lee la sesión guardada localmente (rápido, sin red); getUser()
 // SIEMPRE hace un viaje de ida y vuelta al servidor de Supabase para
 // revalidarla — apropiado si necesitás verificar la sesión con el servidor,
@@ -527,9 +545,27 @@ function valorRequisito(nombre, agg) {
   }
 }
 
+// Cuando "Habilitación de Vuelo Nocturno" (HAB_NOC) está activa junto a otro
+// curso que también pide horas nocturnas (ej. PCA pide 5), las horas
+// nocturnas voladas van primero a completar la habilitación (sus 3 hs) —
+// recién las que sobran después de eso cuentan para el otro curso. No es
+// que las mismas horas cuenten dos veces para dos requisitos distintos.
+// La usan Dashboard y Totales.
+function valorNocturnasAjustado(cursoId, agg, configsPorCurso) {
+  const habNoc = configsPorCurso.find((c) => c.cursoId === 'HAB_NOC');
+  if (!habNoc) return agg.total_noche;
+  const reqHabNoc = habNoc.config.find((r) => r.nombre_requisito === 'nocturnas');
+  const minimoHabNoc = Calc.n(reqHabNoc?.minimo_horas);
+  if (cursoId === 'HAB_NOC') return Math.min(agg.total_noche, minimoHabNoc);
+  return Math.max(0, Calc.round2(agg.total_noche - minimoHabNoc));
+}
+
 window.CURSOS = CURSOS;
+window.CLAVES_REQUISITO_DISPONIBLES = CLAVES_REQUISITO_DISPONIBLES;
+window.LABELS_REQUISITO = LABELS_REQUISITO;
 window.Repo = Repo;
 window.agregarVuelos = agregarVuelos;
 window.valorRequisito = valorRequisito;
+window.valorNocturnasAjustado = valorNocturnasAjustado;
 window.ordenarAeronavesPorUso = ordenarAeronavesPorUso;
 window._mezclarConfigPersonal = _mezclarConfigPersonal;

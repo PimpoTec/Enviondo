@@ -62,18 +62,7 @@ function calcularRutasFrecuentes(vuelos) {
     .sort((a, b) => b.count - a.count);
 }
 
-// Distancia en línea recta (círculo máximo) entre dos puntos, en millas
-// náuticas (NM, la unidad de distancia estándar en aviación) — fórmula de
-// haversine con el radio terrestre en NM. No es la distancia realmente
-// volada (eso depende de la ruta/viento real), es una referencia.
-function distanciaNm(lat1, lon1, lat2, lon2) {
-  const R_NM = 3440.065;
-  const rad = Math.PI / 180;
-  const dLat = (lat2 - lat1) * rad;
-  const dLon = (lon2 - lon1) * rad;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
-  return Math.round(R_NM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-}
+// distanciaNm vive en js/calc.js (la usan también Bitácora y Dashboard).
 
 // "1.75" (hs.décimos) → "01:45", para mostrar la duración media como
 // horas:minutos, más legible que el decimal en la ficha del mapa.
@@ -287,6 +276,7 @@ function calcularItemsRequisito(cursoId, config, agg, configsPorCurso) {
 // costaba leer de un vistazo cuánto llevás y cuánto falta. Ahora son 3
 // piezas separadas: el nombre + una etiqueta de estado bien visible
 // (Completo / Faltan X hs), y aparte, en grande, "llevado de meta".
+// LABELS_REQUISITO vive en js/db.js (se carga antes que cualquier vista).
 function htmlItemsRequisito(items) {
   return items.map(({ req, actual, minimo, pct, faltan, esUnidad }) => {
     const unidad = esUnidad ? '' : ' hs';

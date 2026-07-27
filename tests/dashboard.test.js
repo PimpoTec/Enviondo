@@ -5,8 +5,8 @@ const { loadApp } = require('./_helpers/loadApp');
 
 const ROOT = path.join(__dirname, '..');
 const { window } = loadApp([
-  path.join(ROOT, 'js/calc.js'),
-  path.join(ROOT, 'js/views/totales.js'), // define distanciaNm, que usa _buscarMetarCercano
+  path.join(ROOT, 'js/calc.js'), // define distanciaNm, que usa _buscarMetarCercano
+  path.join(ROOT, 'js/db.js'), // define valorNocturnasAjustado
   path.join(ROOT, 'js/views/dashboard.js'),
 ]);
 const {
