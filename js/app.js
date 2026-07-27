@@ -168,31 +168,48 @@ async function init() {
     }
   });
 
+  // El SW se registra siempre, pase lo que pase con Supabase abajo — si no,
+  // una falla de red al cargar (ver catch de abajo) también te deja sin el
+  // shell offline cacheado para la próxima vez.
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
   // Si venís del link de "olvidé mi contraseña", Supabase te deja logueado
   // pero hay que elegir contraseña nueva antes de entrar a la app.
   const esRecuperacion = window.location.hash.includes('type=recovery');
 
-  const sesion = await Auth.getSesion();
-  if (sesion && !esRecuperacion) {
-    await mostrarApp();
-  } else if (esRecuperacion) {
-    await mostrarLogin('panel-nueva-clave');
-  } else {
-    await mostrarLogin();
-  }
-
-  window.db.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'PASSWORD_RECOVERY') {
-      await mostrarLogin('panel-nueva-clave');
-    } else if (event === 'SIGNED_IN' && session && !esRecuperacion) {
+  // El SDK de Supabase (window.db, ver js/supabaseClient.js) viene de un CDN
+  // bloqueante — si esa carga falla (sin señal, CDN caído, un bloqueador de
+  // contenido) window.db queda undefined y CUALQUIER llamada de acá para
+  // abajo tira una excepción. Sin este try/catch, esa excepción quedaba sin
+  // capturar dentro de este init() async: la pantalla de login (que recién
+  // se muestra más abajo) nunca llegaba a aparecer, y la app quedaba en una
+  // pantalla en blanco para siempre, sin ningún aviso de qué pasó.
+  try {
+    const sesion = await Auth.getSesion();
+    if (sesion && !esRecuperacion) {
       await mostrarApp();
-    } else if (event === 'SIGNED_OUT') {
+    } else if (esRecuperacion) {
+      await mostrarLogin('panel-nueva-clave');
+    } else {
       await mostrarLogin();
     }
-  });
 
-  if (navigator.serviceWorker) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    window.db.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        await mostrarLogin('panel-nueva-clave');
+      } else if (event === 'SIGNED_IN' && session && !esRecuperacion) {
+        await mostrarApp();
+      } else if (event === 'SIGNED_OUT') {
+        await mostrarLogin();
+      }
+    });
+  } catch (err) {
+    console.error('Error inicializando la sesión:', err);
+    await mostrarLogin();
+    const msg = document.getElementById('login-msg');
+    if (msg) msg.innerHTML = Icons.tag('alertTriangle', 'No se pudo conectar con el servidor — revisá tu conexión a internet y recargá la página.');
   }
 }
 

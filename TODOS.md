@@ -3,6 +3,37 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 58 (revisión completa de la app simulando un piloto nuevo — bug de pantalla en blanco)
+- [x] Se revisó toda la app (README, cada vista, el bootstrap) simulando un
+      usuario nuevo que entra sin haber leído nada, buscando fricciones y
+      confusiones para que la app pueda sumar más pilotos sin fricción.
+- [x] **Bug real encontrado y arreglado** (no solo una opinión de diseño):
+      probando el arranque de la app con la carga del SDK de Supabase
+      fallada (CDN bloqueado/caído/sin señal — algo que le puede pasar a
+      cualquier usuario real, no solo a este entorno de prueba), la app
+      quedaba en una **pantalla completamente en blanco para siempre**, sin
+      ningún aviso. Causa: `js/supabaseClient.js` tira una excepción si
+      `window.supabase` no cargó (CDN bloqueante), `window.db` nunca se
+      crea, y `init()` en `js/app.js` no tenía try/catch alrededor de
+      `Auth.getSesion()` — esa excepción quedaba sin capturar y la pantalla
+      de login (que se muestra más abajo en la función) nunca llegaba a
+      pintarse. De paso, tampoco se registraba el Service Worker (quedaba
+      después de la línea que explotaba), así que ni el shell offline se
+      cacheaba para la próxima vez.
+  - Fix en `js/app.js`: el registro del Service Worker se movió ANTES del
+    chequeo de sesión (para que pase siempre, network o no), y el chequeo
+    de sesión + `onAuthStateChange` quedaron envueltos en try/catch — si
+    algo de Supabase falla, ahora se muestra igual la pantalla de login
+    con un aviso claro ("No se pudo conectar con el servidor — revisá tu
+    conexión a internet y recargá la página.") en vez de quedar en blanco.
+  - Verificado con Playwright simulando el CDN caído: antes, pantalla
+    negra vacía para siempre; después, pantalla de login con el aviso.
+- [x] Auditoría completa entregada en el chat (no son cambios de código):
+      fricciones de onboarding, terminología ANAC sin explicar para un
+      piloto que recién empieza, estados vacíos, y oportunidades para que
+      la app escale a más pilotos. Pendiente de que el usuario priorice
+      qué implementar.
+
 ## Hecho — tanda 57 (track GPS: el fix de la "línea doble" de la tanda 56 no alcanzaba — solo 2 puntos)
 - [x] El usuario subió el `.kml` real que le daba problemas y, después del
       fix de la tanda 56, el mapa pasó a mostrarle una sola línea recta
