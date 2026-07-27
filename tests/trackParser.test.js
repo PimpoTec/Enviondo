@@ -56,10 +56,18 @@ test('parsearTrackKml: extrae lat/lon de <coordinates> (orden lon,lat en el KML)
   assertPuntos(puntos, [[-34.5093, -58.5228], [-34.52, -58.53]]);
 });
 
-test('parsearTrackKml: junta coordinates de varios Placemark si hubiera más de uno', () => {
-  const kml = `<coordinates>-58.5,-34.5,0</coordinates><coordinates>-58.6,-34.6,0</coordinates>`;
+test('parsearTrackKml: con varios <coordinates>, se queda con el bloque más largo (no los suma todos)', () => {
+  // Caso real de FlightRadar24: el mismo recorrido puede venir dos veces en
+  // Placemarks separados (ej. línea simple + "coloreada por altitud") —
+  // sumar todos los bloques dibujaría el trayecto encimado con sí mismo
+  // ("línea doble"). El bloque grande (el recorrido real, con muchos
+  // puntos) tiene que ganarle al chico (una versión resumida/duplicada).
+  const chico = '-58.5,-34.5,0 -58.6,-34.6,0';
+  const grande = '-58.50,-34.50,0 -58.52,-34.52,0 -58.54,-34.54,0 -58.56,-34.56,0 -58.58,-34.58,0';
+  const kml = `<coordinates>${chico}</coordinates><coordinates>${grande}</coordinates>`;
   const puntos = parsearTrackKml(kml);
-  assert.equal(puntos.length, 2);
+  assert.equal(puntos.length, 5);
+  assertPuntos(puntos, [[-34.50, -58.50], [-34.52, -58.52], [-34.54, -58.54], [-34.56, -58.56], [-34.58, -58.58]]);
 });
 
 test('parsearTrackKml: sin ningún <coordinates>, devuelve vacío', () => {

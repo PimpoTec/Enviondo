@@ -3,6 +3,29 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 56 (track GPS: línea más fina + bug de "línea doble" en el recorrido)
+- [x] Línea del recorrido más fina (`weight` 3 → 2 en `_dibujarTrackEnMapa`,
+      compartido por el mini mapa y el mapa ampliado).
+- [x] **Bug real**: haciendo zoom, el recorrido se veía como dos líneas
+      paralelas zigzagueando cerca una de la otra en todo el trayecto (el
+      usuario confirmó que no voló dos veces por esa zona). Causa: un KML
+      de FlightRadar24 puede traer el mismo recorrido dos veces en
+      `<Placemark>` separados (ej. una capa de línea simple + otra
+      "coloreada por altitud", pensadas para togglear en Google Earth, no
+      para sumar) — `parsearTrackKml` concatenaba TODOS los bloques
+      `<coordinates>` que encontraba, dibujando el trayecto encimado con
+      sí mismo. Ahora se queda solo con el bloque más largo (el que mejor
+      representa el recorrido completo) en vez de sumarlos todos.
+  - ⚠️ Esto arregla los **archivos que se suban de acá en adelante** — un
+    vuelo que ya tiene el track duplicado guardado (cargado con la
+    versión vieja del parser) necesita que se vuelva a subir el mismo
+    .kml (Bitácora → el vuelo → Editar todo → subir el archivo de nuevo)
+    para corregirse; no se puede arreglar solo, los puntos malos ya están
+    guardados en `vuelos.ruta_track`.
+- [x] Tests actualizados: el que asumía que varios `<coordinates>` se
+      concatenan se reescribió para el escenario real (bloque chico vs.
+      grande, gana el grande). 118 tests en verde.
+
 ## Hecho — tanda 55 (ajustes al track GPS: FAB tapando el mapa, ampliar y zoom, solo .kml)
 - [x] El botón flotante "+" (nuevo registro) de Bitácora quedaba tapando
       el mini mapa de la ficha (mismo rincón inferior derecho) — se

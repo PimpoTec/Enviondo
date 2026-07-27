@@ -60,18 +60,30 @@ function parsearTrackCsv(texto) {
 // como "lon,lat,alt lon,lat,alt ..." (¡en ese orden — longitud primero!),
 // separadas por espacios o saltos de línea. Con una regex alcanza (no hace
 // falta un parser XML completo para este único tag).
+//
+// Un KML de FlightRadar24 puede traer el mismo recorrido dos veces en
+// <Placemark> separados (ej. una capa de línea simple + otra "coloreada
+// por altitud", pensadas para togglear en Google Earth, no para sumar) —
+// concatenar todos los bloques de <coordinates> tal cual aparecen dibuja
+// el trayecto encimado con el mismo dos veces, con el típico efecto de
+// "línea doble" zigzagueando. Nos quedamos solo con el bloque más largo
+// (el que mejor representa el recorrido completo) en vez de sumarlos todos.
 function parsearTrackKml(texto) {
-  const puntos = [];
+  const bloques = [];
   const regex = /<coordinates>([\s\S]*?)<\/coordinates>/gi;
   let m;
   while ((m = regex.exec(texto))) {
+    const puntos = [];
     const tripletas = m[1].trim().split(/\s+/);
     for (const t of tripletas) {
       const [lon, lat] = t.split(',').map(Number);
       if (Number.isFinite(lat) && Number.isFinite(lon)) puntos.push([lat, lon]);
     }
+    if (puntos.length) bloques.push(puntos);
   }
-  return limitarPuntosTrack(puntos);
+  if (!bloques.length) return [];
+  bloques.sort((a, b) => b.length - a.length);
+  return limitarPuntosTrack(bloques[0]);
 }
 
 // Despacha según la extensión del archivo — .kmz (KML comprimido) no está
