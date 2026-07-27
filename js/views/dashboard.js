@@ -33,6 +33,7 @@ const ViewDashboard = {
 
     main.innerHTML = `
       ${this._htmlBannerProximoVuelo(programados)}
+      ${this._htmlPrimerosPasos(aeronaves, vuelos)}
 
       <div class="card">
         <h2>${Icons.clock(18)} Total de horas y progreso de licencia</h2>
@@ -103,6 +104,34 @@ const ViewDashboard = {
         </span>
         ${Icons.chevronRight(16)}
       </button>
+    `;
+  },
+
+  // Guía de primeros pasos para un piloto que recién entra — antes de esto,
+  // un usuario nuevo caía directo a un dashboard vacío (anillo en 0%, "Sin
+  // requisitos configurados", "No tenés vuelos agendados") sin que nada le
+  // dijera por dónde arrancar. Desaparece sola apenas cargás tu primer
+  // vuelo — a partir de ahí el dashboard ya tiene datos propios que mostrar.
+  _htmlPrimerosPasos(aeronaves, vuelos) {
+    if (vuelos.length) return '';
+    const hayAeronave = aeronaves.length > 0;
+    const paso = (n, hecho, titulo, desc, ruta) => `
+      <div class="paso-item${hecho ? ' hecho' : ''}">
+        <span class="paso-icono">${hecho ? Icons.checkCircle(20) : `<span class="paso-numero">${n}</span>`}</span>
+        <div class="paso-texto">
+          <p class="paso-titulo">${titulo}</p>
+          <p class="paso-desc muted">${desc}</p>
+        </div>
+        ${!hecho ? `<button class="btn secondary" onclick="Router.irA('${ruta}')">Ir</button>` : ''}
+      </div>`;
+    return `
+      <div class="card pasos-card">
+        <h2>${Icons.tag('plane', 'Primeros pasos')}</h2>
+        <p class="muted" style="margin:0 0 12px">Che, bienvenido — esto es lo que hace falta para arrancar a llevar tu libro de vuelo acá.</p>
+        ${paso(1, hayAeronave, 'Cargá tu primera aeronave', 'Matrícula, modelo y tarifa por hora — de ahí sale el costo de cada vuelo. Los simuladores también van acá.', 'aeronaves')}
+        ${paso(2, false, 'Revisá tus mínimos de licencia', 'En Perfil → Datos Personales elegís qué curso estás haciendo (viene precargado en PPA) y confirmás los mínimos de horas contra la RAAC 61.129 vigente.', 'perfil?seccion=personales')}
+        ${paso(3, false, 'Cargá tu primer vuelo', hayAeronave ? 'Modo rápido (tiempo total) o detallado (los 8 campos del libro ANAC), como prefieras.' : 'Necesitás al menos una aeronave cargada antes de este paso.', 'nuevo-vuelo')}
+      </div>
     `;
   },
 

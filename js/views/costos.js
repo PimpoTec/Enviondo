@@ -8,6 +8,18 @@ const ViewCostos = {
     const vuelos = await Repo.listarVuelos();
     const cursosActivos = await Repo.getCursosActivos();
     const configsPorCurso = await Promise.all(cursosActivos.map((id) => Repo.listarConfigLicencia(id)));
+    // Sin vuelos cargados, costoPromedioHora sale 0 y la "proyección" también
+    // (0 hs/hora × lo que sea = $0) — eso se leería como "te va a salir
+    // gratis" en vez de "todavía no hay datos". Mejor un estado vacío
+    // explícito que esas cuentas engañosas.
+    if (!vuelos.length) {
+      main.innerHTML = `<div class="card empty-state">
+        Todavía no cargaste ningún vuelo — acá vas a ver cuánto gastaste por mes, por aeronave y una proyección hasta completar tu curso.
+        <br><button class="btn" style="margin-top:12px" onclick="Router.irA('nuevo-vuelo')">Cargar tu primer vuelo</button>
+      </div>`;
+      return;
+    }
+
     const agg = agregarVuelos(vuelos);
     const costoPromedioHora = agg.tiempo_total > 0 ? Calc.round2(agg.costo_total / agg.tiempo_total) : 0;
 

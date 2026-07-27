@@ -99,7 +99,7 @@ const ViewNuevoVuelo = {
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <h2 style="margin:0">${this.editId ? Icons.tag('edit', 'Editar registro') : Icons.tag('plusCircle', 'Nuevo registro')}</h2>
-          ${this.tipo === 'vuelo' ? '<button class="btn secondary" id="btn-toggle-modo">Modo detallado</button>' : ''}
+          ${this.tipo === 'vuelo' ? `<button class="btn secondary" id="btn-toggle-modo" title="${this.modoDetallado ? 'Volver al modo rápido: cargás el tiempo total y la app lo reparte sola.' : 'Modo detallado: cargás a mano los 8 campos exactos del libro ANAC (sobre aeródromo / travesía × día / noche × piloto / copiloto), en vez de que la app los reparta.'}">${this.modoDetallado ? 'Modo rápido' : 'Modo detallado'}</button>` : ''}
         </div>
 
         <div class="field" style="margin-bottom:16px">
@@ -119,8 +119,17 @@ const ViewNuevoVuelo = {
     document.getElementById('tg-tipo-vuelo').onclick = () => { this.tipo = 'vuelo'; this.render(); };
     document.getElementById('tg-tipo-adiestrador').onclick = () => { this.tipo = 'adiestrador'; this.render(); };
     if (this.tipo === 'vuelo') {
-      document.getElementById('btn-toggle-modo').onclick = () => {
+      const btnModo = document.getElementById('btn-toggle-modo');
+      btnModo.onclick = () => {
         this.modoDetallado = !this.modoDetallado;
+        // El botón vive afuera de #form-registro (no se re-pinta con
+        // _renderFormVuelo), así que su texto/tooltip hay que actualizarlos
+        // acá a mano — si no, queda diciendo "Modo detallado" para siempre
+        // aunque ya estés en modo detallado.
+        btnModo.textContent = this.modoDetallado ? 'Modo rápido' : 'Modo detallado';
+        btnModo.title = this.modoDetallado
+          ? 'Volver al modo rápido: cargás el tiempo total y la app lo reparte sola.'
+          : 'Modo detallado: cargás a mano los 8 campos exactos del libro ANAC (sobre aeródromo / travesía × día / noche × piloto / copiloto), en vez de que la app los reparta.';
         this._renderFormVuelo();
       };
     }
@@ -209,6 +218,7 @@ const ViewNuevoVuelo = {
       <div class="field">
         <label>Origen (OACI)</label>
         <input type="text" id="f-desde" maxlength="4" placeholder="SABE" style="text-transform:uppercase" value="${params?.get('desde') || ''}" />
+        <p class="muted" style="margin:4px 0 0">Código de 4 letras del aeródromo (ej. SABE = Aeroparque). Empezá a escribir el nombre y aparecen sugerencias.</p>
       </div>
 
       <div class="field">

@@ -59,6 +59,25 @@ async function navegar() {
   } finally {
     cancelarSkeleton();
   }
+  actualizarBadgePerfil();
+}
+
+// Punto rojo en el ícono de Perfil del header cuando hay un vencimiento
+// vencido (CMA, habilitación, IFR, repaso de vuelo) — antes esto solo se
+// veía entrando 2 clics adentro de Perfil → Alertas, así que un piloto
+// podía no enterarse. Se recalcula en cada navegación (usa el cache de
+// vencimientos, así que no pega a la red en cada pantalla); si falla (sin
+// sesión todavía, sin conexión) no fuerza el punto, total se va a
+// recalcular solo en la próxima navegación.
+async function actualizarBadgePerfil() {
+  const btn = document.getElementById('btn-perfil');
+  if (!btn) return;
+  try {
+    const vencimientos = await Repo.listarVencimientos();
+    const hayVencido = typeof estadoVencimiento === 'function'
+      && vencimientos.some((v) => estadoVencimiento(v).estado === 'danger');
+    btn.classList.toggle('con-badge', hayVencido);
+  } catch { /* sin sesión/señal todavía: se recalcula en la próxima navegación */ }
 }
 
 window.Router = { construirNav, navegar, irA: (id) => { window.location.hash = '#' + id; } };

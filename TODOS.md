@@ -3,6 +3,39 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 59 (primeros 4 puntos de la auditoría de onboarding, priorizados y aplicados)
+- [x] **1) Tarjeta "Primeros pasos" en el Dashboard** (`_htmlPrimerosPasos` en
+      `js/views/dashboard.js`): mientras no cargaste ningún vuelo, aparece
+      arriba de todo con 3 pasos (cargar aeronave → revisar mínimos en
+      Perfil → cargar primer vuelo), con check ✓ en los que ya cumpliste y
+      botón "Ir" a los que faltan. Desaparece sola apenas cargás tu primer
+      vuelo — de ahí en adelante el dashboard ya tiene datos propios.
+- [x] **2) Punto rojo en el ícono de Perfil del header** cuando hay un
+      vencimiento vencido (CMA, habilitación, IFR, repaso de vuelo) —
+      antes esa alerta solo se veía entrando 2 clics adentro de Perfil →
+      Alertas. `actualizarBadgePerfil()` en `js/router.js` se recalcula en
+      cada navegación (usa el cache de vencimientos, no pega a la red de
+      más). CSS: `.icon-btn.con-badge::after`.
+- [x] **3) Ayudas contextuales para jerga ANAC**: tooltip explicando modo
+      rápido vs. detallado en el botón de Nuevo Vuelo (y el botón ahora
+      cambia de texto según el modo actual — antes decía siempre "Modo
+      detallado" aunque ya estuvieras en ese modo); nota debajo del campo
+      OACI explicando el código de 4 letras y que se puede buscar por
+      nombre; explicación de qué es "currency" en Perfil → Alertas.
+- [x] **4) Estado vacío de Costos corregido**: sin vuelos cargados, antes
+      mostraba "$0 / hora" y "Proyección: $0" — se leía como "te va a
+      salir gratis" en vez de "todavía no hay datos". Ahora muestra un
+      estado vacío explícito con botón a cargar el primer vuelo. (Totales
+      ya degradaba bien — oculta el mapa/rutas cuando no hay vuelos — no
+      hizo falta tocarlo.)
+- [x] Verificado con Playwright (fixtures locales, sin tocar la base real):
+      la tarjeta de primeros pasos y el punto del badge se ven bien en
+      claro y oscuro. 119 tests en verde.
+- [ ] Pendiente (5, mayor esfuerzo, no se tocó): separar los mínimos de
+      licencia por usuario en vez de tabla global compartida por todos —
+      solo hace falta si de verdad va a haber varios pilotos usando la
+      app en simultáneo con reglas distintas.
+
 ## Hecho — tanda 58 (revisión completa de la app simulando un piloto nuevo — bug de pantalla en blanco)
 - [x] Se revisó toda la app (README, cada vista, el bootstrap) simulando un
       usuario nuevo que entra sin haber leído nada, buscando fricciones y

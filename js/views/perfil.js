@@ -563,6 +563,7 @@ const ViewPerfil = {
         </div>
 
         <h3 style="margin-top:14px">Currency (RAAC 61.140, referencial)</h3>
+        <p class="muted" style="margin:0 0 8px">"Currency" = experiencia reciente: para poder llevar pasajeros necesitás 3 despegues y aterrizajes propios dentro de la ventana de días de abajo (90 o 180 según tu curso). Se resetea sola cada vez que volás.</p>
         <div id="currency-lista"></div>
       </div>
     `;

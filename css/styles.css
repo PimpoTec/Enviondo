@@ -118,12 +118,22 @@ header.topbar {
 .brand .icon { color: var(--brand); }
 .topbar-actions { display: flex; gap: 8px; align-items: center; }
 .icon-btn {
+  position: relative;
   border: none; background: var(--bg-subtle); color: var(--text-muted);
   width: 44px; height: 44px; border-radius: var(--radius-sm); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: transform .08s ease, background .15s ease, color .15s ease;
 }
 .icon-btn:hover { background: var(--bg-elevated-2); color: var(--text); }
+
+/* Punto rojo en el ícono de Perfil del header — avisa que hay un vencimiento
+   vencido sin tener que entrar 2 clics adentro de Perfil a buscarlo (ver
+   actualizarBadgePerfil en js/router.js). */
+.icon-btn.con-badge::after {
+  content: ''; position: absolute; top: 6px; right: 6px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--danger); border: 2px solid var(--bg);
+}
 
 /* ---------- Barra de navegación inferior ---------- */
 .bottom-nav {
@@ -270,6 +280,21 @@ main {
 .alerta-critica-icon { color: var(--danger); flex-shrink: 0; }
 .alerta-critica-texto { flex: 1; min-width: 0; }
 .alerta-critica-titulo { margin: 0; font-weight: 700; color: var(--danger); }
+
+/* Tarjeta de "Primeros pasos" del dashboard — guía para un piloto que recién
+   entra, antes de tener ningún vuelo cargado (ver _htmlPrimerosPasos). */
+.pasos-card { border: 1px solid var(--brand); }
+.paso-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.paso-item + .paso-item { border-top: 1px solid var(--border); }
+.paso-icono { flex-shrink: 0; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--brand-strong); }
+.paso-numero {
+  width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-muted);
+}
+.paso-texto { flex: 1; min-width: 0; }
+.paso-titulo { margin: 0; font-weight: 600; }
+.paso-desc { margin: 2px 0 0; font-size: 13px; }
+.paso-item.hecho .paso-titulo { color: var(--text-muted); text-decoration: line-through; }
 
 /* ---------- Barras de progreso ---------- */
 .progreso-item { margin-bottom: 16px; }
