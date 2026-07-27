@@ -3,6 +3,33 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+## Hecho — tanda 63 (auditoría, ronda 2: offline/sync — bug real de vuelos que quedaban encolados para siempre)
+- [x] Segunda pasada de auditoría, esta vez sobre partes de la app que no
+      se habían mirado todavía: offline/sync (`js/offline.js`),
+      notificaciones (`js/notificaciones.js`), recordatorios
+      (`js/recordatorios.js`), cálculo de horarios (`js/calc.js`).
+- [x] **Bug real encontrado**: `sincronizarPendientes()` (sube los vuelos
+      cargados sin señal apenas vuelve la conexión) solo se disparaba
+      con el evento `online` del navegador — que es la TRANSICIÓN
+      sin-señal → con-señal mientras la pestaña ya está abierta. Si un
+      piloto cargaba un vuelo sin señal (típico: en el aeródromo) y
+      cerraba la app del todo (muy común en mobile), al volver a abrirla
+      ya conectado (ej. llegó a wifi de casa) ese evento nunca se
+      disparaba — la app arranca ya "online" desde el vamos, no hay
+      transición que detectar. El vuelo quedaba encolado en IndexedDB
+      para siempre, sin ninguna pantalla que lo mostrara ni forma de
+      saber que existía.
+  - Fix en `js/app.js` (`mostrarApp()`, que corre tanto al entrar con
+    sesión ya iniciada como al loguearse): si `navigator.onLine` y hay
+    vuelos pendientes, se intenta sincronizar también ahí, no solo en el
+    evento `online`. Cubre el caso de "cerré la app offline y la volví a
+    abrir ya conectado".
+- [x] 122 tests en verde (no había un test específico de offline/sync
+      con IndexedDB real — no se agregó uno nuevo por la complejidad de
+      mockear IndexedDB en el sandbox de `vm`; el fix es chico y se
+      revisó a mano contra el flujo completo de `js/offline.js` y
+      `js/app.js`).
+
 ## Hecho — tanda 62 (backlog viejo: selector de año en Exportar + onclick inline a delegación)
 - [x] **Selector de año en Exportar**: nuevo campo "Año (atajo)" que lista
       los años con al menos un vuelo cargado — al elegir uno completa

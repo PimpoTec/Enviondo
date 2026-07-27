@@ -154,6 +154,19 @@ async function mostrarApp() {
 
   Router.construirNav();
   await Router.navegar();
+
+  // Sincroniza vuelos que hayan quedado pendientes de una sesión offline
+  // anterior. El listener de `online` en js/offline.js solo dispara con la
+  // TRANSICIÓN sin señal → con señal mientras la pestaña ya está abierta —
+  // si el piloto cargó un vuelo sin señal y cerró la app del todo, al
+  // volver a abrirla ya conectado (ej. llegó a wifi de casa) ese evento
+  // nunca se dispara, y el vuelo quedaba encolado en IndexedDB para
+  // siempre sin que nada lo mostrara. Acá se intenta también al entrar.
+  if (navigator.onLine && window.Offline) {
+    Offline.sincronizarPendientes().then((r) => {
+      if (r.subidos > 0) document.dispatchEvent(new CustomEvent('vuelos-sincronizados', { detail: r }));
+    }).catch(() => {});
+  }
 }
 
 async function init() {
