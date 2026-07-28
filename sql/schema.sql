@@ -167,37 +167,37 @@ drop policy if exists "aeronaves_select_own" on aeronaves;
 drop policy if exists "aeronaves_insert_own" on aeronaves;
 drop policy if exists "aeronaves_update_own" on aeronaves;
 drop policy if exists "aeronaves_delete_own" on aeronaves;
-create policy "aeronaves_select_own" on aeronaves for select using (auth.uid() = user_id);
-create policy "aeronaves_insert_own" on aeronaves for insert with check (auth.uid() = user_id);
-create policy "aeronaves_update_own" on aeronaves for update using (auth.uid() = user_id);
-create policy "aeronaves_delete_own" on aeronaves for delete using (auth.uid() = user_id);
+create policy "aeronaves_select_own" on aeronaves for select using ((select auth.uid()) = user_id);
+create policy "aeronaves_insert_own" on aeronaves for insert with check ((select auth.uid()) = user_id);
+create policy "aeronaves_update_own" on aeronaves for update using ((select auth.uid()) = user_id);
+create policy "aeronaves_delete_own" on aeronaves for delete using ((select auth.uid()) = user_id);
 
 drop policy if exists "vuelos_select_own" on vuelos;
 drop policy if exists "vuelos_insert_own" on vuelos;
 drop policy if exists "vuelos_update_own" on vuelos;
 drop policy if exists "vuelos_delete_own" on vuelos;
-create policy "vuelos_select_own" on vuelos for select using (auth.uid() = user_id);
-create policy "vuelos_insert_own" on vuelos for insert with check (auth.uid() = user_id);
-create policy "vuelos_update_own" on vuelos for update using (auth.uid() = user_id);
-create policy "vuelos_delete_own" on vuelos for delete using (auth.uid() = user_id);
+create policy "vuelos_select_own" on vuelos for select using ((select auth.uid()) = user_id);
+create policy "vuelos_insert_own" on vuelos for insert with check ((select auth.uid()) = user_id);
+create policy "vuelos_update_own" on vuelos for update using ((select auth.uid()) = user_id);
+create policy "vuelos_delete_own" on vuelos for delete using ((select auth.uid()) = user_id);
 
 drop policy if exists "config_licencia_select_own" on config_licencia;
 drop policy if exists "config_licencia_insert_own" on config_licencia;
 drop policy if exists "config_licencia_update_own" on config_licencia;
 drop policy if exists "config_licencia_delete_own" on config_licencia;
-create policy "config_licencia_select_own" on config_licencia for select using (auth.uid() = user_id);
-create policy "config_licencia_insert_own" on config_licencia for insert with check (auth.uid() = user_id);
-create policy "config_licencia_update_own" on config_licencia for update using (auth.uid() = user_id);
-create policy "config_licencia_delete_own" on config_licencia for delete using (auth.uid() = user_id);
+create policy "config_licencia_select_own" on config_licencia for select using ((select auth.uid()) = user_id);
+create policy "config_licencia_insert_own" on config_licencia for insert with check ((select auth.uid()) = user_id);
+create policy "config_licencia_update_own" on config_licencia for update using ((select auth.uid()) = user_id);
+create policy "config_licencia_delete_own" on config_licencia for delete using ((select auth.uid()) = user_id);
 
 drop policy if exists "vencimientos_select_own" on vencimientos;
 drop policy if exists "vencimientos_insert_own" on vencimientos;
 drop policy if exists "vencimientos_update_own" on vencimientos;
 drop policy if exists "vencimientos_delete_own" on vencimientos;
-create policy "vencimientos_select_own" on vencimientos for select using (auth.uid() = user_id);
-create policy "vencimientos_insert_own" on vencimientos for insert with check (auth.uid() = user_id);
-create policy "vencimientos_update_own" on vencimientos for update using (auth.uid() = user_id);
-create policy "vencimientos_delete_own" on vencimientos for delete using (auth.uid() = user_id);
+create policy "vencimientos_select_own" on vencimientos for select using ((select auth.uid()) = user_id);
+create policy "vencimientos_insert_own" on vencimientos for insert with check ((select auth.uid()) = user_id);
+create policy "vencimientos_update_own" on vencimientos for update using ((select auth.uid()) = user_id);
+create policy "vencimientos_delete_own" on vencimientos for delete using ((select auth.uid()) = user_id);
 
 -- El seed de mínimos por curso (APPL / PPA / PCA / TLA) lo hace la app desde
 -- el cliente (js/db.js), un curso a la vez, la primera vez que se abre
@@ -299,9 +299,9 @@ alter table perfil_piloto enable row level security;
 drop policy if exists "perfil_piloto_select_own" on perfil_piloto;
 drop policy if exists "perfil_piloto_insert_own" on perfil_piloto;
 drop policy if exists "perfil_piloto_update_own" on perfil_piloto;
-create policy "perfil_piloto_select_own" on perfil_piloto for select using (auth.uid() = user_id);
-create policy "perfil_piloto_insert_own" on perfil_piloto for insert with check (auth.uid() = user_id);
-create policy "perfil_piloto_update_own" on perfil_piloto for update using (auth.uid() = user_id);
+create policy "perfil_piloto_select_own" on perfil_piloto for select using ((select auth.uid()) = user_id);
+create policy "perfil_piloto_insert_own" on perfil_piloto for insert with check ((select auth.uid()) = user_id);
+create policy "perfil_piloto_update_own" on perfil_piloto for update using ((select auth.uid()) = user_id);
 
 -- ----------------------------------------------------------------------------
 -- VUELOS_PROGRAMADOS: vuelos que todavía no volaste, para que el Dashboard
@@ -321,15 +321,16 @@ create table if not exists vuelos_programados (
   created_at         timestamptz not null default now()
 );
 create index if not exists idx_vuelos_programados_user on vuelos_programados(user_id, fecha);
+create index if not exists idx_vuelos_programados_aeronave on vuelos_programados(aeronave_id);
 alter table vuelos_programados enable row level security;
 drop policy if exists "vuelos_programados_select_own" on vuelos_programados;
 drop policy if exists "vuelos_programados_insert_own" on vuelos_programados;
 drop policy if exists "vuelos_programados_update_own" on vuelos_programados;
 drop policy if exists "vuelos_programados_delete_own" on vuelos_programados;
-create policy "vuelos_programados_select_own" on vuelos_programados for select using (auth.uid() = user_id);
-create policy "vuelos_programados_insert_own" on vuelos_programados for insert with check (auth.uid() = user_id);
-create policy "vuelos_programados_update_own" on vuelos_programados for update using (auth.uid() = user_id);
-create policy "vuelos_programados_delete_own" on vuelos_programados for delete using (auth.uid() = user_id);
+create policy "vuelos_programados_select_own" on vuelos_programados for select using ((select auth.uid()) = user_id);
+create policy "vuelos_programados_insert_own" on vuelos_programados for insert with check ((select auth.uid()) = user_id);
+create policy "vuelos_programados_update_own" on vuelos_programados for update using ((select auth.uid()) = user_id);
+create policy "vuelos_programados_delete_own" on vuelos_programados for delete using ((select auth.uid()) = user_id);
 
 -- ============================================================================
 -- ACTUALIZACIÓN — códigos de finalidad del vuelo tal cual los usa la
@@ -416,7 +417,7 @@ drop policy if exists "licencias_requisitos_admin_delete" on licencias_requisito
 -- Cualquier usuario logueado puede leer los mínimos (son públicos entre
 -- los pilotos de la app, no datos privados de nadie).
 create policy "licencias_requisitos_select_all" on licencias_requisitos
-  for select using (auth.role() = 'authenticated');
+  for select using ((select auth.role()) = 'authenticated');
 create policy "licencias_requisitos_admin_insert" on licencias_requisitos
   for insert with check (is_licencias_admin());
 create policy "licencias_requisitos_admin_update" on licencias_requisitos
@@ -527,17 +528,17 @@ drop policy if exists "push_subscriptions_select_own" on push_subscriptions;
 drop policy if exists "push_subscriptions_insert_own" on push_subscriptions;
 drop policy if exists "push_subscriptions_update_own" on push_subscriptions;
 drop policy if exists "push_subscriptions_delete_own" on push_subscriptions;
-create policy "push_subscriptions_select_own" on push_subscriptions for select using (auth.uid() = user_id);
-create policy "push_subscriptions_insert_own" on push_subscriptions for insert with check (auth.uid() = user_id);
-create policy "push_subscriptions_update_own" on push_subscriptions for update using (auth.uid() = user_id);
-create policy "push_subscriptions_delete_own" on push_subscriptions for delete using (auth.uid() = user_id);
+create policy "push_subscriptions_select_own" on push_subscriptions for select using ((select auth.uid()) = user_id);
+create policy "push_subscriptions_insert_own" on push_subscriptions for insert with check ((select auth.uid()) = user_id);
+create policy "push_subscriptions_update_own" on push_subscriptions for update using ((select auth.uid()) = user_id);
+create policy "push_subscriptions_delete_own" on push_subscriptions for delete using ((select auth.uid()) = user_id);
 
 drop policy if exists "notif_config_select_own" on notif_config;
 drop policy if exists "notif_config_insert_own" on notif_config;
 drop policy if exists "notif_config_update_own" on notif_config;
-create policy "notif_config_select_own" on notif_config for select using (auth.uid() = user_id);
-create policy "notif_config_insert_own" on notif_config for insert with check (auth.uid() = user_id);
-create policy "notif_config_update_own" on notif_config for update using (auth.uid() = user_id);
+create policy "notif_config_select_own" on notif_config for select using ((select auth.uid()) = user_id);
+create policy "notif_config_insert_own" on notif_config for insert with check ((select auth.uid()) = user_id);
+create policy "notif_config_update_own" on notif_config for update using ((select auth.uid()) = user_id);
 
 -- ============================================================================
 -- RECORDATORIOS PERSONALIZADOS — uno o varios avisos por evento, cada uno
@@ -612,10 +613,10 @@ drop policy if exists "recordatorios_select_own" on recordatorios;
 drop policy if exists "recordatorios_insert_own" on recordatorios;
 drop policy if exists "recordatorios_update_own" on recordatorios;
 drop policy if exists "recordatorios_delete_own" on recordatorios;
-create policy "recordatorios_select_own" on recordatorios for select using (auth.uid() = user_id);
-create policy "recordatorios_insert_own" on recordatorios for insert with check (auth.uid() = user_id);
-create policy "recordatorios_update_own" on recordatorios for update using (auth.uid() = user_id);
-create policy "recordatorios_delete_own" on recordatorios for delete using (auth.uid() = user_id);
+create policy "recordatorios_select_own" on recordatorios for select using ((select auth.uid()) = user_id);
+create policy "recordatorios_insert_own" on recordatorios for insert with check ((select auth.uid()) = user_id);
+create policy "recordatorios_update_own" on recordatorios for update using ((select auth.uid()) = user_id);
+create policy "recordatorios_delete_own" on recordatorios for delete using ((select auth.uid()) = user_id);
 
 -- Foto de aeronave (opcional): URL pública + bucket de Storage con
 -- políticas de subida/borrado por dueño (carpeta = user_id), lectura
@@ -682,13 +683,13 @@ drop policy if exists "licencias_requisitos_personal_insert_own" on licencias_re
 drop policy if exists "licencias_requisitos_personal_update_own" on licencias_requisitos_personal;
 drop policy if exists "licencias_requisitos_personal_delete_own" on licencias_requisitos_personal;
 create policy "licencias_requisitos_personal_select_own" on licencias_requisitos_personal
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 create policy "licencias_requisitos_personal_insert_own" on licencias_requisitos_personal
-  for insert with check (auth.uid() = user_id);
+  for insert with check ((select auth.uid()) = user_id);
 create policy "licencias_requisitos_personal_update_own" on licencias_requisitos_personal
-  for update using (auth.uid() = user_id);
+  for update using ((select auth.uid()) = user_id);
 create policy "licencias_requisitos_personal_delete_own" on licencias_requisitos_personal
-  for delete using (auth.uid() = user_id);
+  for delete using ((select auth.uid()) = user_id);
 
 -- ============================================================================
 -- REGISTRO DE ERRORES (opcional) — monitoreo básico, propio, sin depender de
@@ -704,13 +705,14 @@ create table if not exists error_logs (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_error_logs_created on error_logs(created_at desc);
+create index if not exists idx_error_logs_user on error_logs(user_id);
 
 alter table error_logs enable row level security;
 drop policy if exists "error_logs_insert_own" on error_logs;
 drop policy if exists "error_logs_select_admin" on error_logs;
 drop policy if exists "error_logs_delete_admin" on error_logs;
 create policy "error_logs_insert_own" on error_logs
-  for insert with check (auth.uid() = user_id);
+  for insert with check ((select auth.uid()) = user_id);
 create policy "error_logs_select_admin" on error_logs
   for select using (is_licencias_admin());
 create policy "error_logs_delete_admin" on error_logs

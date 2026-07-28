@@ -3,6 +3,20 @@
 Prioridad: **P0** urgente/correctitud · **P1** alto valor · **P2** pulido.
 Marcá `[x]` a medida que se completan.
 
+El resto del archivo, de acá para abajo, es el changelog de todo lo ya
+hecho ("Hecho — tanda N"), en orden cronológico inverso — es historial, no
+hace falta leerlo para saber qué falta.
+
+## Pendiente / ideas sin implementar
+
+- [ ] **Papelera** sigue solo en Perfil (aceptable: acción poco frecuente).
+
+### Ideas para seguir reduciendo la latencia
+- [ ] **Región del proyecto de Supabase**: si el proyecto no está en
+      `sa-east-1` (São Paulo) u otra región cercana a Argentina, cada consulta
+      paga latencia de distancia que ningún cambio de código puede achicar.
+      Vale la pena confirmarlo en el dashboard de Supabase (Project Settings).
+
 ## Hecho — tanda 68 (monitoreo básico de errores, propio — sin Sentry ni terceros)
 - [x] Quedaba pendiente de la tanda 66/67: "si algo se rompe para un
       usuario hoy no te enterás salvo que te escriba". El usuario pidió
@@ -1384,12 +1398,6 @@ Perfil estabas) se pierde, como si nunca hubiera estado.
 - [x] Tests del módulo de cache (`tests/cache.test.js`, con un `localStorage`
       falso para el sandbox de Node): 48 en verde en total.
 
-## Ideas para seguir reduciendo la latencia (no implementadas todavía)
-- [ ] **Región del proyecto de Supabase**: si el proyecto no está en
-      `sa-east-1` (São Paulo) u otra región cercana a Argentina, cada consulta
-      paga latencia de distancia que ningún cambio de código puede achicar.
-      Vale la pena confirmarlo en el dashboard de Supabase (Project Settings).
-
 ## Hecho — tanda 9 (arranque lento de TODA la app)
 - [x] **Causa real de "tarda 10 segundos para entrar a cualquier lado"**:
       `xlsx` (SheetJS) y `exceljs` se cargaban como `<script>` normales
@@ -1532,8 +1540,7 @@ Perfil estabas) se pierde, como si nunca hubiera estado.
 - [x] Tests de la lógica de mapeo (`tests/exportadorAnac.test.js`, sin
       necesitar ExcelJS): 43 en verde.
 
-## Pendiente / ideas a futuro
-- [ ] **Papelera** sigue solo en Perfil (aceptable: acción poco frecuente).
+## Notas históricas (ítems ya resueltos — lo que sigue abierto está al principio del archivo)
 - [x] ~~Hoja ANAC: selector de año directo~~ — hecho en tanda 62.
 - [x] ~~Backfill de `costo_congelado` en vuelos viejos en USD~~ — evaluado
       en tanda 62 y descartado a propósito (ver esa entrada: el fallback
