@@ -313,6 +313,12 @@ const ViewPerfil = {
       <div class="card">
         <button class="btn ghost" id="btn-logout-personales" style="width:100%;justify-content:center">${Icons.tag('logOut', 'Cerrar sesión')}</button>
       </div>
+
+      <div class="card" style="border:1px solid var(--danger)">
+        <h2>${Icons.tag('alertTriangle', 'Zona de peligro')}</h2>
+        <p class="muted">Borra tu cuenta y TODOS tus datos (aeronaves, vuelos, vencimientos, fotos, todo) de forma permanente. No hay forma de deshacer esto ni de recuperar la información después.</p>
+        <button class="btn danger" id="btn-borrar-cuenta">Borrar mi cuenta</button>
+      </div>
     `;
   },
 
@@ -323,6 +329,7 @@ const ViewPerfil = {
     document.getElementById('btn-guardar-datos-piloto').onclick = () => this._guardarDatosPiloto();
     document.getElementById('btn-cambiar-clave').onclick = () => this._cambiarPassword();
     document.getElementById('btn-logout-personales').onclick = () => Auth.cerrarSesion();
+    document.getElementById('btn-borrar-cuenta').onclick = () => this._borrarCuenta();
     document.querySelectorAll('button[data-accion="guardar-personal"]').forEach((b) => {
       b.onclick = () => this._guardarConfigPersonal(b.dataset.curso, b.dataset.requisito);
     });
@@ -409,6 +416,19 @@ const ViewPerfil = {
     }
   },
 
+  async _borrarCuenta() {
+    const ok1 = await UI.confirmar('¿Borrar tu cuenta y todos tus datos? Es permanente, no se puede deshacer.', { ok: 'Continuar', peligro: true });
+    if (!ok1) return;
+    const ok2 = await UI.confirmar('Última confirmación: se borra tu libro de vuelo, aeronaves, vencimientos y fotos para siempre. ¿Seguro?', { ok: 'Sí, borrar todo', peligro: true });
+    if (!ok2) return;
+    try {
+      UI.toast('Borrando tu cuenta…', 'info');
+      await Auth.borrarCuenta();
+    } catch (err) {
+      UI.toast('No se pudo borrar la cuenta: ' + (err.message || err), 'error');
+    }
+  },
+
   // ==========================================================================
   // PREFERENCIAS — tema, huso horario, vista de administrador (+ su panel)
   // ==========================================================================
@@ -442,6 +462,7 @@ const ViewPerfil = {
           </div>
           <p class="muted" style="margin:4px 0 0">Solo vos ves esta opción. Con <strong>Admin</strong> aparece el panel para editar los mínimos de licencia (globales, para todos los usuarios). En <strong>Usuario normal</strong> la app se ve como para cualquier piloto.</p>
         </div>` : ''}
+        <p class="muted" style="margin:12px 0 0"><a href="privacidad.html" target="_blank" rel="noopener">Política de Privacidad</a></p>
       </div>
 
       <div id="bloque-licencias"></div>

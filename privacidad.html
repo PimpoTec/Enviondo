@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Enviondo — Política de Privacidad</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('tema')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));}catch(e){}</script>
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="css/styles.css" />
+<style>
+  .doc { max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; }
+  .doc h1 { margin-bottom: 4px; }
+  .doc h2 { margin-top: 32px; }
+  .doc p, .doc li { line-height: 1.55; }
+  .doc a.volver { display: inline-block; margin-bottom: 18px; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <a class="volver" href="./">← Volver a la app</a>
+  <h1>Política de Privacidad</h1>
+  <p class="muted">Última actualización: julio de 2026.</p>
+
+  <p>Enviondo es un libro de vuelo personal (formato Hoja de Libro de Vuelo
+  de Pilotos, Resolución ANAC 290/2012) para uso de pilotos individuales.
+  Esta página explica, en criollo, qué datos guarda, dónde, para qué y qué
+  podés hacer con ellos — en línea con la Ley 25.326 de Protección de Datos
+  Personales (Argentina).</p>
+
+  <h2>1) Quién guarda tus datos</h2>
+  <p>La base de datos corre en <strong>Supabase</strong> (Postgres alojado
+  por Supabase Inc., infraestructura en la región <code>us-west-2</code> de
+  AWS). Enviondo no tiene servidor propio: el navegador habla directo con
+  Supabase, autenticado con tu usuario. No usamos ningún servicio de
+  analítica, publicidad ni tracking de terceros (nada de Google Analytics,
+  Sentry, pixels, etc.).</p>
+
+  <h2>2) Qué datos se guardan</h2>
+  <ul>
+    <li><strong>Cuenta</strong>: email y contraseña (la contraseña la
+    gestiona Supabase Auth, cifrada — Enviondo nunca la ve en texto plano).</li>
+    <li><strong>Datos del piloto</strong> (opcionales, los cargás vos):
+    nombre y apellido, número de licencia, legajo — se usan para completar
+    la cabecera de la Hoja de Libro de Vuelo cuando exportás un PDF/Excel.</li>
+    <li><strong>Vuelos</strong>: fecha, ruta, horarios, aeronave, horas por
+    categoría (día/noche/instrumentos/etc.), instructor si corresponde,
+    observaciones que escribas vos, y opcionalmente el track GPS real del
+    vuelo si subís un archivo <code>.kml</code> de FlightRadar24.</li>
+    <li><strong>Aeronaves y vencimientos</strong> que vos cargues (tarifas,
+    matrícula, fechas de vencimiento de habilitaciones, etc.) y,
+    opcionalmente, una foto de cada aeronave.</li>
+    <li><strong>Notificaciones push</strong> (si las activás): un
+    identificador técnico del navegador/dispositivo (endpoint de push),
+    necesario para poder mandarte el aviso — no identifica a una persona
+    por sí solo.</li>
+    <li><strong>Registro de errores técnicos</strong>: si la app se rompe
+    en tu navegador, se guarda un mensaje corto del error, la URL y el
+    user-agent — solo para que se pueda diagnosticar el problema. Solo la
+    cuenta administradora de la app puede leer este registro, y ese mensaje
+    nunca se hace público.</li>
+    <li><strong>Preferencias locales</strong> (tema, huso horario) viven
+    únicamente en tu navegador (<code>localStorage</code>), nunca se suben
+    a ningún lado.</li>
+  </ul>
+  <p>No se guarda ningún dato de pago — Enviondo no cobra nada ni procesa
+  pagos.</p>
+
+  <h2>3) Para qué se usan</h2>
+  <p>Únicamente para que la app funcione: calcular tus totales de horas,
+  mostrarte el progreso hacia tu licencia, avisarte de vencimientos, y
+  generar los documentos que exportás (Hoja ANAC, Excel). Nada de esto se
+  usa con fines comerciales, ni se vende, ni se comparte con terceros —
+  excepto los tres servicios externos estrictamente necesarios para que
+  ciertas funciones opcionales anden: aviationweather.gov (METAR/TAF, sin
+  enviarle ningún dato tuyo, solo el código del aeródromo que consultás) y
+  el servicio de cotización del dólar blue (público, sin datos tuyos). El
+  envío de notificaciones push usa el protocolo estándar del navegador
+  (VAPID), sin pasar por ningún proveedor comercial de notificaciones.</p>
+
+  <h2>4) Cuánto tiempo se guardan</h2>
+  <p>Mientras tu cuenta exista. Un vuelo "borrado" desde la Bitácora en
+  realidad queda en una Papelera (por si te equivocaste) hasta que lo
+  borrés definitivamente ahí. Si borrás tu cuenta (ver punto 6), todo se
+  borra de forma permanente e inmediata, sin período de gracia.</p>
+
+  <h2>5) Cómo protegemos tus datos</h2>
+  <p>Cada tabla de la base tiene <strong>Row Level Security</strong>
+  activada: técnicamente, ningún usuario puede leer ni escribir datos que
+  no sean suyos, ni siquiera teniendo la clave pública de la API (la
+  seguridad la impone el propio motor de la base, no el código del
+  navegador). La conexión entre tu navegador y Supabase va siempre
+  cifrada (HTTPS/TLS).</p>
+
+  <h2>6) Tus derechos (acceso, rectificación, supresión)</h2>
+  <p>Todo lo que cargás lo podés ver, editar o borrar vos mismo desde la
+  app en cualquier momento — no hace falta pedírselo a nadie. Si querés
+  borrar tu cuenta y absolutamente todos tus datos de forma permanente,
+  andá a <strong>Perfil → Datos Personales → Zona de peligro → "Borrar mi
+  cuenta"</strong>: borra tu perfil, tus vuelos, tus aeronaves, tus
+  vencimientos, tus fotos y tu usuario, todo junto y sin vuelta atrás.</p>
+  <p>Si preferís pedirlo por otro medio, o tenés cualquier consulta sobre
+  tus datos, podés escribir a
+  <a href="mailto:fileretocambrafrancisco@gmail.com">fileretocambrafrancisco@gmail.com</a>.</p>
+
+  <h2>7) Aclaración importante</h2>
+  <p>Enviondo <strong>no reemplaza</strong> al Registro Electrónico de
+  Horas de Vuelo oficial (declaración jurada vía Casillero Aeronáutico
+  Digital de ANAC). Es una herramienta paralela de uso personal — los datos
+  que cargués acá no tienen validez legal ante la autoridad aeronáutica.</p>
+
+  <a class="volver" href="./">← Volver a la app</a>
+</div>
+</body>
+</html>

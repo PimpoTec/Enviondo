@@ -33,4 +33,17 @@ async function cerrarSesion() {
   window.location.reload();
 }
 
-window.Auth = { getSesion, iniciarSesion, registrarse, enviarResetPassword, actualizarPassword, cerrarSesion };
+// Borra la cuenta y TODOS sus datos (aeronaves, vuelos, fotos, etc. — ver
+// supabase/functions/borrar-cuenta) y cierra la sesión local. Tira si la
+// función no está desplegada o si algo falla del lado del servidor — el
+// caller es responsable de mostrar el error, acá no se hace nada más.
+async function borrarCuenta() {
+  const { data, error } = await window.db.functions.invoke(window.BORRAR_CUENTA_FN_SLUG, { body: {} });
+  if (error) throw new Error(await window.mensajeDeErrorFuncion(error));
+  if (data?.error) throw new Error(data.error);
+  await window.db.auth.signOut();
+  window.Cache?.invalidarTodo();
+  window.location.reload();
+}
+
+window.Auth = { getSesion, iniciarSesion, registrarse, enviarResetPassword, actualizarPassword, cerrarSesion, borrarCuenta };

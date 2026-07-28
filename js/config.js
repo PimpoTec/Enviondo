@@ -29,6 +29,11 @@ window.COTIZACION_FN_SLUG = 'cotizacion';
 //     "Notificaciones" de Perfil sigue andando pero el botón de prueba y
 //     los avisos reales no van a llegar. Ver README.md sección 8.
 window.PUSH_FN_SLUG = 'notificaciones-push';
+//   - borrar-cuenta: borra la cuenta y todos los datos del usuario
+//     (Perfil → Datos Personales → "Borrar mi cuenta"). Sin esta función
+//     desplegada, ese botón muestra un error claro en vez de fallar en
+//     silencio.
+window.BORRAR_CUENTA_FN_SLUG = 'borrar-cuenta';
 
 // Clave PÚBLICA de VAPID (par generado con `npx web-push generate-vapid-keys`
 // — la privada NUNCA va acá, solo en los secretos de la Edge Function). Es

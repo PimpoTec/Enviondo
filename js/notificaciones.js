@@ -87,3 +87,4 @@ async function mensajeDeErrorFuncion(error) {
 
 window.Notificaciones = Notificaciones;
 window.urlBase64ToUint8Array = urlBase64ToUint8Array;
+window.mensajeDeErrorFuncion = mensajeDeErrorFuncion;

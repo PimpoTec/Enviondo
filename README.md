@@ -377,7 +377,32 @@ nunca puede ser la causa de un problema nuevo.
 
 ---
 
-## 13) Qué falta / mejoras futuras
+## 13) Borrar cuenta y política de privacidad
+
+Si vas a abrir la app a más de un piloto, esto ya no es opcional (Ley
+25.326 de Protección de Datos Personales) — `privacidad.html` explica qué
+se guarda, para qué y por cuánto tiempo, y Perfil → Datos Personales →
+Zona de peligro tiene el botón "Borrar mi cuenta" (borra la cuenta y todos
+los datos del usuario, incluidas las fotos, de forma permanente).
+
+1. Desplegá la función (usa la `service_role key`, que Supabase inyecta
+   sola — no hace falta configurar nada más):
+   ```bash
+   supabase functions deploy borrar-cuenta --project-ref TU-PROJECT-REF --no-verify-jwt
+   ```
+   (`--no-verify-jwt` por el mismo motivo que `notificaciones-push`: la
+   función valida la sesión ella misma leyendo el JWT del usuario.)
+2. Nada más — el cascade de `sql/schema.sql` (`on delete cascade` en
+   todas las tablas que referencian `auth.users`) borra automáticamente
+   aeronaves, vuelos, vencimientos, perfil, config de licencia,
+   notificaciones y recordatorios apenas se borra la cuenta; la función
+   solo se encarga de las fotos en Storage (que no tienen foreign key) y
+   de borrar la cuenta en sí. Sin desplegar la función, el botón muestra
+   un error claro en vez de fallar en silencio.
+
+---
+
+## 14) Qué falta / mejoras futuras
 
 - Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
   `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está
