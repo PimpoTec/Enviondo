@@ -531,7 +531,7 @@ const ViewPerfil = {
             <div class="doc-head">
               <span class="doc-tipo">${new Date(e.created_at).toLocaleString('es-AR')}</span>
             </div>
-            <p style="margin:0 0 4px;font-weight:600;word-break:break-word">${e.mensaje}</p>
+            <p style="margin:0 0 4px;font-weight:600;word-break:break-word">${UI.escapeHtml(e.mensaje)}</p>
             <p class="muted" style="margin:0;word-break:break-all">${e.url || ''}</p>
           </div>`).join('') : '<p class="muted" style="margin:0">Sin errores registrados — todo tranquilo.</p>'}
       </div>
@@ -638,7 +638,7 @@ const ViewPerfil = {
                 <span class="venc-item-tipo">${LABELS_VENCIMIENTO[v.tipo] || v.tipo}${v.rodante ? ` <span class="muted" style="font-size:11px">(cada ${v.intervalo_dias}d)</span>` : ''}</span>
                 <span class="badge ${est.estado}">${Icons[est.icon](12)} ${est.texto}</span>
               </div>
-              <p class="muted" style="margin:2px 0 8px">Vence ${fmtFecha(v.fecha_vencimiento)}${v.notas ? ` · ${v.notas}` : ''}</p>
+              <p class="muted" style="margin:2px 0 8px">Vence ${fmtFecha(v.fecha_vencimiento)}${v.notas ? ` · ${UI.escapeHtml(v.notas)}` : ''}</p>
               ${pct > 0 ? `<div class="progreso-bar venc-item-bar"><span style="width:${pct}%"></span></div>` : ''}
               <div class="venc-item-acciones">
                 <button class="btn ghost" data-accion="recordatorios" data-id="${v.id}" title="Recordatorios">${Icons.bell(16)}</button>

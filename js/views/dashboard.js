@@ -210,7 +210,7 @@ const ViewDashboard = {
 
             ${badges.length ? `<div class="plan-badges">${badges.map((b) => `<span class="plan-badge">${b}</span>`).join('')}</div>` : ''}
 
-            ${p.notas ? `<p class="plan-notas">${Icons.tag('list', p.notas)}</p>` : ''}
+            ${p.notas ? `<p class="plan-notas">${Icons.tag('list', UI.escapeHtml(p.notas))}</p>` : ''}
           </div>
 
           ${/^[A-Z]{4}$/.test(p.desde || '') ? `

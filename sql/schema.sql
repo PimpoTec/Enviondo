@@ -258,6 +258,34 @@ alter table config_licencia drop constraint if exists config_licencia_user_licen
 alter table config_licencia add constraint config_licencia_user_licencia_requisito_key
   unique (user_id, licencia_objetivo, nombre_requisito);
 
+-- Siembra los mínimos de referencia por defecto para un usuario nuevo.
+-- SECURITY DEFINER porque corre antes de que exista ninguna fila propia del
+-- usuario a la que apoyarse, pero valida p_user_id = auth.uid() para que
+-- nadie pueda sembrarle (o forzar el insert de) esta config a otro usuario
+-- llamando la RPC con un UUID ajeno.
+create or replace function seed_config_licencia_default(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+begin
+  if p_user_id is distinct from auth.uid() then
+    raise exception 'No autorizado: solo podés sembrar tu propia configuración.';
+  end if;
+
+  insert into config_licencia (user_id, licencia_objetivo, nombre_requisito, minimo_horas, orden)
+  values
+    (p_user_id, 'CPL Avión', 'total', 200, 1),
+    (p_user_id, 'CPL Avión', 'pic', 100, 2),
+    (p_user_id, 'CPL Avión', 'travesia_pic', 20, 3),
+    (p_user_id, 'CPL Avión', 'nocturnas', 10, 4),
+    (p_user_id, 'CPL Avión', 'instrumentos', 10, 5),
+    (p_user_id, 'CPL Avión', 'aterrizajes_noche', 5, 6)
+  on conflict (user_id, nombre_requisito) do nothing;
+end;
+$$;
+
 -- ----------------------------------------------------------------------------
 -- PERFIL_PILOTO: qué curso está "activo" ahora mismo (el que se muestra
 -- primero en el Dashboard). Una fila por usuario.
@@ -603,8 +631,11 @@ drop policy if exists "aeronaves_fotos_insert_own" on storage.objects;
 drop policy if exists "aeronaves_fotos_update_own" on storage.objects;
 drop policy if exists "aeronaves_fotos_delete_own" on storage.objects;
 
-create policy "aeronaves_fotos_select_public" on storage.objects for select
-  using (bucket_id = 'aeronaves-fotos');
+-- Sin política de SELECT a propósito: el bucket ya es público, así que
+-- getPublicUrl() sirve los archivos por CDN sin pasar por RLS. Una política
+-- de SELECT abierta acá no agrega nada al acceso por URL directa, pero sí
+-- permite LISTAR el bucket entero (incluye los user_id de cada carpeta) vía
+-- la API — por eso no se crea.
 
 create policy "aeronaves_fotos_insert_own" on storage.objects for insert
   with check (bucket_id = 'aeronaves-fotos' and auth.uid()::text = (storage.foldername(name))[1]);

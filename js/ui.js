@@ -21,6 +21,16 @@ const UI = (() => {
 
   const ICONO = { ok: 'checkCircle', error: 'xCircle', warn: 'alertTriangle', info: 'checkCircle' };
 
+  // Escapa texto de usuario antes de insertarlo en un innerHTML — evita que
+  // notas, observaciones, mensajes de error, etc. (texto libre guardado en
+  // la base) se interpreten como HTML/JS al mostrarlos. Usar siempre que se
+  // interpole un campo de texto libre dentro de un template `innerHTML`.
+  function escapeHtml(texto) {
+    const div = document.createElement('div');
+    div.textContent = texto == null ? '' : String(texto);
+    return div.innerHTML;
+  }
+
   function toast(mensaje, tipo = 'info', ms = 3800) {
     const el = document.createElement('div');
     el.className = `toast toast-${tipo}`;
@@ -161,7 +171,7 @@ const UI = (() => {
     return () => clearTimeout(t);
   }
 
-  return { toast, confirmar, elegir, prompt, skeletonDiferido };
+  return { toast, confirmar, elegir, prompt, skeletonDiferido, escapeHtml };
 })();
 
 window.UI = UI;

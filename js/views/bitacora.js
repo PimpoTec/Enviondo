@@ -372,7 +372,7 @@ const ViewBitacora = {
         <button type="button" class="ticket-track-expandir" data-accion="expandir-mapa" data-id="${v.id}" title="Ampliar mapa">${Icons.maximize(16)}</button>
       </div>` : ''}
 
-      ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', v.observaciones)}</p>` : ''}
+      ${v.observaciones ? `<p class="plan-notas" style="margin-top:14px">${Icons.tag('list', UI.escapeHtml(v.observaciones))}</p>` : ''}
       <div class="btn-row" style="margin-top:14px">
         <button class="btn secondary" data-accion="editar-desde-detalle" data-id="${v.id}">${Icons.tag('edit', 'Edición rápida')}</button>
         <button class="btn ghost" data-accion="editar-todo" data-id="${v.id}">Editar todo</button>

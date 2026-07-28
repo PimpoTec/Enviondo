@@ -19,8 +19,11 @@ drop policy if exists "aeronaves_fotos_insert_own" on storage.objects;
 drop policy if exists "aeronaves_fotos_update_own" on storage.objects;
 drop policy if exists "aeronaves_fotos_delete_own" on storage.objects;
 
-create policy "aeronaves_fotos_select_public" on storage.objects for select
-  using (bucket_id = 'aeronaves-fotos');
+-- Sin política de SELECT a propósito: el bucket ya es público (line 14), así
+-- que getPublicUrl() sirve los archivos por CDN sin pasar por RLS. Una
+-- política de SELECT abierta acá no agrega nada al acceso por URL directa,
+-- pero sí permite LISTAR el bucket entero (incluye los user_id de cada
+-- carpeta) vía la API — por eso no se crea.
 
 create policy "aeronaves_fotos_insert_own" on storage.objects for insert
   with check (bucket_id = 'aeronaves-fotos' and auth.uid()::text = (storage.foldername(name))[1]);
