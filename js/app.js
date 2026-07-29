@@ -57,6 +57,26 @@ function animarNumero(el, valorFinal, { duracionMs = 700, sufijo = '' } = {}) {
 }
 window.animarNumero = animarNumero;
 
+// ---------- Cierre de sesión por inactividad ----------
+// Dato personal (nombre, licencia, legajo) + vuelos en juego: no queremos
+// que una sesión quede abierta para siempre en un dispositivo compartido.
+// Se cierra sola después de 1 hora sin volver a entrar a la app — se
+// controla al abrir la app y cada vez que la pestaña vuelve a primer plano
+// (no hace falta que esté abierta y activa todo ese tiempo para que cuente
+// como "uso"; alcanza con haber entrado dentro de la última hora).
+const INACTIVIDAD_LIMITE_MS = 60 * 60 * 1000;
+const ACTIVIDAD_KEY = 'ultima_actividad';
+
+function registrarActividad() {
+  try { localStorage.setItem(ACTIVIDAD_KEY, String(Date.now())); } catch { /* sin storage: no rompe nada */ }
+}
+function inactivoDemasiado() {
+  try {
+    const t = Number(localStorage.getItem(ACTIVIDAD_KEY));
+    return Number.isFinite(t) && t > 0 && (Date.now() - t) > INACTIVIDAD_LIMITE_MS;
+  } catch { return false; }
+}
+
 function actualizarBannerOffline() {
   document.getElementById('offline-banner').style.display = navigator.onLine ? 'none' : 'block';
 }
@@ -201,7 +221,12 @@ async function init() {
   // pantalla en blanco para siempre, sin ningún aviso de qué pasó.
   try {
     const sesion = await Auth.getSesion();
+    if (sesion && !esRecuperacion && inactivoDemasiado()) {
+      await Auth.cerrarSesion(); // recarga sola y limpia el cache — no hace falta más acá
+      return;
+    }
     if (sesion && !esRecuperacion) {
+      registrarActividad();
       await mostrarApp();
     } else if (esRecuperacion) {
       await mostrarLogin('panel-nueva-clave');
@@ -213,11 +238,27 @@ async function init() {
       if (event === 'PASSWORD_RECOVERY') {
         await mostrarLogin('panel-nueva-clave');
       } else if (event === 'SIGNED_IN' && session && !esRecuperacion) {
+        registrarActividad();
         await mostrarApp();
       } else if (event === 'SIGNED_OUT') {
         await mostrarLogin();
       }
     });
+
+    // Al volver a la pestaña (después de tenerla en segundo plano o
+    // minimizada) — dos cosas: si pasó más de una hora sin entrar, cerrar
+    // sesión sola; si no, refrescar la pantalla actual, porque nada más en
+    // toda la app vuelve a consultar datos solo por volver a mirar la
+    // pestaña (esto también es lo que causaba ver datos viejos sin razón).
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState !== 'visible') return;
+      const sesionActual = await Auth.getSesion();
+      if (!sesionActual) return;
+      if (inactivoDemasiado()) { await Auth.cerrarSesion(); return; }
+      registrarActividad();
+      if (document.getElementById('vista-app').style.display !== 'none') Router.navegar();
+    });
+    window.addEventListener('hashchange', registrarActividad);
   } catch (err) {
     console.error('Error inicializando la sesión:', err);
     await mostrarLogin();
