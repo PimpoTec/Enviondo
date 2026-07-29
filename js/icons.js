@@ -8,6 +8,14 @@ const Icons = (() => {
     return `<svg class="icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
   }
   return {
+    // Isotipo de la marca (monograma "V", ver icons/icon.svg) — relleno
+    // sólido, no de línea como el resto del set, así que no usa el helper
+    // svg() de arriba. Se usa donde va "el logo" (header, login);
+    // Icons.plane sigue siendo el ícono funcional genérico de
+    // "aeronave/vuelo" en el resto de la app (ej. al lado de una aeronave
+    // en una lista) — son dos cosas distintas aunque antes compartieran
+    // el mismo dibujo.
+    logoV: (s = 18) => `<svg class="icon" width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.56,4.88 L12,16.5 L17.44,4.88 L15.47,4.88 L12,12.56 L8.53,4.88 Z"/></svg>`,
     plane: (s) => svg('<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/>', s),
     home: (s) => svg('<path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/>', s),
     plusCircle: (s) => svg('<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>', s),

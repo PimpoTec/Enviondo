@@ -83,8 +83,8 @@ function actualizarBannerOffline() {
 
 function inicializarIconosEstaticos() {
   document.getElementById('offline-banner-icon').innerHTML = Icons.wifiOff(16);
-  document.getElementById('login-icon').innerHTML = Icons.plane(18);
-  document.getElementById('brand-icon').innerHTML = Icons.plane(20);
+  document.getElementById('login-icon').innerHTML = Icons.logoV(18);
+  document.getElementById('brand-icon').innerHTML = Icons.logoV(20);
   document.getElementById('btn-perfil').innerHTML = Icons.person(18);
 }
 
