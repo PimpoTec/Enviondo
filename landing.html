@@ -26,13 +26,17 @@
     text-transform: uppercase; color: var(--brand); display: inline-flex; align-items: center; gap: 8px;
   }
 
-  /* ---------- Nav: misma convención que header.topbar de la app (vidrio +
-     blur), no una barra de links flotante genérica. ---------- */
+  /* ---------- Nav: flotante y despegada del borde (no un bar
+     edge-to-edge) — misma idea de "instrumento suspendido" que la tarjeta
+     de "Próximo vuelo" del dashboard real, con las esquinas suaves de
+     siempre (--radius), nunca píldora. ---------- */
+  .lnd-nav-outer { position: sticky; top: 14px; z-index: 50; padding: 0 20px; }
   .lnd-nav {
-    position: sticky; top: 0; z-index: 50; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-    background: var(--glass-bg); border-bottom: 1px solid var(--glass-border);
+    max-width: 1120px; margin: 0 auto; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
   }
-  .lnd-nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; }
+  .lnd-nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; }
   .lnd-nav .brand { font-family: var(--font-headline); font-weight: 800; font-size: 18px; }
   .lnd-nav .brand .icon { color: var(--brand); }
   .lnd-nav-links { display: flex; gap: 26px; }
@@ -41,6 +45,7 @@
   .lnd-nav-actions { display: flex; align-items: center; gap: 16px; }
   .lnd-nav-actions a.link { color: var(--text-muted); font-size: 13px; font-weight: 600; }
   @media (max-width: 760px) { .lnd-nav-links { display: none; } }
+  @media (max-width: 480px) { .lnd-nav-actions a.link { display: none; } }
 
   /* ---------- Hero: dos columnas — tesis a la izquierda, el instrumento
      (el mismo velocímetro de horas que ves en Inicio, redibujado a mano
@@ -155,6 +160,23 @@
   table.lnd-totales-table td:first-child { text-align: left; font-family: var(--font); font-weight: 400; color: var(--text-muted); border-top-left-radius: var(--radius-sm); border-bottom-left-radius: var(--radius-sm); }
   table.lnd-totales-table td:last-child { border-top-right-radius: var(--radius-sm); border-bottom-right-radius: var(--radius-sm); color: var(--brand); }
 
+  /* ---------- Vencimientos: misma .doc-card que usa el dashboard real,
+     con el número de días agrandado — visual espejado a la izquierda para
+     alternar el ritmo con "Fiel al formato" (texto izq. / visual der.). ---------- */
+  .lnd-venc { display: grid; gap: 48px; grid-template-columns: 0.85fr 1.15fr; align-items: center; }
+  @media (max-width: 860px) { .lnd-venc { grid-template-columns: 1fr; } }
+  .lnd-venc-visual { display: flex; flex-direction: column; gap: 12px; }
+  .doc-card.lnd-venc-card { padding: 18px 20px; }
+  .lnd-venc-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .lnd-venc-days { font-family: var(--font-mono); font-weight: 700; font-size: 28px; color: var(--brand); text-align: right; line-height: 1; }
+  .lnd-venc-days.muted-days { color: var(--text-muted); font-size: 22px; }
+  .lnd-venc-days-lbl { display: block; font-family: var(--font); font-weight: 500; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-top: 3px; }
+  .lnd-venc h2 { font-family: var(--font-headline); font-weight: 800; font-size: clamp(24px, 3.2vw, 30px); margin: 0 0 16px; }
+  .lnd-venc p.lead { color: var(--text-muted); font-size: 15.5px; line-height: 1.6; margin: 0 0 22px; }
+  .lnd-venc ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .lnd-venc li { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .lnd-venc li .icon { color: var(--brand); flex-shrink: 0; }
+
   .lnd-quienes .card {
     background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; max-width: 700px;
   }
@@ -194,21 +216,23 @@
 </head>
 <body class="landing">
 
-<nav class="lnd-nav">
-  <div class="lnd-wrap lnd-nav-inner">
-    <div class="brand"><span class="icon" id="nav-icon"></span> Vuelux</div>
-    <div class="lnd-nav-links">
-      <a href="#funciones">Funciones</a>
-      <a href="#fiel-anac">Formato ANAC</a>
-      <a href="#gratis">Precio</a>
-      <a href="privacidad.html">Privacidad</a>
+<div class="lnd-nav-outer">
+  <nav class="lnd-nav">
+    <div class="lnd-nav-inner">
+      <div class="brand"><span class="icon" id="nav-icon"></span> Vuelux</div>
+      <div class="lnd-nav-links">
+        <a href="#funciones">Funciones</a>
+        <a href="#vencimientos">Vencimientos</a>
+        <a href="#fiel-anac">Formato ANAC</a>
+        <a href="#gratis">Precio</a>
+      </div>
+      <div class="lnd-nav-actions">
+        <a class="link" href="index.html">Iniciar sesión</a>
+        <a class="btn" href="index.html" style="padding:9px 18px;font-weight:700">Empezá gratis</a>
+      </div>
     </div>
-    <div class="lnd-nav-actions">
-      <a class="link" href="index.html">Iniciar sesión</a>
-      <a class="btn" href="index.html" style="padding:9px 18px;font-weight:700">Empezá gratis</a>
-    </div>
-  </div>
-</nav>
+  </nav>
+</div>
 
 <header class="lnd-hero lnd-wrap">
   <div>
@@ -300,6 +324,42 @@
   </div>
 </section>
 
+<section class="lnd-section lnd-wrap" id="vencimientos">
+  <div class="lnd-venc">
+    <div class="lnd-venc-visual">
+      <div class="doc-card lnd-venc-card">
+        <div class="doc-head">
+          <span class="doc-tipo">Habilitación IFR</span>
+          <span class="badge warn"><span class="icon" id="v-badge-1"></span>Por vencer</span>
+        </div>
+        <div class="lnd-venc-row">
+          <div class="doc-fecha">Vence 12 ago 2026</div>
+          <div class="lnd-venc-days">21<span class="lnd-venc-days-lbl">días</span></div>
+        </div>
+      </div>
+      <div class="doc-card lnd-venc-card">
+        <div class="doc-head">
+          <span class="doc-tipo">Examen médico clase 2</span>
+          <span class="badge ok"><span class="icon" id="v-badge-2"></span>Vigente</span>
+        </div>
+        <div class="lnd-venc-row">
+          <div class="doc-fecha">Vence 04 mar 2027</div>
+          <div class="lnd-venc-days muted-days">218<span class="lnd-venc-days-lbl">días</span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h2>Vencimientos que no se te escapan</h2>
+      <p class="lead">Habilitaciones, IFR, examen médico, currency — cargalos una vez y Vuelux cuenta los días solo. Te avisa antes de que se venzan, no cuando ya pasaron.</p>
+      <ul>
+        <li><span class="icon" id="v-chk-1"></span> Alertas configurables por cada tipo de vencimiento</li>
+        <li><span class="icon" id="v-chk-2"></span> Currency que se resetea sola cada vez que cargás un vuelo</li>
+        <li><span class="icon" id="v-chk-3"></span> Notificación push al celular, sin depender de acordarte vos</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
 <section class="lnd-section" style="background:var(--bg-subtle);border-top:1px solid var(--border);border-bottom:1px solid var(--border)" id="fiel-anac">
   <div class="lnd-wrap lnd-fiel">
     <div>
@@ -372,6 +432,7 @@
         <h4>Producto</h4>
         <ul>
           <li><a href="#funciones">Funciones</a></li>
+          <li><a href="#vencimientos">Vencimientos</a></li>
           <li><a href="#fiel-anac">Formato ANAC</a></li>
           <li><a href="#gratis">Precio</a></li>
         </ul>
@@ -409,6 +470,11 @@
   icon('chk-1', 'checkCircle', 18);
   icon('chk-2', 'checkCircle', 18);
   icon('chk-3', 'checkCircle', 18);
+  icon('v-badge-1', 'alertTriangle', 12);
+  icon('v-badge-2', 'checkCircle', 12);
+  icon('v-chk-1', 'bell', 18);
+  icon('v-chk-2', 'clock', 18);
+  icon('v-chk-3', 'shieldCheck', 18);
   icon('fiel-icon', 'monitor', 16);
   icon('g-1', 'checkCircle', 16);
   icon('g-2', 'checkCircle', 16);
