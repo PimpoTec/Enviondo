@@ -5,162 +5,186 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Vuelux — Libro de Vuelo Digital para Pilotos</title>
 <meta name="description" content="Libro de vuelo digital — formato ANAC 290/2012, progreso hacia tu licencia y control de costos. Gratis." />
-<meta name="theme-color" content="#0e0e0e" />
+<meta name="theme-color" content="#111317" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" href="icons/icon-192.png" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/styles.css" />
 <style>
   /* Landing forzada a oscuro (identidad de marca), independiente del tema
-     que el usuario tenga elegido para la app en sí. */
-  html[data-theme="dark"] body.landing {
-    --bg: #0e0e0e; --bg-elevated: #1a1a1a; --bg-subtle: #131313; --bg-elevated-2: #232323;
-    --border: #2a2a2a; --text: #e2e2e2; --text-muted: #9c9c9c;
-    --brand: #ffb77d; --brand-strong: #ff8c00; --brand-weak: rgba(255, 140, 0, 0.14); --on-brand: #2f1500;
-  }
-  body.landing {
-    background:
-      radial-gradient(circle, var(--border) 1px, transparent 1px) 0 0/28px 28px,
-      var(--bg);
+     que el usuario tenga elegido para la app en sí. Mismos tokens que la
+     app (css/styles.css :root) — la landing no inventa una paleta aparte. */
+  body.landing { background: var(--bg); }
+
+  .lnd-wrap { max-width: 1120px; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
+  .lnd-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .lnd-eyebrow {
+    font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--brand); display: inline-flex; align-items: center; gap: 8px;
   }
 
-  .lnd-wrap { max-width: 1180px; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
-
+  /* ---------- Nav: misma convención que header.topbar de la app (vidrio +
+     blur), no una barra de links flotante genérica. ---------- */
   .lnd-nav {
-    position: sticky; top: 0; z-index: 50; backdrop-filter: blur(16px);
-    background: rgba(14, 14, 14, 0.75); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 50; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: var(--glass-bg); border-bottom: 1px solid var(--glass-border);
   }
-  .lnd-nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
-  .lnd-nav .brand { font-family: var(--font-headline); font-weight: 800; font-size: 19px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
+  .lnd-nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; }
+  .lnd-nav .brand { font-family: var(--font-headline); font-weight: 800; font-size: 18px; }
   .lnd-nav .brand .icon { color: var(--brand); }
-  .lnd-nav-links { display: flex; gap: 28px; }
+  .lnd-nav-links { display: flex; gap: 26px; }
   .lnd-nav-links a { color: var(--text-muted); font-size: 13px; font-weight: 600; }
   .lnd-nav-links a:hover { color: var(--text); }
   .lnd-nav-actions { display: flex; align-items: center; gap: 16px; }
   .lnd-nav-actions a.link { color: var(--text-muted); font-size: 13px; font-weight: 600; }
-  @media (max-width: 720px) { .lnd-nav-links { display: none; } }
+  @media (max-width: 760px) { .lnd-nav-links { display: none; } }
 
-  .lnd-hero { text-align: center; padding: 64px 20px 40px; }
-  .lnd-chip {
-    display: inline-flex; align-items: center; gap: 8px; background: var(--bg-elevated-2);
-    border: 1px solid var(--border); padding: 6px 16px; border-radius: 999px; margin-bottom: 26px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand);
-  }
+  /* ---------- Hero: dos columnas — tesis a la izquierda, el instrumento
+     (el mismo velocímetro de horas que ves en Inicio, redibujado a mano
+     acá, no una captura de pantalla) a la derecha. ---------- */
+  .lnd-hero { padding: 56px 20px 80px; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
+  @media (max-width: 900px) { .lnd-hero { grid-template-columns: 1fr; padding-top: 40px; gap: 44px; text-align: center; } }
+
+  .lnd-hero-eyebrow { border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 22px; display: inline-block; }
   .lnd-hero h1 {
-    font-family: var(--font-headline); font-weight: 800; letter-spacing: -0.02em;
-    font-size: clamp(32px, 5.4vw, 52px); line-height: 1.08; margin: 0 auto 20px; max-width: 780px;
+    font-family: var(--font-headline); font-weight: 800; letter-spacing: -0.02em; color: var(--text);
+    font-size: clamp(32px, 4vw, 46px); line-height: 1.08; margin: 0 0 18px;
   }
-  .lnd-hero p.sub { color: var(--text-muted); font-size: 18px; line-height: 1.55; max-width: 640px; margin: 0 auto 36px; }
-  .lnd-cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 64px; }
-  .lnd-cta-row .btn { padding: 14px 30px; font-size: 15px; font-weight: 700; border-radius: 8px; }
-  .lnd-cta-row .btn:not(.secondary) { box-shadow: 0 0 24px rgba(255, 140, 0, 0.25); }
+  .lnd-hero p.sub { color: var(--text-muted); font-size: 17px; line-height: 1.6; max-width: 480px; margin: 0 0 30px; }
+  @media (max-width: 900px) { .lnd-hero p.sub { max-width: 520px; margin-left: auto; margin-right: auto; } }
+  .lnd-cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 28px; }
+  @media (max-width: 900px) { .lnd-cta-row { justify-content: center; } }
+  .lnd-cta-row .btn { padding: 13px 26px; font-size: 14.5px; }
   .lnd-cta-row .btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .lnd-hero-note { color: var(--text-muted); font-size: 12.5px; display: flex; align-items: center; gap: 8px; }
+  @media (max-width: 900px) { .lnd-hero-note { justify-content: center; } }
+  .lnd-hero-note .icon { color: var(--text-muted); flex-shrink: 0; }
 
-  /* Mockup del dashboard: placeholder claramente marcado, a reemplazar por
-     una captura real de la app cuando esté lista. */
-  .lnd-showcase { position: relative; max-width: 940px; margin: 0 auto; }
-  .lnd-showcase-main {
-    border: 1px solid var(--border); border-radius: 14px; background: var(--bg-elevated);
-    aspect-ratio: 16/9; overflow: hidden; color: var(--text-muted);
-  }
-  .lnd-showcase-main img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; display: block; }
-  .lnd-showcase-float {
-    position: absolute; width: 190px; aspect-ratio: 9/17; border: 1px solid var(--border);
-    border-radius: 20px; background: var(--bg-elevated-2); display: none;
-    align-items: center; justify-content: center; color: var(--text-muted); box-shadow: var(--shadow-lg);
-    overflow: hidden;
-  }
-  .lnd-showcase-float img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
-  .lnd-showcase-float.a { left: -50px; bottom: -34px; transform: rotate(-6deg); }
-  .lnd-showcase-float.b { right: -36px; top: 14%; transform: rotate(8deg); width: 160px; }
-  .lnd-showcase-float.b img { object-position: 50% 30%; }
-  @media (min-width: 900px) { .lnd-showcase-float { display: flex; } }
+  /* Instrumento: réplica del velocímetro de Inicio (progreso de horas +
+     progreso de licencia), no una foto de teléfono — evita el look de
+     "mockups flotando" y no depende de que la captura esté al día. */
+  .lnd-gauge-wrap { display: flex; justify-content: center; }
+  .lnd-gauge { position: relative; width: min(320px, 78vw); aspect-ratio: 1; }
+  .lnd-gauge svg { width: 100%; height: 100%; display: block; }
+  .lnd-gauge-track { stroke: var(--bg-elevated-2); }
+  .lnd-gauge-arc { stroke: var(--brand); filter: drop-shadow(0 0 6px rgba(255, 159, 28, 0.45)); }
+  .lnd-gauge-tick { stroke: var(--border); }
+  .lnd-gauge-tick.major { stroke: var(--text-muted); }
+  .lnd-gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .lnd-gauge-value { font-family: var(--font-mono); font-weight: 700; font-size: clamp(30px, 6vw, 40px); color: var(--text); font-variant-numeric: tabular-nums; }
+  .lnd-gauge-label { font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; }
+  .lnd-gauge-sub { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12.5px; color: var(--brand); font-weight: 600; }
+  .lnd-gauge-sub .lnd-mono { font-size: 12.5px; }
+  .lnd-gauge-arc-anim { stroke-dasharray: 502; animation: gauge-draw 1.1s cubic-bezier(.2,.7,.2,1) 0.15s backwards; }
+  .lnd-gauge-arc-anim.secondary { stroke-dasharray: 251; animation-duration: 0.9s; animation-delay: 0.35s; }
+  @keyframes gauge-draw { from { stroke-dashoffset: var(--full); } }
+  @media (prefers-reduced-motion: reduce) { .lnd-gauge-arc-anim { animation: none; } }
 
-  .lnd-stats {
-    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-    padding: 40px 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 48px;
+  /* ---------- Franja de bitácora: la grilla real de los 8 campos de tiempo
+     de la Res. ANAC 290/2012 (Res. 290/2012, art. Hoja de Libro de Vuelo),
+     no una barra de "stats" genérica con íconos. Misma convención tipográfica
+     que .table-wrap table de la app: headers en mayúsculas + font-mono,
+     columnas numéricas alineadas a la derecha. ---------- */
+  .lnd-ledger { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg-subtle); }
+  .lnd-ledger-inner { padding: 26px 20px; }
+  .lnd-ledger-cap { font-size: 12px; color: var(--text-muted); margin: 0 0 14px; }
+  .lnd-ledger-cap strong { color: var(--text); font-weight: 600; }
+  .lnd-ledger-scroll { overflow-x: auto; }
+  table.lnd-ledger-table { width: 100%; min-width: 640px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  table.lnd-ledger-table th {
+    color: var(--text-muted); font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em; text-align: right; padding: 0 0 10px 14px; white-space: nowrap;
   }
-  .lnd-stat { text-align: center; }
-  .lnd-stat .v { font-family: var(--font-headline); font-weight: 800; font-size: 30px; color: var(--brand); }
-  .lnd-stat .l { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
+  table.lnd-ledger-table th:first-child, table.lnd-ledger-table td:first-child { text-align: left; padding-left: 0; }
+  table.lnd-ledger-table td {
+    font-family: var(--font-mono); text-align: right; padding: 10px 0 10px 14px; white-space: nowrap;
+    border-top: 1px solid var(--border); font-variant-numeric: tabular-nums;
+  }
+  table.lnd-ledger-table td.lbl { font-family: var(--font); text-align: left; color: var(--text-muted); font-size: 12.5px; }
+  table.lnd-ledger-table td.total { color: var(--brand); font-weight: 700; }
 
-  .lnd-section { padding: 88px 20px; }
-  .lnd-section-head { text-align: center; max-width: 600px; margin: 0 auto 40px; }
-  .lnd-section-head h2 { font-family: var(--font-headline); font-weight: 800; font-size: clamp(26px, 3.6vw, 34px); margin: 0 0 12px; }
-  .lnd-section-head p { color: var(--text-muted); margin: 0; font-size: 16px; }
+  .lnd-section { padding: 84px 20px; }
+  .lnd-section-head { max-width: 560px; margin: 0 0 44px; }
+  .lnd-section-head h2 { font-family: var(--font-headline); font-weight: 800; font-size: clamp(24px, 3.2vw, 32px); margin: 0 0 10px; }
+  .lnd-section-head p { color: var(--text-muted); margin: 0; font-size: 15.5px; }
 
-  .lnd-bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
-  .lnd-tile {
-    background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 28px;
+  /* ---------- Funciones: fila de "panel" (etiqueta de categoría + texto),
+     no un bento de tarjetas redondeadas de tamaño arbitrario. ---------- */
+  .lnd-panel-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 48px; }
+  @media (max-width: 860px) { .lnd-panel-list { grid-template-columns: 1fr; } }
+  .lnd-panel-row { display: flex; gap: 16px; padding: 22px 0; border-top: 1px solid var(--border); }
+  .lnd-panel-list > .lnd-panel-row:nth-child(1), .lnd-panel-list > .lnd-panel-row:nth-child(2) { border-top: none; }
+  @media (max-width: 860px) { .lnd-panel-list > .lnd-panel-row:nth-child(2) { border-top: 1px solid var(--border); } }
+  .lnd-panel-row .icon-wrap { color: var(--brand); flex-shrink: 0; padding-top: 2px; }
+  .lnd-panel-row .txt h3 {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text-muted); margin: 0 0 6px;
   }
-  .lnd-tile .icon-wrap { color: var(--brand); margin-bottom: 16px; }
-  .lnd-tile h3 { font-family: var(--font-headline); font-size: 18px; font-weight: 700; margin: 0 0 8px; }
-  .lnd-tile p { color: var(--text-muted); font-size: 14px; line-height: 1.55; margin: 0; }
-  .lnd-tile.big { grid-column: span 8; display: flex; gap: 28px; align-items: center; }
-  .lnd-tile.small { grid-column: span 4; }
-  .lnd-tile.big .txt { flex: 1; }
-  .lnd-tile.big .shot {
-    flex: 1; aspect-ratio: 4/3; border: 1px dashed var(--border); border-radius: 10px;
-    display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px;
-    background: var(--bg-subtle); text-align: center; padding: 12px;
-  }
-  @media (max-width: 860px) {
-    .lnd-tile.big, .lnd-tile.small { grid-column: span 12; }
-    .lnd-tile.big { flex-direction: column; }
-  }
-  .lnd-tile-row-4 { grid-column: span 12; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  @media (max-width: 760px) { .lnd-tile-row-4 { grid-template-columns: repeat(2, 1fr); } }
+  .lnd-panel-row .txt p { font-size: 14.5px; line-height: 1.55; margin: 0; color: var(--text); }
+  .lnd-panel-row .txt p .hl { color: var(--text); font-weight: 600; }
 
-  .lnd-fiel { display: grid; gap: 48px; grid-template-columns: 1.1fr 0.9fr; align-items: center; }
+  /* ---------- Fiel al formato ---------- */
+  .lnd-fiel { display: grid; gap: 48px; grid-template-columns: 1.15fr 0.85fr; align-items: center; }
   @media (max-width: 860px) { .lnd-fiel { grid-template-columns: 1fr; } }
   .lnd-fiel h2 { font-family: var(--font-headline); font-weight: 800; font-size: clamp(24px, 3.2vw, 30px); margin: 0 0 16px; }
-  .lnd-fiel p.lead { color: var(--text-muted); font-size: 16px; line-height: 1.6; margin: 0 0 24px; }
-  .lnd-fiel ul { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 14px; }
-  .lnd-fiel li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; }
+  .lnd-fiel p.lead { color: var(--text-muted); font-size: 15.5px; line-height: 1.6; margin: 0 0 22px; }
+  .lnd-fiel ul { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 12px; }
+  .lnd-fiel li { display: flex; align-items: center; gap: 10px; font-size: 14px; }
   .lnd-fiel li .icon { color: var(--brand); flex-shrink: 0; }
   .lnd-disclaimer {
     font-size: 12.5px; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border);
-    border-radius: 8px; padding: 12px 14px; line-height: 1.5;
+    border-radius: var(--radius-sm); padding: 12px 14px; line-height: 1.5;
   }
   .lnd-fiel-visual {
-    aspect-ratio: 3/4; border: 1px dashed var(--border); border-radius: 12px; background: var(--bg-elevated);
-    display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px;
-    flex-direction: column; gap: 10px; text-align: center; padding: 20px;
+    background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px;
   }
+  .lnd-fiel-visual .cap { font-size: 11px; color: var(--text-muted); margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+  table.lnd-totales-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; font-size: 13px; }
+  table.lnd-totales-table th {
+    color: var(--text-muted); font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em; text-align: right; padding-bottom: 2px;
+  }
+  table.lnd-totales-table th:first-child { text-align: left; }
+  table.lnd-totales-table td {
+    font-family: var(--font-mono); text-align: right; padding: 10px; background: var(--bg-subtle);
+    font-variant-numeric: tabular-nums; font-weight: 600;
+  }
+  table.lnd-totales-table td:first-child { text-align: left; font-family: var(--font); font-weight: 400; color: var(--text-muted); border-top-left-radius: var(--radius-sm); border-bottom-left-radius: var(--radius-sm); }
+  table.lnd-totales-table td:last-child { border-top-right-radius: var(--radius-sm); border-bottom-right-radius: var(--radius-sm); color: var(--brand); }
 
   .lnd-quienes .card {
-    background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 32px; max-width: 720px; margin: 0 auto;
+    background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; max-width: 700px;
   }
-  .lnd-quienes p { line-height: 1.65; color: var(--text); margin: 0 0 14px; font-size: 15.5px; }
+  .lnd-quienes p { line-height: 1.65; color: var(--text); margin: 0 0 14px; font-size: 15px; }
   .lnd-quienes p:last-of-type { margin-bottom: 0; }
   .lnd-quienes .firma { color: var(--text-muted); font-size: 13px; margin-top: 18px; }
 
-  .lnd-gratis { text-align: center; }
-  .lnd-gratis .card {
-    max-width: 420px; margin: 0 auto; background: var(--bg-elevated); border: 1px solid var(--brand-strong);
-    border-radius: 14px; padding: 40px 32px; box-shadow: 0 0 40px -12px rgba(255, 140, 0, 0.2);
-  }
-  .lnd-gratis .precio { font-family: var(--font-headline); font-weight: 800; font-size: 48px; color: var(--brand); margin: 8px 0 4px; }
-  .lnd-gratis .precio span { font-size: 15px; color: var(--text-muted); font-weight: 600; }
-  .lnd-gratis ul { list-style: none; padding: 0; margin: 20px 0 26px; display: flex; flex-direction: column; gap: 10px; }
-  .lnd-gratis li { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-muted); }
+  /* ---------- Precio: una línea de asiento contable, no una tarjeta de
+     pricing SaaS con glow y borde de marca. ---------- */
+  .lnd-gratis .card { max-width: 480px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px 32px; }
+  .lnd-price-row { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 18px; }
+  .lnd-price-row .who { font-family: var(--font-headline); font-weight: 800; font-size: 17px; }
+  .lnd-price-row .amt { font-family: var(--font-mono); font-weight: 700; font-size: 34px; color: var(--brand); }
+  .lnd-price-row .amt span { font-family: var(--font); font-size: 13px; color: var(--text-muted); font-weight: 500; margin-left: 4px; }
+  .lnd-gratis ul { list-style: none; padding: 0; margin: 0 0 24px; display: flex; flex-direction: column; gap: 10px; }
+  .lnd-gratis li { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text-muted); }
   .lnd-gratis li .icon { color: var(--brand); flex-shrink: 0; }
 
-  .lnd-cta-final { text-align: center; padding: 90px 20px; }
-  .lnd-cta-final h2 { font-family: var(--font-headline); font-weight: 800; font-size: clamp(26px, 3.6vw, 34px); margin: 0 0 12px; }
-  .lnd-cta-final p { color: var(--text-muted); margin: 0 0 28px; }
+  .lnd-cta-final { text-align: center; padding: 84px 20px; }
+  .lnd-cta-final h2 { font-family: var(--font-headline); font-weight: 800; font-size: clamp(24px, 3.2vw, 32px); margin: 0 0 12px; }
+  .lnd-cta-final p { color: var(--text-muted); margin: 0 0 26px; }
 
-  .lnd-footer { border-top: 1px solid var(--border); padding: 64px 20px 24px; }
-  .lnd-footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px; margin-bottom: 48px; }
-  @media (max-width: 700px) { .lnd-footer-grid { grid-template-columns: 1fr; gap: 32px; } }
-  .lnd-footer .brand { font-family: var(--font-headline); font-weight: 800; font-size: 18px; color: var(--brand); margin-bottom: 10px; }
-  .lnd-footer p { color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin: 0; }
+  .lnd-footer { border-top: 1px solid var(--border); padding: 60px 20px 24px; }
+  .lnd-footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px; margin-bottom: 44px; }
+  @media (max-width: 700px) { .lnd-footer-grid { grid-template-columns: 1fr; gap: 30px; } }
+  .lnd-footer .brand { font-family: var(--font-headline); font-weight: 800; font-size: 17px; color: var(--brand); margin-bottom: 10px; }
+  .lnd-footer p { color: var(--text-muted); font-size: 13px; line-height: 1.6; margin: 0; }
   .lnd-footer h4 { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 14px; }
   .lnd-footer ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-  .lnd-footer ul a { color: var(--text-muted); font-size: 13.5px; }
+  .lnd-footer ul a { color: var(--text-muted); font-size: 13px; }
   .lnd-footer ul a:hover { color: var(--text); }
   .lnd-footer-bottom {
     border-top: 1px solid var(--border); padding-top: 20px; display: flex; justify-content: space-between;
@@ -186,29 +210,53 @@
   </div>
 </nav>
 
-<header class="lnd-hero">
-  <div class="lnd-chip"><span id="chip-icon"></span> Formato ANAC 290/2012 incluido</div>
-  <h1>Libro de Vuelo Digital para Pilotos</h1>
-  <p class="sub">Cargá tus vuelos, mirá cuánto te falta para tu licencia y cuánto te está costando la carrera. Todo calculado solo, todo en un solo lugar — gratis.</p>
-  <div class="lnd-cta-row">
-    <a class="btn" href="index.html">Empezá gratis</a>
-    <a class="btn secondary" href="#funciones">Ver funciones</a>
+<header class="lnd-hero lnd-wrap">
+  <div>
+    <span class="lnd-eyebrow lnd-hero-eyebrow"><span id="eyebrow-icon"></span> Hoja de Libro de Vuelo · Res. ANAC 290/2012</span>
+    <h1>Tu libro de vuelo, siempre al día.</h1>
+    <p class="sub">Cargá cada vuelo con los 8 campos de tiempo del formato oficial. Vuelux suma los totales, mide cuánto te falta para tu licencia y cuánto te está costando la carrera — solo, sin planillas.</p>
+    <div class="lnd-cta-row">
+      <a class="btn" href="index.html">Empezá gratis</a>
+      <a class="btn secondary" href="#funciones">Ver funciones</a>
+    </div>
+    <p class="lnd-hero-note"><span class="icon" id="note-icon"></span> Gratis, sin tarjeta, tus datos no salen de tu cuenta.</p>
   </div>
 
-  <div class="lnd-showcase">
-    <div class="lnd-showcase-main">
-      <img src="img/landing/mobile-dashboard.jpg" alt="Dashboard de Vuelux: horas totales y progreso de licencia" loading="lazy">
-    </div>
-    <div class="lnd-showcase-float a"><img src="img/landing/mobile-bitacora.jpg" alt="Bitácora de vuelos de Vuelux" loading="lazy"></div>
-    <div class="lnd-showcase-float b"><img src="img/landing/mobile-dashboard.jpg" alt="Dashboard de Vuelux en el celular" loading="lazy"></div>
+  <div class="lnd-gauge-wrap">
+    <div class="lnd-gauge" id="gauge"></div>
   </div>
 </header>
 
-<section class="lnd-stats lnd-wrap">
-  <div class="lnd-stat"><div class="v">290/2012</div><div class="l">Formato oficial ANAC</div></div>
-  <div class="lnd-stat"><div class="v">$0</div><div class="l">Sin costo</div></div>
-  <div class="lnd-stat"><div class="v">100%</div><div class="l">Tus datos, solo tuyos</div></div>
-  <div class="lnd-stat"><div class="v">Offline</div><div class="l">Funciona sin señal</div></div>
+<section class="lnd-ledger">
+  <div class="lnd-wrap lnd-ledger-inner">
+    <p class="lnd-ledger-cap"><strong>Así se ve un vuelo cargado</strong> — los 8 campos de tiempo, excluyentes entre sí, tal como los pide la hoja oficial.</p>
+    <div class="lnd-ledger-scroll">
+      <table class="lnd-ledger-table">
+        <thead>
+          <tr>
+            <th>Vuelo</th>
+            <th>S.aero día pil</th>
+            <th>S.aero día cop</th>
+            <th>S.aero noche pil</th>
+            <th>S.aero noche cop</th>
+            <th>Trav día pil</th>
+            <th>Trav día cop</th>
+            <th>Trav noche pil</th>
+            <th>Trav noche cop</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="lbl">24 jul · LV-KPS · SADF→ENTT</td>
+            <td>1.75</td><td>0.00</td><td>0.00</td><td>0.00</td>
+            <td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td>
+            <td class="total">1.75</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </section>
 
 <section class="lnd-section lnd-wrap" id="funciones">
@@ -216,54 +264,38 @@
     <h2>Todo lo que un piloto necesita llevar</h2>
     <p>Sin planillas sueltas ni cuentas a mano.</p>
   </div>
-  <div class="lnd-bento">
-    <div class="lnd-tile big">
-      <div class="txt">
-        <div class="icon-wrap" id="t-plane"></div>
-        <h3>Libro de vuelo con cálculo automático</h3>
-        <p>Cargá cada vuelo con los 8 campos de tiempo del formato ANAC — la app suma los totales sola, en modo rápido para el día a día o detallado si necesitás tocar cada campo a mano.</p>
-      </div>
-      <div class="shot">Captura de la Bitácora<br>— próximamente</div>
+  <div class="lnd-panel-list">
+    <div class="lnd-panel-row">
+      <div class="icon-wrap" id="t-plane"></div>
+      <div class="txt"><h3>Registro</h3><p>Cargá cada vuelo con los 8 campos de tiempo del formato ANAC — modo rápido para el día a día, o detallado si necesitás tocar cada campo a mano.</p></div>
     </div>
-    <div class="lnd-tile small">
+    <div class="lnd-panel-row">
       <div class="icon-wrap" id="t-award"></div>
-      <h3>Progreso hacia tu licencia</h3>
-      <p>PPA, CPL, PCA o TLA — mirá cuánto te falta según los mínimos de referencia de la RAAC vigente.</p>
+      <div class="txt"><h3>Licencia</h3><p>PPA, CPL, PCA o TLA — mirá cuánto te falta según los mínimos de referencia de la RAAC vigente.</p></div>
     </div>
-    <div class="lnd-tile small">
+    <div class="lnd-panel-row">
       <div class="icon-wrap" id="t-bell"></div>
-      <h3>Vencimientos y alertas</h3>
-      <p>Habilitaciones, IFR, currency — te avisa antes de que se venzan, con notificaciones push al celular.</p>
+      <div class="txt"><h3>Alertas</h3><p>Habilitaciones, IFR, currency — te avisa antes de que se venzan, con notificaciones push al celular.</p></div>
     </div>
-    <div class="lnd-tile big">
-      <div class="txt">
-        <div class="icon-wrap" id="t-download"></div>
-        <h3>Exportá tu Hoja de Libro de Vuelo</h3>
-        <p>Generá el PDF/Excel con el formato oficial de la Resolución ANAC 290/2012, listo para imprimir o presentar.</p>
-      </div>
-      <div class="shot">Vista previa de la hoja exportada<br>— próximamente</div>
+    <div class="lnd-panel-row">
+      <div class="icon-wrap" id="t-download"></div>
+      <div class="txt"><h3>Exportar</h3><p>Generá el PDF/Excel con el formato oficial de la Resolución ANAC 290/2012, listo para imprimir o presentar.</p></div>
     </div>
-    <div class="lnd-tile-row-4">
-      <div class="lnd-tile">
-        <div class="icon-wrap" id="t-map"></div>
-        <h3 style="font-size:15px">Track GPS real</h3>
-        <p>Subí el recorrido de FlightRadar24 y lo ves en un mapa, en vez de la línea recta origen-destino.</p>
-      </div>
-      <div class="lnd-tile">
-        <div class="icon-wrap" id="t-dollar"></div>
-        <h3 style="font-size:15px">Costo de la carrera</h3>
-        <p>Cada vuelo calcula su costo solo, según la tarifa diurna/nocturna de tu aeronave.</p>
-      </div>
-      <div class="lnd-tile">
-        <div class="icon-wrap" id="t-wifi"></div>
-        <h3 style="font-size:15px">Funciona sin señal</h3>
-        <p>Cargá vuelos sin cobertura — se sincronizan solos al volver la conexión.</p>
-      </div>
-      <div class="lnd-tile">
-        <div class="icon-wrap" id="t-shield"></div>
-        <h3 style="font-size:15px">Tus datos, solo tuyos</h3>
-        <p>Cada piloto ve únicamente lo suyo. Borrás tu cuenta y todos tus datos cuando quieras.</p>
-      </div>
+    <div class="lnd-panel-row">
+      <div class="icon-wrap" id="t-map"></div>
+      <div class="txt"><h3>Ruta</h3><p>Subí el recorrido de FlightRadar24 y lo ves en un mapa, en vez de la línea recta origen-destino.</p></div>
+    </div>
+    <div class="lnd-panel-row">
+      <div class="icon-wrap" id="t-dollar"></div>
+      <div class="txt"><h3>Costo</h3><p>Cada vuelo calcula su costo solo, según la tarifa diurna/nocturna de tu aeronave.</p></div>
+    </div>
+    <div class="lnd-panel-row">
+      <div class="icon-wrap" id="t-wifi"></div>
+      <div class="txt"><h3>Offline</h3><p>Cargá vuelos sin cobertura — se sincronizan solos al volver la conexión.</p></div>
+    </div>
+    <div class="lnd-panel-row">
+      <div class="icon-wrap" id="t-shield"></div>
+      <div class="txt"><h3>Privacidad</h3><p>Cada piloto ve únicamente lo suyo. Borrás tu cuenta y todos tus datos cuando quieras.</p></div>
     </div>
   </div>
 </section>
@@ -281,8 +313,13 @@
       <p class="lnd-disclaimer">Vuelux <strong>no reemplaza</strong> al Registro Electrónico de Horas de Vuelo oficial (declaración jurada vía Casillero Aeronáutico Digital de ANAC). Es una herramienta paralela de uso personal — los datos acá no tienen validez legal ante la autoridad aeronáutica.</p>
     </div>
     <div class="lnd-fiel-visual">
-      <span class="icon" id="fiel-icon"></span>
-      <span>Vista previa de la Hoja ANAC exportada — próximamente</span>
+      <p class="cap"><span class="icon" id="fiel-icon"></span> Totales de un vuelo con discriminación día/noche</p>
+      <table class="lnd-totales-table">
+        <thead><tr><th>Campo</th><th>Día</th><th>Noche</th><th>Pic</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr><td>Horas (hs.)</td><td>42.50</td><td>8.30</td><td>51.00</td><td>120.85</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
@@ -304,8 +341,10 @@
     <p>Vuelux es gratis. No hay versión paga, no hay tarjeta de crédito, no hay límite de vuelos.</p>
   </div>
   <div class="card">
-    <div class="icon-wrap" id="gratis-icon" style="color:var(--brand)"></div>
-    <div class="precio">$0 <span>/ para siempre</span></div>
+    <div class="lnd-price-row">
+      <span class="who">Vuelux</span>
+      <span class="amt lnd-mono">$0<span>/ mes, para siempre</span></span>
+    </div>
     <ul>
       <li><span class="icon" id="g-1"></span> Vuelos, aeronaves y vencimientos ilimitados</li>
       <li><span class="icon" id="g-2"></span> Exportación a PDF/Excel incluida</li>
@@ -357,24 +396,57 @@
 <script>
   const icon = (id, name, size = 20) => document.getElementById(id).innerHTML = Icons[name](size);
   icon('nav-icon', 'logoV', 20);
-  icon('chip-icon', 'plane', 14);
-  icon('t-plane', 'plane', 26);
-  icon('t-award', 'award', 26);
-  icon('t-bell', 'bell', 26);
-  icon('t-download', 'download', 26);
-  icon('t-map', 'mapPin', 22);
-  icon('t-dollar', 'dollar', 22);
-  icon('t-wifi', 'wifiOff', 22);
-  icon('t-shield', 'shieldCheck', 22);
+  icon('eyebrow-icon', 'plane', 13);
+  icon('note-icon', 'shieldCheck', 14);
+  icon('t-plane', 'plane', 24);
+  icon('t-award', 'award', 24);
+  icon('t-bell', 'bell', 24);
+  icon('t-download', 'download', 24);
+  icon('t-map', 'mapPin', 24);
+  icon('t-dollar', 'dollar', 24);
+  icon('t-wifi', 'wifiOff', 24);
+  icon('t-shield', 'shieldCheck', 24);
   icon('chk-1', 'checkCircle', 18);
   icon('chk-2', 'checkCircle', 18);
   icon('chk-3', 'checkCircle', 18);
-  icon('fiel-icon', 'monitor', 36);
-  icon('gratis-icon', 'plane', 32);
+  icon('fiel-icon', 'monitor', 16);
   icon('g-1', 'checkCircle', 16);
   icon('g-2', 'checkCircle', 16);
   icon('g-3', 'checkCircle', 16);
   icon('g-4', 'checkCircle', 16);
+
+  // Instrumento de horas: réplica del velocímetro de Inicio (progreso de
+  // horas totales + progreso de licencia), dibujado a mano con dos arcos
+  // SVG en vez de una captura de pantalla — así no depende de que la
+  // captura esté al día ni arrastra el branding viejo de las fotos.
+  (function buildGauge() {
+    const el = document.getElementById('gauge');
+    if (!el) return;
+    const R1 = 92, cx = 110, cy = 110;
+    const C1 = 2 * Math.PI * R1;
+    const pctLicencia = 0.6043;
+    const ticks = [];
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * 360;
+      const major = i % 4 === 0;
+      const rOuter = R1 + 14;
+      const rInner = major ? R1 + 7 : R1 + 10;
+      ticks.push(`<line class="lnd-gauge-tick${major ? ' major' : ''}" x1="${cx}" y1="${cy - rOuter}" x2="${cx}" y2="${cy - rInner}" stroke-width="${major ? 2 : 1}" transform="rotate(${a} ${cx} ${cy})"/>`);
+    }
+    el.innerHTML = `
+      <svg viewBox="0 0 220 220">
+        <g>${ticks.join('')}</g>
+        <circle class="lnd-gauge-track" cx="${cx}" cy="${cy}" r="${R1}" fill="none" stroke-width="13"/>
+        <circle class="lnd-gauge-arc lnd-gauge-arc-anim" style="--full:${C1}" cx="${cx}" cy="${cy}" r="${R1}" fill="none" stroke-width="13"
+          stroke-linecap="round" stroke-dasharray="${C1}" stroke-dashoffset="${C1 * (1 - pctLicencia)}"
+          transform="rotate(-90 ${cx} ${cy})"/>
+      </svg>
+      <div class="lnd-gauge-center">
+        <div class="lnd-gauge-value">120.85</div>
+        <div class="lnd-gauge-label">Horas totales</div>
+        <div class="lnd-gauge-sub"><span class="lnd-mono">60.43%</span> hacia tu PCA HVI</div>
+      </div>`;
+  })();
 </script>
 </body>
 </html>
