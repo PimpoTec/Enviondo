@@ -53,6 +53,19 @@ async function borrarVuelosPendiente(localId) {
   });
 }
 
+// Se usa al cerrar sesión: un vuelo cargado sin conexión por esta cuenta no
+// se puede terminar subiendo bajo la cuenta que entre después en este mismo
+// dispositivo.
+async function borrarTodosPendientes() {
+  const idb = await abrirIDB();
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 async function sincronizarPendientes() {
   if (!navigator.onLine) return { subidos: 0, error: 'sin conexión' };
   const pendientes = await listarVuelosPendientes();
@@ -71,7 +84,7 @@ async function sincronizarPendientes() {
 }
 
 window.Offline = {
-  guardarVueloPendiente, listarVuelosPendientes, borrarVuelosPendiente, sincronizarPendientes,
+  guardarVueloPendiente, listarVuelosPendientes, borrarVuelosPendiente, sincronizarPendientes, borrarTodosPendientes,
 };
 
 window.addEventListener('online', async () => {
