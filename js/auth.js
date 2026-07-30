@@ -26,10 +26,15 @@ async function actualizarPassword(nuevaPassword) {
 }
 
 async function cerrarSesion() {
+  // Si hay vuelos cargados sin conexión y todavía no se subieron, se intenta
+  // ahora (con la sesión todavía activa) para no perderlos.
+  await window.Offline?.sincronizarPendientes().catch(() => { /* noop */ });
   await window.db.auth.signOut();
   // Si otra cuenta entra en el mismo dispositivo después, no tiene que ver
-  // ni por un instante datos cacheados de esta sesión.
+  // ni por un instante datos cacheados de esta sesión, ni terminar subiendo
+  // bajo esa cuenta un vuelo pendiente que no llegó a sincronizarse.
   window.Cache?.invalidarTodo();
+  await window.Offline?.borrarTodosPendientes().catch(() => { /* noop */ });
   window.location.reload();
 }
 
@@ -43,6 +48,7 @@ async function borrarCuenta() {
   if (data?.error) throw new Error(data.error);
   await window.db.auth.signOut();
   window.Cache?.invalidarTodo();
+  await window.Offline?.borrarTodosPendientes().catch(() => { /* noop */ });
   window.location.reload();
 }
 

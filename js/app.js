@@ -241,6 +241,12 @@ async function init() {
         registrarActividad();
         await mostrarApp();
       } else if (event === 'SIGNED_OUT') {
+        // Puede llegar por vías distintas al botón de cerrar sesión (token
+        // vencido, otra pestaña, etc.) — hay que limpiar el cache siempre,
+        // para que la próxima cuenta que entre en este dispositivo no vea
+        // ni por un instante datos de la anterior.
+        window.Cache?.invalidarTodo();
+        await window.Offline?.borrarTodosPendientes().catch(() => { /* noop */ });
         await mostrarLogin();
       }
     });

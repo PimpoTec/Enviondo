@@ -131,11 +131,6 @@ const ViewTotales = {
       </div>` : ''}
 
       <div class="card">
-        <h2>${Icons.search(18)} Discriminación de horas <span class="muted" style="font-weight:400">(ANAC — ya incluidas en el total, no se suman aparte)</span></h2>
-        ${htmlDiscriminaciones(agg)}
-      </div>
-
-      <div class="card">
         <h2>${Icons.award(18)} Progreso de licencia</h2>
         <div id="detalle-progreso-licencia"></div>
       </div>
@@ -214,44 +209,6 @@ function calcularHorasPorAeronave(vuelos) {
     map[key].horas = Calc.round2(map[key].horas + Calc.n(v.tiempo_total));
   }
   return Object.values(map).sort((a, b) => b.horas - a.horas);
-}
-
-// Discriminaciones como barras de proporción sobre el total general (no
-// "de un mínimo" como el progreso de licencia — acá no hay meta, solo qué
-// porción del total representa cada categoría). "Monomotor" no es un campo
-// propio: se deriva restando del total las categorías que sí se cargan a
-// mano (multimotor/reactor/turbohélice/aeroaplicador/simulador) — es una
-// aproximación razonable (la mayoría de los vuelos caen en una sola
-// categoría de motor), no una clasificación garantizada al 100%.
-function htmlDiscriminaciones(agg) {
-  const monomotor = Math.max(0, Calc.round2(
-    agg.tiempo_total - agg.multimotor - agg.reactor - agg.turbohelice - agg.aeroaplicador - agg.adiestrador_simulador
-  ));
-  const filas = [
-    ['Monomotor', monomotor],
-    ['Multimotor', agg.multimotor],
-    ['Reactor', agg.reactor],
-    ['Turbohélice', agg.turbohelice],
-    ['Aeroaplicador', agg.aeroaplicador],
-    ['Instrumentos (real)', agg.instrumentos_real],
-    ['Instrumentos (capota)', agg.instrumentos_capota],
-    ['Adiestrador/Simulador', agg.adiestrador_simulador],
-    ['Nocturno', agg.total_noche],
-    ['Piloto al mando (PIC)', agg.total_pic],
-    ['Instrucción', agg.instruccion_vuelo],
-  ].filter(([, horas]) => horas > 0);
-
-  if (!filas.length) return '<p class="muted" style="margin:0">Todavía no hay datos suficientes.</p>';
-
-  return filas.map(([nombre, horas]) => {
-    const pct = agg.tiempo_total > 0 ? Math.min(100, Calc.round2((horas / agg.tiempo_total) * 100)) : 0;
-    return `
-    <div class="progreso-item">
-      <div class="pi-head"><span class="nombre">${nombre}</span></div>
-      <p class="pi-cifras"><span class="pi-actual">${horas} hs</span><span class="pi-de">de ${agg.tiempo_total} hs</span></p>
-      <div class="progreso-bar"><span style="width:${pct}%"></span></div>
-    </div>`;
-  }).join('');
 }
 
 function calcularItemsRequisito(cursoId, config, agg, configsPorCurso) {
