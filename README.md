@@ -426,9 +426,18 @@ membresías con roles, sin flota de organización ni turnos todavía.
 
 Roles dentro de una organización: `owner` (control total), `admin` (mismo
 alcance salvo borrar la organización), `instructor` y `piloto_vinculado`
-(autogestión, sin permisos de gestión). Las fases siguientes (flota de
-organización, turnos con autogestión/autorización, despacho para empresas)
-se agregan con su propio `sql/agregar_*.sql` reutilizando `is_member_of()`.
+(autogestión, sin permisos de gestión). Las fases siguientes (turnos con
+autogestión/autorización, despacho para empresas) se agregan con su propio
+`sql/agregar_*.sql` reutilizando `is_member_of()`.
+
+**Flota de organización (Fase 2):** correr además `sql/agregar_flota_org.sql`
+(depende del anterior). Reutiliza la misma tabla `aeronaves` de siempre —
+una aeronave pertenece a un piloto (`user_id`, como hoy) O a una
+organización (`org_id` nuevo), nunca a las dos cosas; las aeronaves
+personales existentes no se tocan. El owner/admin arma y edita la flota
+(matrícula, tarifas, horas de célula/motor, próxima inspección anual)
+desde `Perfil → Organizaciones`; instructor/piloto_vinculado la ven pero
+no la editan.
 
 ---
 

@@ -87,3 +87,41 @@ test('salirDeOrganizacion propaga el error cuando el owner intenta salir', async
   window.db = { rpc: async () => ({ error: new Error('El owner no puede salir de la organización') }) };
   await assert.rejects(() => Repo.salirDeOrganizacion('org-1'), /owner no puede salir/);
 });
+
+// ---- Flota de organización (Fase 2 B2B) ----
+
+test('listarFlotaOrg filtra por org_id y ordena por matrícula', async () => {
+  const filtros = [];
+  const query = {
+    select: (cols) => { filtros.push(['select', cols]); return query; },
+    eq: (col, val) => { filtros.push(['eq', col, val]); return query; },
+    order: (col) => { filtros.push(['order', col]); return { data: [{ id: 'a1', matricula: 'LV-AAA' }], error: null }; },
+  };
+  window.db = { from: (tabla) => { filtros.push(['from', tabla]); return query; } };
+  const data = await Repo.listarFlotaOrg('org-1');
+  assert.equal(JSON.stringify(filtros), JSON.stringify([['from', 'aeronaves'], ['select', '*'], ['eq', 'org_id', 'org-1'], ['order', 'matricula']]));
+  assert.equal(data[0].matricula, 'LV-AAA');
+});
+
+test('guardarAeronaveOrg sin id inserta con org_id seteado y user_id null', async () => {
+  let insertado = null;
+  window.db = { from: () => ({ insert: async (row) => { insertado = row; return { error: null }; } }) };
+  await Repo.guardarAeronaveOrg('org-1', { matricula: 'LV-BBB', marca_modelo: 'Cessna 152' });
+  assert.equal(insertado.org_id, 'org-1');
+  assert.equal(insertado.user_id, null);
+  assert.equal(insertado.matricula, 'LV-BBB');
+});
+
+test('guardarAeronaveOrg con id actualiza en vez de insertar', async () => {
+  let actualizado = null;
+  let eqId = null;
+  window.db = { from: () => ({ update: (row) => { actualizado = row; return { eq: async (col, val) => { eqId = val; return { error: null }; } }; } }) };
+  await Repo.guardarAeronaveOrg('org-1', { id: 'a1', matricula: 'LV-CCC' });
+  assert.equal(actualizado.id, 'a1');
+  assert.equal(eqId, 'a1');
+});
+
+test('borrarAeronaveOrg propaga el error si RLS lo rechaza (no es owner/admin)', async () => {
+  window.db = { from: () => ({ delete: () => ({ eq: async () => ({ error: new Error('new row violates row-level security policy') }) }) }) };
+  await assert.rejects(() => Repo.borrarAeronaveOrg('a1'), /row-level security/);
+});

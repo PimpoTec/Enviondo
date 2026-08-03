@@ -80,6 +80,30 @@ const Repo = {
     Cache.invalidar('aeronaves');
   },
 
+  // ---- Flota de organización (Fase 2 B2B — ver sql/agregar_flota_org.sql).
+  // Misma tabla `aeronaves` que la flota personal, pero con org_id en vez
+  // de user_id (propiedad dual) — nunca se mezclan en el mismo listado, y
+  // esta flota no pasa por el cache de "mis" aeronaves (Cache.conCache),
+  // porque no es del usuario sino de la organización. ----
+  async listarFlotaOrg(orgId) {
+    const { data, error } = await window.db.from('aeronaves').select('*').eq('org_id', orgId).order('matricula');
+    if (error) throw error;
+    return data;
+  },
+  async guardarAeronaveOrg(orgId, aeronave) {
+    if (aeronave.id) {
+      const { error } = await window.db.from('aeronaves').update(aeronave).eq('id', aeronave.id);
+      if (error) throw error;
+    } else {
+      const { error } = await window.db.from('aeronaves').insert({ ...aeronave, org_id: orgId, user_id: null });
+      if (error) throw error;
+    }
+  },
+  async borrarAeronaveOrg(id) {
+    const { error } = await window.db.from('aeronaves').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   // Sube la foto a Storage (bucket público "aeronaves-fotos", carpeta
   // propia = user_id — ver sql/agregar_foto_aeronave.sql) y guarda la URL
   // pública en la ficha. Nombre de archivo único por subida (no se

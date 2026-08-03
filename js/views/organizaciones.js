@@ -89,7 +89,10 @@ function renderOrganizaciones(activas) {
 async function renderDetalleOrganizacion(membresia) {
   const cont = document.getElementById('detalle-organizacion');
   const esGestor = esOwnerOAdmin(membresia.rol);
-  const miembros = esGestor ? await Repo.listarMiembros(membresia.org_id) : [];
+  const [miembros, flota] = await Promise.all([
+    esGestor ? Repo.listarMiembros(membresia.org_id) : Promise.resolve([]),
+    Repo.listarFlotaOrg(membresia.org_id),
+  ]);
 
   cont.innerHTML = `
     <div class="card">
@@ -107,6 +110,13 @@ async function renderDetalleOrganizacion(membresia) {
         </div>
       ` : `<p class="muted">Sos ${LABELS_ROL_ORGANIZACION[membresia.rol]} de esta organización.</p>`}
       ${membresia.rol !== 'owner' ? `<button class="btn btn-secundario" id="btn-salir" style="margin-top:12px">Salir de la organización</button>` : ''}
+    </div>
+
+    <div class="card">
+      <h2>${Icons.tag('plane', 'Flota')}</h2>
+      <div id="lista-flota-org"></div>
+      ${esGestor ? `<button class="btn" id="btn-nueva-aeronave-org" style="margin-top:12px">Agregar aeronave</button>` : ''}
+      <div id="form-aeronave-org"></div>
     </div>
   `;
 
@@ -134,6 +144,94 @@ async function renderDetalleOrganizacion(membresia) {
       catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
     };
   }
+
+  renderFlotaOrg(flota, membresia, esGestor);
+  const btnNuevaAeronave = document.getElementById('btn-nueva-aeronave-org');
+  if (btnNuevaAeronave) btnNuevaAeronave.onclick = () => abrirFormAeronaveOrg(membresia);
+}
+
+function renderFlotaOrg(flota, membresia, esGestor) {
+  const cont = document.getElementById('lista-flota-org');
+  if (!flota.length) { cont.innerHTML = '<p class="muted">Todavía no hay aeronaves cargadas en esta organización.</p>'; return; }
+  cont.innerHTML = flota.map((a) => `
+    <div class="progreso-item">
+      <div class="pi-head">
+        <span class="nombre">${a.matricula} <span class="muted">— ${a.marca_modelo}</span></span>
+        <span class="faltan">${a.moneda} ${a.tarifa_hora_diurna}/hs día · ${a.tarifa_hora_nocturna}/hs noche</span>
+      </div>
+      ${a.horas_celula != null || a.horas_motor != null || a.proxima_inspeccion_anual ? `
+        <p class="muted" style="margin:4px 0 0">
+          ${a.horas_celula != null ? `Célula: ${a.horas_celula} hs. ` : ''}${a.horas_motor != null ? `Motor: ${a.horas_motor} hs. ` : ''}${a.proxima_inspeccion_anual ? `Próxima inspección anual: ${a.proxima_inspeccion_anual}` : ''}
+        </p>
+      ` : ''}
+      ${esGestor ? `
+        <div style="display:flex; gap:8px; margin-top:8px">
+          <button class="btn btn-secundario" data-editar-aeronave="${a.id}">Editar</button>
+          <button class="btn btn-secundario" data-borrar-aeronave="${a.id}">Borrar</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  if (!esGestor) return;
+  cont.querySelectorAll('[data-editar-aeronave]').forEach((b) => {
+    b.onclick = () => abrirFormAeronaveOrg(membresia, flota.find((a) => a.id === b.dataset.editarAeronave));
+  });
+  cont.querySelectorAll('[data-borrar-aeronave]').forEach((b) => {
+    b.onclick = async () => {
+      if (!(await UI.confirmar('¿Borrar esta aeronave de la flota? Si tiene vuelos cargados, no se va a poder borrar.', { ok: 'Borrar', peligro: true }))) return;
+      try { await Repo.borrarAeronaveOrg(b.dataset.borrarAeronave); UI.toast('Aeronave borrada.', 'ok'); renderDetalleOrganizacion(membresia); }
+      catch (err) { UI.toast('No se pudo borrar: ' + (err.message || err), 'error'); }
+    };
+  });
+}
+
+function abrirFormAeronaveOrg(membresia, aeronave) {
+  const cont = document.getElementById('form-aeronave-org');
+  cont.innerHTML = `
+    <div class="card" style="margin-top:12px">
+      <h2>${aeronave ? 'Editar aeronave' : 'Nueva aeronave'}</h2>
+      <div class="form-grupo"><label for="fo-matricula">Matrícula</label><input type="text" id="fo-matricula" value="${aeronave?.matricula || ''}"></div>
+      <div class="form-grupo"><label for="fo-marca">Marca/Modelo</label><input type="text" id="fo-marca" value="${aeronave?.marca_modelo || ''}"></div>
+      <div class="grid cols-3">
+        <div class="form-grupo"><label for="fo-tarifa-dia">Tarifa/hora día</label><input type="number" id="fo-tarifa-dia" value="${aeronave?.tarifa_hora_diurna ?? 0}"></div>
+        <div class="form-grupo"><label for="fo-tarifa-noche">Tarifa/hora noche</label><input type="number" id="fo-tarifa-noche" value="${aeronave?.tarifa_hora_nocturna ?? 0}"></div>
+        <div class="form-grupo"><label for="fo-moneda">Moneda</label><input type="text" id="fo-moneda" value="${aeronave?.moneda || 'ARS'}"></div>
+      </div>
+      <div class="grid cols-3">
+        <div class="form-grupo"><label for="fo-horas-celula">Horas de célula</label><input type="number" id="fo-horas-celula" value="${aeronave?.horas_celula ?? ''}"></div>
+        <div class="form-grupo"><label for="fo-horas-motor">Horas de motor</label><input type="number" id="fo-horas-motor" value="${aeronave?.horas_motor ?? ''}"></div>
+        <div class="form-grupo"><label for="fo-inspeccion">Próxima inspección anual</label><input type="date" id="fo-inspeccion" value="${aeronave?.proxima_inspeccion_anual || ''}"></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:12px">
+        <button class="btn" id="btn-guardar-aeronave-org">Guardar</button>
+        <button class="btn btn-secundario" id="btn-cancelar-aeronave-org">Cancelar</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btn-cancelar-aeronave-org').onclick = () => { cont.innerHTML = ''; };
+  document.getElementById('btn-guardar-aeronave-org').onclick = async () => {
+    const matricula = document.getElementById('fo-matricula').value.trim().toUpperCase();
+    const marca_modelo = document.getElementById('fo-marca').value.trim();
+    if (!matricula || !marca_modelo) { UI.toast('Matrícula y modelo son obligatorios.', 'warn'); return; }
+    const datos = {
+      id: aeronave?.id,
+      matricula, marca_modelo,
+      tarifa_hora_diurna: Calc.n(document.getElementById('fo-tarifa-dia').value),
+      tarifa_hora_nocturna: Calc.n(document.getElementById('fo-tarifa-noche').value),
+      moneda: document.getElementById('fo-moneda').value.trim() || 'ARS',
+      horas_celula: document.getElementById('fo-horas-celula').value ? Calc.n(document.getElementById('fo-horas-celula').value) : null,
+      horas_motor: document.getElementById('fo-horas-motor').value ? Calc.n(document.getElementById('fo-horas-motor').value) : null,
+      proxima_inspeccion_anual: document.getElementById('fo-inspeccion').value || null,
+    };
+    try {
+      await Repo.guardarAeronaveOrg(membresia.org_id, datos);
+      UI.toast('Aeronave guardada.', 'ok');
+      renderDetalleOrganizacion(membresia);
+    } catch (err) {
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
+    }
+  };
 }
 
 function renderMiembros(miembros, orgId) {
