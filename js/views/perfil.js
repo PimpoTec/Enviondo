@@ -119,6 +119,16 @@ function calcularEstadoHabilitacion({ repasoVuelo, vuelos, diasVentanaCurrency }
 
 const ViewPerfil = {
   seccion: null, // null = menú · 'personales' | 'preferencias' | 'alertas' | 'papelera'
+  // Contador de "qué render es el más nuevo". app.js vuelve a llamar a
+  // Router.navegar() (que termina acá) cada vez que la pestaña vuelve a
+  // primer plano — si eso pasa MIENTRAS este render todavía está esperando
+  // la red, el render viejo no se tiene que enterar de nada: en vez de
+  // seguir de largo y terminar escribiendo sobre un documento que ya
+  // cambió (eso rompía con "Cannot set properties of null" en cuanto
+  // Preferencias tardaba un toque más por el panel admin de
+  // organizaciones), cada render pide un número acá y se fija, después de
+  // cada await, si sigue siendo el más nuevo — si no, corta solo.
+  _token: 0,
   cursosActivos: ['PPA'],
   esAdmin: false,
   mostrarAdmin: false,
@@ -136,6 +146,7 @@ const ViewPerfil = {
   // algo que ni se mostraba). Preferencias, por ejemplo, no necesita ni
   // vuelos ni papelera ni datos del piloto.
   async render(params) {
+    const miToken = ++this._token;
     const main = document.getElementById('main-content');
 
     // Navegación fresca (el router siempre pasa `params`) vs re-render interno
@@ -156,6 +167,7 @@ const ViewPerfil = {
     try {
       if (!this.seccion) {
         const [papelera, vencimientos] = await Promise.all([Repo.listarVuelosBorrados(), Repo.listarVencimientos()]);
+        if (miToken !== this._token) return;
         main.innerHTML = this._htmlMenu(papelera.length, vencimientos);
         this._bindMenu();
         return;
@@ -170,17 +182,20 @@ const ViewPerfil = {
         this.configPorCurso = (await Promise.all(this.cursosActivos.map(async (cursoId) => ({
           curso: CURSOS.find((c) => c.id === cursoId), config: await Repo.listarConfigLicencia(cursoId),
         })))).filter(({ config }) => config.length); // ej. HAB_NOC sin requisitos de referencia todavía: no mostrar una tabla vacía
+        if (miToken !== this._token) return;
         main.innerHTML = volver + this._htmlPersonales();
         this._bindPersonales();
       } else if (this.seccion === 'preferencias') {
         this.esAdmin = await Repo.esAdminApp();
+        if (miToken !== this._token) return;
         main.innerHTML = volver + this._htmlPreferencias();
         this._bindPreferencias();
-        if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
+        if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin(miToken);
       } else if (this.seccion === 'alertas') {
         const [vencimientos, vuelos, cursosActivos] = await Promise.all([
           Repo.listarVencimientos(), Repo.listarVuelos(), Repo.getCursosActivos(),
         ]);
+        if (miToken !== this._token) return;
         const diasVentana = calcularVentanaCurrency(cursosActivos);
         main.innerHTML = volver + this._htmlAlertas(vencimientos);
         this._bindAlertas();
@@ -201,14 +216,24 @@ const ViewPerfil = {
           this._eventosProgramados = programados;
           this._eventosVencimientos = vencimientos;
         }
+        if (miToken !== this._token) return;
         main.innerHTML = volver + this._htmlNotificaciones();
         this._bindNotificaciones();
       } else if (this.seccion === 'papelera') {
         const papelera = await Repo.listarVuelosBorrados();
+        if (miToken !== this._token) return;
         main.innerHTML = volver + this._htmlPapelera(papelera);
         this._bindPapelera();
       }
-      document.getElementById('btn-volver-perfil').onclick = () => Router.irA('perfil');
+      // Doble guardia: el chequeo de token de arriba ya corta los renders
+      // viejos ANTES de tocar el DOM en cada sección, pero 'preferencias'
+      // todavía puede volverse vieja DESPUÉS de eso (el await de
+      // _renderPanelAdmin) — de ahí el chequeo de token acá también. El
+      // guard de null es la última red de contención: si por lo que sea
+      // igual llegamos acá con un documento que ya cambió, no explota.
+      if (miToken !== this._token) return;
+      const btnVolver = document.getElementById('btn-volver-perfil');
+      if (btnVolver) btnVolver.onclick = () => Router.irA('perfil');
     } finally {
       cancelarSkeleton();
     }
@@ -508,9 +533,14 @@ const ViewPerfil = {
   },
 
   // ---- Vista admin: TODOS los cursos con sus requisitos, editables ----
-  async _renderPanelAdmin() {
+  // miToken: el de render() cuando se llama desde ahí (para poder cortar
+  // si ese render quedó viejo); si se llama suelta (ej. al prender el
+  // toggle de Admin en Preferencias) toma un token propio y nuevo — un
+  // click del usuario siempre es la intención más reciente.
+  async _renderPanelAdmin(miToken = ++this._token) {
     const cont = document.getElementById('bloque-licencias');
     const todos = await Repo.listarConfigLicenciaTodos();
+    if (miToken !== this._token) return;
 
     cont.innerHTML = `
       <div class="card" style="border:1px solid var(--brand)">
@@ -529,8 +559,8 @@ const ViewPerfil = {
     cont.querySelectorAll('button[data-accion="borrar-config"]').forEach((b) => {
       b.onclick = () => this._borrarConfig(b.dataset.id);
     });
-    await this._renderOrganizacionesAdmin();
-    await this._renderErroresRecientes();
+    await this._renderOrganizacionesAdmin(miToken);
+    await this._renderErroresRecientes(miToken);
   },
 
   // Panel para aprobar/rechazar/suspender organizaciones (escuelas y
@@ -538,16 +568,18 @@ const ViewPerfil = {
   // esto, cualquier piloto podía crear una organización y quedaba 100%
   // operativa al instante; ahora nace 'pendiente_aprobacion' y solo esta
   // cuenta admin la puede activar.
-  async _renderOrganizacionesAdmin() {
+  async _renderOrganizacionesAdmin(miToken = ++this._token) {
     const cont = document.getElementById('bloque-organizaciones-admin');
     if (!cont) return;
     let organizaciones = [];
     try {
       organizaciones = await Repo.listarOrganizacionesAdmin();
     } catch (err) {
+      if (miToken !== this._token) return;
       cont.innerHTML = `<div class="card"><h2>${Icons.tag('users', 'Organizaciones')}</h2><p class="muted">${Icons.tag('alertTriangle', 'No se pudo leer el listado — ¿corriste sql/agregar_aprobacion_organizaciones.sql? (' + (err.message || err) + ')')}</p></div>`;
       return;
     }
+    if (miToken !== this._token) return;
     const pendientes = organizaciones.filter((o) => o.estado === 'pendiente_aprobacion').length;
     cont.innerHTML = `
       <div class="card">
@@ -627,16 +659,18 @@ const ViewPerfil = {
   // le pasaron a CUALQUIER usuario de la app, capturados solos por
   // js/errorLog.js — así te enterás de que algo se rompió sin depender de
   // que alguien te escriba.
-  async _renderErroresRecientes() {
+  async _renderErroresRecientes(miToken = ++this._token) {
     const cont = document.getElementById('bloque-errores');
     if (!cont) return;
     let errores = [];
     try {
       errores = await Repo.listarErroresRecientes();
     } catch (err) {
+      if (miToken !== this._token) return;
       cont.innerHTML = `<div class="card"><h2>${Icons.tag('alertTriangle', 'Errores recientes')}</h2><p class="muted">${Icons.tag('alertTriangle', 'No se pudo leer el registro — ¿corriste sql/agregar_registro_errores.sql? (' + (err.message || err) + ')')}</p></div>`;
       return;
     }
+    if (miToken !== this._token) return;
     cont.innerHTML = `
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
