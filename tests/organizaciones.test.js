@@ -33,18 +33,32 @@ test('LABELS_ROL_ORGANIZACION y LABELS_TIPO_ORGANIZACION cubren todos los valore
 // ---- Repo.*: wrappers finos sobre supabase — se prueba que arman la
 // llamada correcta y que un error de la red/RLS se propaga (no se traga). ----
 
-test('crearOrganizacion llama al rpc crear_organizacion con nombre y tipo', async () => {
+// Solo la cuenta admin de la app crea organizaciones — pasa por la Edge
+// Function crear-organizacion (no por un rpc directo), porque puede
+// necesitar invitar por mail a un owner que todavía no tiene cuenta.
+test('crearOrganizacionAdmin invoca la Edge Function con nombre, tipo y owner_email', async () => {
+  window.location = { origin: 'https://vuelux.test', pathname: '/' };
   let llamado = null;
-  window.db = { rpc: async (fn, args) => { llamado = { fn, args }; return { data: 'org-1', error: null }; } };
-  const id = await Repo.crearOrganizacion('Aeroclub Test', 'escuela');
+  window.db = { functions: { invoke: async (slug, opts) => { llamado = { slug, opts }; return { data: { org_id: 'org-1' }, error: null }; } } };
+  const id = await Repo.crearOrganizacionAdmin('Aeroclub Test', 'escuela', 'owner@ejemplo.com');
   assert.equal(id, 'org-1');
-  assert.equal(llamado.fn, 'crear_organizacion');
-  assert.equal(JSON.stringify(llamado.args), JSON.stringify({ p_nombre: 'Aeroclub Test', p_tipo: 'escuela' }));
+  assert.equal(llamado.slug, 'crear-organizacion');
+  assert.equal(JSON.stringify(llamado.opts.body), JSON.stringify({
+    nombre: 'Aeroclub Test', tipo: 'escuela', owner_email: 'owner@ejemplo.com', redirect_to: 'https://vuelux.test/',
+  }));
 });
 
-test('crearOrganizacion propaga el error si el rpc falla', async () => {
-  window.db = { rpc: async () => ({ data: null, error: new Error('tipo inválido') }) };
-  await assert.rejects(() => Repo.crearOrganizacion('X', 'lo que sea'), /tipo inválido/);
+test('crearOrganizacionAdmin propaga el error que viene en el body (ej. "no sos admin")', async () => {
+  window.location = { origin: 'https://vuelux.test', pathname: '/' };
+  window.db = { functions: { invoke: async () => ({ data: { error: 'Solo la cuenta admin de la app puede crear organizaciones' }, error: null }) } };
+  await assert.rejects(() => Repo.crearOrganizacionAdmin('X', 'escuela', 'a@b.com'), /cuenta admin de la app/);
+});
+
+test('crearOrganizacionAdmin propaga el error de un status no-2xx de la función', async () => {
+  window.location = { origin: 'https://vuelux.test', pathname: '/' };
+  window.mensajeDeErrorFuncion = async () => 'Tipo de organización inválido: lo que sea';
+  window.db = { functions: { invoke: async () => ({ data: null, error: new Error('Edge Function returned a non-2xx status code') }) } };
+  await assert.rejects(() => Repo.crearOrganizacionAdmin('X', 'lo que sea', 'a@b.com'), /Tipo de organización inválido/);
 });
 
 test('invitarMiembro llama al rpc invitar_miembro con org, email y rol', async () => {

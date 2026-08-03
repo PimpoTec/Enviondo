@@ -638,10 +638,17 @@ const Repo = {
     if (error) throw error;
     return data;
   },
-  async crearOrganizacion(nombre, tipo) {
-    const { data, error } = await window.db.rpc('crear_organizacion', { p_nombre: nombre, p_tipo: tipo });
-    if (error) throw error;
-    return data;
+  // Solo la cuenta admin de la app puede crear organizaciones (ver
+  // sql/restringir_creacion_organizaciones.sql) — pasa por la Edge
+  // Function porque, si el email del owner todavía no tiene cuenta, hace
+  // falta mandarle una invitación real (service_role, no puede vivir acá).
+  async crearOrganizacionAdmin(nombre, tipo, ownerEmail) {
+    const { data, error } = await window.db.functions.invoke('crear-organizacion', {
+      body: { nombre, tipo, owner_email: ownerEmail, redirect_to: window.location.origin + window.location.pathname },
+    });
+    if (error) throw new Error(await mensajeDeErrorFuncion(error));
+    if (data?.error) throw new Error(data.error);
+    return data?.org_id;
   },
   async listarMiembros(orgId) {
     const { data, error } = await window.db.from('organizacion_miembros')

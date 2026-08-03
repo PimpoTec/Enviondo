@@ -417,9 +417,10 @@ membresías con roles, sin flota de organización ni turnos todavía.
    `crear_organizacion`, `invitar_miembro`, `aceptar_invitacion`,
    `rechazar_invitacion`, `salir_organizacion`, `quitar_miembro`.
 2. Nada más — Perfil → Organizaciones ya queda disponible para cualquier
-   piloto logueado. Ahí puede crear una organización (queda como `owner`),
-   invitar a otro piloto **ya registrado en la app** por su email (owner/admin
-   nomás), y cualquier piloto puede aceptar/rechazar sus propias invitaciones.
+   piloto logueado (para ver a qué organizaciones pertenece, invitar
+   miembros si es owner/admin, y aceptar/rechazar sus propias invitaciones).
+   **Crear una organización nueva es aparte y está restringido — ver la
+   sección "Aprobación de organizaciones" más abajo.**
 3. Sin correr el SQL, la pantalla de Organizaciones falla al pedir los
    datos — no rompe el resto de la app (bitácora, aeronaves, perfil de
    piloto siguen intactos), pero ese ítem del menú de Perfil no funciona.
@@ -465,15 +466,46 @@ autorización" de `PROPUESTA_B2B.md` queda para una fase siguiente (misma
 tabla, un par de políticas más — no hace falta rediseñar nada).
 
 **Aprobación de organizaciones (control de alta):** correr además
-`sql/agregar_aprobacion_organizaciones.sql`. Antes de esto, cualquier
-piloto que tocaba "Crear organización" quedaba con una escuela/empresa
-100% operativa al instante — ahora nace `pendiente_aprobacion` y no puede
-cargar flota, instructores ni turnos/despacho hasta que la **cuenta admin
-de la app** (la misma de la sección 6, hardcodeada por email — no una
-tabla de roles nueva) la aprueba desde Perfil → Preferencias → Admin
-→ Organizaciones. Desde ahí también se puede rechazar, suspender o
-reactivar. Mientras está pendiente/suspendida, el owner puede seguir
-invitando miembros, pero ve un aviso explicando que falta la aprobación.
+`sql/agregar_aprobacion_organizaciones.sql`. Agrega el estado
+`pendiente_aprobacion`/`activa`/`suspendida`/`rechazada` a `organizaciones`
+y deja que la **cuenta admin de la app** (la misma de la sección 6,
+hardcodeada por email) apruebe/rechace/suspenda/reactive cualquier
+organización desde Perfil → Preferencias → Admin → Organizaciones. Una
+organización no `activa` no puede cargar flota, instructores ni
+turnos/despacho — el owner puede seguir invitando miembros mientras tanto,
+pero ve un aviso explicando que falta la aprobación.
+
+**Quién puede crear una organización — correr además
+`sql/restringir_creacion_organizaciones.sql`.** Cerrado del todo: ya NO
+existe una forma de que un piloto cree su propia organización. La única
+puerta es el panel de arriba (Perfil → Preferencias → Admin →
+Organizaciones), donde la cuenta admin completa nombre, tipo y el **email
+de quien va a ser el owner** — la organización nace `activa` directo (la
+crea el admin a propósito, no hace falta aprobarla aparte). Si ese email
+ya tiene cuenta en la app, queda asignado como owner al instante; si no
+tiene cuenta todavía, se le manda una invitación real por mail (ver Edge
+Function `crear-organizacion` más abajo) y queda asignado como owner en
+cuanto la acepta. El owner (o cualquier admin que él invite) es quien
+después invita a instructores/pilotos vinculados y carga la flota — el
+admin de la app no tiene que volver a tocar nada de esa organización una
+vez creada, salvo para aprobar/suspender.
+
+1. Desplegá la función (usa la `service_role key`, que Supabase inyecta
+   sola, y `admin.auth.admin.inviteUserByEmail` para el caso de un owner
+   sin cuenta todavía):
+   ```bash
+   supabase functions deploy crear-organizacion --project-ref TU-PROJECT-REF --no-verify-jwt
+   ```
+   (`--no-verify-jwt` por el mismo motivo que `notificaciones-push`/
+   `borrar-cuenta`: la función valida quién llama leyendo el JWT ella
+   misma, contra `is_licencias_admin()` del lado del server — nunca confía
+   en lo que diga el cliente.)
+2. El mail que recibe un owner sin cuenta previa es la plantilla de
+   **"Invite user"** de Supabase Auth (Authentication → Email Templates
+   en el dashboard) — personalizala ahí si querés que mencione a Vuelux/tu
+   escuela en vez del texto genérico por defecto.
+3. Sin desplegar la función, el botón "Crear" del panel admin muestra un
+   error claro en vez de fallar en silencio.
 
 **Despacho (Fase 1, solo empresas):** correr además
 `sql/agregar_vuelos_asignados.sql`. A diferencia de los turnos de escuela,

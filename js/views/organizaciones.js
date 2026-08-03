@@ -6,8 +6,14 @@
 //
 // Qué muestra:
 //  - Invitaciones pendientes propias (aceptar/rechazar).
-//  - Organizaciones a las que pertenezco (crear una nueva desde acá).
+//  - Organizaciones a las que pertenezco.
 //  - Si soy owner/admin de una: listado de miembros + invitar por email.
+//
+// Crear una organización nueva NO se hace desde acá: solo la cuenta admin
+// de la app puede darlas de alta (asignando el owner por email), desde
+// Perfil → Preferencias → Admin → Organizaciones — ver
+// sql/restringir_creacion_organizaciones.sql. Un piloto que no pertenece
+// a ninguna organización todavía solo puede esperar a que lo inviten.
 // ============================================================================
 
 const ViewOrganizaciones = {
@@ -28,7 +34,6 @@ const ViewOrganizaciones = {
       <div class="card">
         <h2>${Icons.tag('users', 'Mis organizaciones')}</h2>
         <div id="lista-organizaciones"></div>
-        <button class="btn" id="btn-nueva-org" style="margin-top:12px">Crear organización</button>
       </div>
 
       <div id="detalle-organizacion"></div>
@@ -36,8 +41,6 @@ const ViewOrganizaciones = {
 
     if (pendientes.length) renderPendientes(pendientes);
     renderOrganizaciones(activas);
-
-    document.getElementById('btn-nueva-org').onclick = () => abrirFormNuevaOrg();
   },
 };
 
@@ -71,7 +74,7 @@ function renderPendientes(pendientes) {
 
 function renderOrganizaciones(activas) {
   const cont = document.getElementById('lista-organizaciones');
-  if (!activas.length) { cont.innerHTML = '<p class="muted">Todavía no pertenecés a ninguna organización.</p>'; return; }
+  if (!activas.length) { cont.innerHTML = '<p class="muted">Todavía no pertenecés a ninguna organización. Si tenés que estar en una escuela o empresa, pedile al administrador de la app que la cree y te asigne.</p>'; return; }
   cont.innerHTML = activas.map((m) => `
     <div class="progreso-item" data-org="${m.org_id}" style="cursor:pointer">
       <div class="pi-head">
@@ -371,39 +374,6 @@ function renderMiembros(miembros, orgId) {
       catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
     };
   });
-}
-
-function abrirFormNuevaOrg() {
-  const cont = document.getElementById('detalle-organizacion');
-  cont.innerHTML = `
-    <div class="card">
-      <h2>Crear organización</h2>
-      <div class="form-grupo">
-        <label for="nueva-org-nombre">Nombre</label>
-        <input type="text" id="nueva-org-nombre" placeholder="Ej. Aeroclub San Justo">
-      </div>
-      <div class="form-grupo">
-        <label for="nueva-org-tipo">Tipo</label>
-        <select id="nueva-org-tipo">
-          <option value="escuela">Escuela de vuelo</option>
-          <option value="empresa">Empresa de vuelos privados</option>
-        </select>
-      </div>
-      <button class="btn" id="btn-crear-org">Crear</button>
-    </div>
-  `;
-  document.getElementById('btn-crear-org').onclick = async () => {
-    const nombre = document.getElementById('nueva-org-nombre').value.trim();
-    const tipo = document.getElementById('nueva-org-tipo').value;
-    if (!nombre) { UI.toast('Escribí un nombre.', 'warn'); return; }
-    try {
-      await Repo.crearOrganizacion(nombre, tipo);
-      UI.toast('Organización creada.', 'ok');
-      ViewOrganizaciones.render();
-    } catch (err) {
-      UI.toast('Error al crear: ' + (err.message || err), 'error');
-    }
-  };
 }
 
 async function renderInstructores(instructores, miembros, membresia, esGestor) {

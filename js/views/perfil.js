@@ -552,7 +552,18 @@ const ViewPerfil = {
     cont.innerHTML = `
       <div class="card">
         <h2>${Icons.tag('users', 'Organizaciones')} ${pendientes ? `<span class="badge warn">${pendientes} pendiente${pendientes > 1 ? 's' : ''}</span>` : ''}</h2>
-        <p class="muted" style="margin:0 0 10px">Escuelas y empresas dadas de alta en toda la app — solo vos podés aprobarlas, suspenderlas o reactivarlas.</p>
+        <p class="muted" style="margin:0 0 10px">Solo vos podés crear escuelas/empresas — le asignás el owner por email acá mismo. Si ese email todavía no tiene cuenta en la app, le mandamos una invitación para que se registre.</p>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px">
+          <input type="text" id="nueva-org-nombre" placeholder="Nombre (ej. Aeroclub San Justo)" style="flex:1; min-width:200px">
+          <select id="nueva-org-tipo">
+            <option value="escuela">Escuela de vuelo</option>
+            <option value="empresa">Empresa de vuelos privados</option>
+          </select>
+          <input type="email" id="nueva-org-owner-email" placeholder="Email del owner" style="flex:1; min-width:200px">
+          <button class="btn" id="btn-crear-org">Crear</button>
+        </div>
+
         ${organizaciones.length ? organizaciones.map((o) => `
           <div class="progreso-item">
             <div class="pi-head">
@@ -586,6 +597,20 @@ const ViewPerfil = {
         }
       };
     });
+
+    document.getElementById('btn-crear-org').onclick = async () => {
+      const nombre = document.getElementById('nueva-org-nombre').value.trim();
+      const tipo = document.getElementById('nueva-org-tipo').value;
+      const ownerEmail = document.getElementById('nueva-org-owner-email').value.trim();
+      if (!nombre || !ownerEmail) { UI.toast('Completá el nombre y el email del owner.', 'warn'); return; }
+      try {
+        await Repo.crearOrganizacionAdmin(nombre, tipo, ownerEmail);
+        UI.toast('Organización creada.', 'ok');
+        this._renderOrganizacionesAdmin();
+      } catch (err) {
+        UI.toast('Error al crear: ' + (err.message || err), 'error');
+      }
+    };
   },
 
   // Monitoreo básico propio (sin Sentry ni nada de terceros): errores que
