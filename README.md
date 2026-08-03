@@ -439,6 +439,16 @@ personales existentes no se tocan. El owner/admin arma y edita la flota
 desde `Perfil → Organizaciones`; instructor/piloto_vinculado la ven pero
 no la editan.
 
+**Instructores (Fase 3, solo escuelas):** correr además
+`sql/agregar_instructores.sql`. Un instructor primero es un miembro más de
+la organización (invitado con rol "Instructor/a"); esta migración solo
+agrega su nro. de licencia y si está activo — sus vencimientos (CMA,
+habilitación, IFR) siguen viviendo en la misma tabla `vencimientos` de
+siempre, del propio piloto, sin duplicar nada. Lo único nuevo es una
+política de RLS aditiva que deja al owner/admin **leer** (nunca editar)
+los vencimientos de sus instructores activos, para ver si algo está por
+vencer sin que el piloto tenga que cargarlo dos veces.
+
 ---
 
 ## 15) Qué falta / mejoras futuras

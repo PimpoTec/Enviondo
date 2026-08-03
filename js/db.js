@@ -448,6 +448,38 @@ const Repo = {
     if (error) throw error;
     Cache.invalidar('vencimientos');
   },
+  // Vencimientos de OTRO usuario (para que owner/admin vean el CMA/
+  // habilitación de sus instructores) — sin cache, porque el cache de
+  // 'vencimientos' es para los propios del usuario logueado, no para los
+  // de un tercero. RLS es quien de verdad decide si esta consulta trae
+  // algo o vuelve vacía (ver sql/agregar_instructores.sql).
+  async listarVencimientosDeUsuario(userId) {
+    const { data, error } = await window.db.from('vencimientos').select('*').eq('user_id', userId).order('fecha_vencimiento');
+    if (error) throw error;
+    return data;
+  },
+
+  // ---- Instructores (Fase 3 B2B — ver sql/agregar_instructores.sql).
+  // Un instructor primero tiene que ser miembro de la organización con
+  // rol 'instructor' (ver invitarMiembro) — acá solo se agregan sus datos
+  // propios de instructor (nro de licencia, activo/inactivo). ----
+  async listarInstructores(orgId) {
+    const { data, error } = await window.db.from('instructores').select('*').eq('org_id', orgId).order('created_at');
+    if (error) throw error;
+    return data;
+  },
+  async agregarInstructor(orgId, userId, nroLicencia) {
+    const { error } = await window.db.from('instructores').insert({ org_id: orgId, user_id: userId, nro_licencia: nroLicencia || null });
+    if (error) throw error;
+  },
+  async actualizarInstructor(id, cambios) {
+    const { error } = await window.db.from('instructores').update(cambios).eq('id', id);
+    if (error) throw error;
+  },
+  async quitarInstructor(id) {
+    const { error } = await window.db.from('instructores').delete().eq('id', id);
+    if (error) throw error;
+  },
 
   // ---- Notificaciones push (ver js/notificaciones.js para el flujo de
   // permiso/suscripción y supabase/functions/notificaciones-push para el

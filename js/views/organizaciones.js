@@ -89,9 +89,10 @@ function renderOrganizaciones(activas) {
 async function renderDetalleOrganizacion(membresia) {
   const cont = document.getElementById('detalle-organizacion');
   const esGestor = esOwnerOAdmin(membresia.rol);
-  const [miembros, flota] = await Promise.all([
+  const [miembros, flota, instructores] = await Promise.all([
     esGestor ? Repo.listarMiembros(membresia.org_id) : Promise.resolve([]),
     Repo.listarFlotaOrg(membresia.org_id),
+    Repo.listarInstructores(membresia.org_id),
   ]);
 
   cont.innerHTML = `
@@ -118,6 +119,14 @@ async function renderDetalleOrganizacion(membresia) {
       ${esGestor ? `<button class="btn" id="btn-nueva-aeronave-org" style="margin-top:12px">Agregar aeronave</button>` : ''}
       <div id="form-aeronave-org"></div>
     </div>
+
+    ${membresia.organizaciones.tipo === 'escuela' ? `
+      <div class="card">
+        <h2>${Icons.tag('idCard', 'Instructores')}</h2>
+        <div id="lista-instructores"></div>
+        ${esGestor ? `<div id="form-instructor-org" style="margin-top:12px"></div>` : ''}
+      </div>
+    ` : ''}
   `;
 
   if (esGestor) {
@@ -148,6 +157,10 @@ async function renderDetalleOrganizacion(membresia) {
   renderFlotaOrg(flota, membresia, esGestor);
   const btnNuevaAeronave = document.getElementById('btn-nueva-aeronave-org');
   if (btnNuevaAeronave) btnNuevaAeronave.onclick = () => abrirFormAeronaveOrg(membresia);
+
+  if (membresia.organizaciones.tipo === 'escuela') {
+    await renderInstructores(instructores, miembros, membresia, esGestor);
+  }
 }
 
 function renderFlotaOrg(flota, membresia, esGestor) {
@@ -283,6 +296,87 @@ function abrirFormNuevaOrg() {
       ViewOrganizaciones.render();
     } catch (err) {
       UI.toast('Error al crear: ' + (err.message || err), 'error');
+    }
+  };
+}
+
+async function renderInstructores(instructores, miembros, membresia, esGestor) {
+  const cont = document.getElementById('lista-instructores');
+
+  // El estado de vencimientos de cada instructor solo lo puede leer
+  // owner/admin (ver política "vencimientos_select_org_instructor" en
+  // sql/agregar_instructores.sql) — para un piloto vinculado esta consulta
+  // volvería vacía igual, así que ni se hace.
+  const vencimientosPorInstructor = esGestor
+    ? Object.fromEntries(await Promise.all(instructores.map(async (i) => [i.id, await Repo.listarVencimientosDeUsuario(i.user_id)])))
+    : {};
+
+  if (!instructores.length) {
+    cont.innerHTML = '<p class="muted">Todavía no hay instructores dados de alta.</p>';
+  } else {
+    cont.innerHTML = instructores.map((i) => {
+      const vencimientos = vencimientosPorInstructor[i.id] || [];
+      const peor = vencimientos.map(estadoVencimiento).sort((a, b) => a.dias - b.dias)[0];
+      return `
+        <div class="progreso-item">
+          <div class="pi-head">
+            <span class="nombre">${i.nro_licencia || 'Sin nro. de licencia'} ${!i.activo ? '<span class="muted">(inactivo)</span>' : ''}</span>
+            ${peor ? `<span class="faltan estado-${peor.estado}">${peor.texto}</span>` : ''}
+          </div>
+          ${esGestor ? `
+            <div style="display:flex; gap:8px; margin-top:8px">
+              <button class="btn btn-secundario" data-toggle-instructor="${i.id}" data-activo="${i.activo}">${i.activo ? 'Marcar inactivo' : 'Marcar activo'}</button>
+              <button class="btn btn-secundario" data-quitar-instructor="${i.id}">Quitar</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (!esGestor) return;
+
+  cont.querySelectorAll('[data-toggle-instructor]').forEach((b) => {
+    b.onclick = async () => {
+      try {
+        await Repo.actualizarInstructor(b.dataset.toggleInstructor, { activo: b.dataset.activo !== 'true' });
+        renderDetalleOrganizacion(membresia);
+      } catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
+    };
+  });
+  cont.querySelectorAll('[data-quitar-instructor]').forEach((b) => {
+    b.onclick = async () => {
+      if (!(await UI.confirmar('¿Quitar a este instructor?', { peligro: true }))) return;
+      try { await Repo.quitarInstructor(b.dataset.quitarInstructor); UI.toast('Instructor quitado.', 'ok'); renderDetalleOrganizacion(membresia); }
+      catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
+    };
+  });
+
+  const formCont = document.getElementById('form-instructor-org');
+  const yaInstructores = new Set(instructores.map((i) => i.user_id));
+  const candidatos = miembros.filter((m) => m.rol === 'instructor' && m.estado === 'activo' && !yaInstructores.has(m.user_id));
+  if (!candidatos.length) {
+    formCont.innerHTML = '<p class="muted">Para dar de alta un instructor, primero invitalo como miembro con rol "Instructor/a" más arriba.</p>';
+    return;
+  }
+  formCont.innerHTML = `
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <select id="instructor-user-id">
+        ${candidatos.map((m) => `<option value="${m.user_id}">Miembro ...${m.user_id.slice(-6)} (invitado el ${new Date(m.created_at).toLocaleDateString()})</option>`).join('')}
+      </select>
+      <input type="text" id="instructor-nro-licencia" placeholder="Nro. de licencia (opcional)">
+      <button class="btn" id="btn-agregar-instructor">Dar de alta</button>
+    </div>
+  `;
+  document.getElementById('btn-agregar-instructor').onclick = async () => {
+    const userId = document.getElementById('instructor-user-id').value;
+    const nroLicencia = document.getElementById('instructor-nro-licencia').value.trim();
+    try {
+      await Repo.agregarInstructor(membresia.org_id, userId, nroLicencia);
+      UI.toast('Instructor dado de alta.', 'ok');
+      renderDetalleOrganizacion(membresia);
+    } catch (err) {
+      UI.toast('Error: ' + (err.message || err), 'error');
     }
   };
 }

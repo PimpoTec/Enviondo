@@ -125,3 +125,65 @@ test('borrarAeronaveOrg propaga el error si RLS lo rechaza (no es owner/admin)',
   window.db = { from: () => ({ delete: () => ({ eq: async () => ({ error: new Error('new row violates row-level security policy') }) }) }) };
   await assert.rejects(() => Repo.borrarAeronaveOrg('a1'), /row-level security/);
 });
+
+// ---- Instructores (Fase 3 B2B) ----
+
+test('listarInstructores filtra por org_id', async () => {
+  const filtros = [];
+  const query = {
+    select: (cols) => { filtros.push(['select', cols]); return query; },
+    eq: (col, val) => { filtros.push(['eq', col, val]); return query; },
+    order: (col) => { filtros.push(['order', col]); return { data: [{ id: 'i1' }], error: null }; },
+  };
+  window.db = { from: (tabla) => { filtros.push(['from', tabla]); return query; } };
+  const data = await Repo.listarInstructores('org-1');
+  assert.equal(JSON.stringify(filtros), JSON.stringify([['from', 'instructores'], ['select', '*'], ['eq', 'org_id', 'org-1'], ['order', 'created_at']]));
+  assert.equal(data[0].id, 'i1');
+});
+
+test('agregarInstructor inserta org_id, user_id y nro_licencia (null si no se pasa)', async () => {
+  let insertado = null;
+  window.db = { from: () => ({ insert: async (row) => { insertado = row; return { error: null }; } }) };
+  await Repo.agregarInstructor('org-1', 'user-2', 'PIN-123');
+  assert.equal(JSON.stringify(insertado), JSON.stringify({ org_id: 'org-1', user_id: 'user-2', nro_licencia: 'PIN-123' }));
+
+  await Repo.agregarInstructor('org-1', 'user-3', '');
+  assert.equal(insertado.nro_licencia, null);
+});
+
+test('agregarInstructor propaga el error si el user_id no es miembro con rol instructor', async () => {
+  window.db = { from: () => ({ insert: async () => ({ error: new Error('new row violates row-level security policy') }) }) };
+  await assert.rejects(() => Repo.agregarInstructor('org-1', 'user-2', ''), /row-level security/);
+});
+
+test('actualizarInstructor manda solo los cambios pasados', async () => {
+  let actualizado = null;
+  window.db = { from: () => ({ update: (row) => { actualizado = row; return { eq: async () => ({ error: null }) }; } }) };
+  await Repo.actualizarInstructor('i1', { activo: false });
+  assert.equal(JSON.stringify(actualizado), JSON.stringify({ activo: false }));
+});
+
+test('quitarInstructor borra por id', async () => {
+  let idBorrado = null;
+  window.db = { from: () => ({ delete: () => ({ eq: async (col, val) => { idBorrado = val; return { error: null }; } }) }) };
+  await Repo.quitarInstructor('i1');
+  assert.equal(idBorrado, 'i1');
+});
+
+test('listarVencimientosDeUsuario filtra por user_id (no por el usuario logueado)', async () => {
+  const filtros = [];
+  const query = {
+    select: (cols) => { filtros.push(['select', cols]); return query; },
+    eq: (col, val) => { filtros.push(['eq', col, val]); return query; },
+    order: (col) => { filtros.push(['order', col]); return { data: [], error: null }; },
+  };
+  window.db = { from: (tabla) => { filtros.push(['from', tabla]); return query; } };
+  await Repo.listarVencimientosDeUsuario('user-2');
+  assert.equal(JSON.stringify(filtros), JSON.stringify([['from', 'vencimientos'], ['select', '*'], ['eq', 'user_id', 'user-2'], ['order', 'fecha_vencimiento']]));
+});
+
+test('listarVencimientosDeUsuario devuelve vacío (no error) si RLS no deja ver a ese usuario', async () => {
+  window.db = { from: () => ({ select: () => ({ eq: () => ({ order: async () => ({ data: [], error: null }) }) }) }) };
+  const data = await Repo.listarVencimientosDeUsuario('user-ajeno');
+  assert.deepEqual(data, []);
+});
