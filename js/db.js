@@ -481,6 +481,36 @@ const Repo = {
     if (error) throw error;
   },
 
+  // ---- Turnos (Fase 4 B2B — ver sql/agregar_turnos.sql). Todas las
+  // escrituras pasan por rpc: quién puede reservar/confirmar/rechazar/
+  // cancelar, y con qué estado inicial, es una regla de negocio que vive
+  // una sola vez en el server (además, el server es quien de verdad
+  // impide el doble booking vía constraint de exclusión — no esta capa). ----
+  async listarTurnosOrg(orgId) {
+    const { data, error } = await window.db.from('turnos').select('*').eq('org_id', orgId).order('inicio');
+    if (error) throw error;
+    return data;
+  },
+  async crearTurno(orgId, aeronaveId, inicio, fin, instructorId) {
+    const { data, error } = await window.db.rpc('crear_turno', {
+      p_org_id: orgId, p_aeronave_id: aeronaveId, p_inicio: inicio, p_fin: fin, p_instructor_id: instructorId || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+  async confirmarTurno(turnoId) {
+    const { error } = await window.db.rpc('confirmar_turno', { p_turno_id: turnoId });
+    if (error) throw error;
+  },
+  async rechazarTurno(turnoId) {
+    const { error } = await window.db.rpc('rechazar_turno', { p_turno_id: turnoId });
+    if (error) throw error;
+  },
+  async cancelarTurno(turnoId) {
+    const { error } = await window.db.rpc('cancelar_turno', { p_turno_id: turnoId });
+    if (error) throw error;
+  },
+
   // ---- Notificaciones push (ver js/notificaciones.js para el flujo de
   // permiso/suscripción y supabase/functions/notificaciones-push para el
   // envío real) ----
@@ -715,8 +745,15 @@ function esOwnerOAdmin(rol) {
   return rol === 'owner' || rol === 'admin';
 }
 
+const LABELS_ESTADO_TURNO = {
+  pendiente_autorizacion: 'Pendiente de autorización',
+  confirmado: 'Confirmado',
+  cancelado: 'Cancelado',
+};
+
 window.LABELS_ROL_ORGANIZACION = LABELS_ROL_ORGANIZACION;
 window.LABELS_TIPO_ORGANIZACION = LABELS_TIPO_ORGANIZACION;
+window.LABELS_ESTADO_TURNO = LABELS_ESTADO_TURNO;
 window.esOwnerOAdmin = esOwnerOAdmin;
 window.CURSOS = CURSOS;
 window.CLAVES_REQUISITO_DISPONIBLES = CLAVES_REQUISITO_DISPONIBLES;

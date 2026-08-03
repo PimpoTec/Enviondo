@@ -449,6 +449,21 @@ política de RLS aditiva que deja al owner/admin **leer** (nunca editar)
 los vencimientos de sus instructores activos, para ver si algo está por
 vencer sin que el piloto tenga que cargarlo dos veces.
 
+**Turnos (Fase 4, solo escuelas):** correr además `sql/agregar_turnos.sql`.
+Cualquier miembro activo puede reservar un turno sobre una aeronave de la
+flota de la organización: un **piloto vinculado** se autogestiona (queda
+confirmado directo); cualquier otro rol (instructor, o admin/owner
+reservando para sí) queda `pendiente_autorizacion` hasta que un owner/admin
+lo confirma o rechaza. El doble booking de una misma aeronave lo impide
+**Postgres** (constraint `EXCLUDE USING gist`, necesita la extensión
+`btree_gist`), no una validación de cliente — ni con dos pestañas abiertas
+a la vez se puede reservar el mismo horario dos veces.
+
+Alcance de esta primera versión: solo reservan miembros de la organización.
+El flujo de "piloto externo sin vincular ve disponibilidad pública y pide
+autorización" de `PROPUESTA_B2B.md` queda para una fase siguiente (misma
+tabla, un par de políticas más — no hace falta rediseñar nada).
+
 ---
 
 ## 15) Qué falta / mejoras futuras

@@ -8,7 +8,7 @@ const { window } = loadApp([
   path.join(ROOT, 'js/calc.js'),
   path.join(ROOT, 'js/db.js'),
 ]);
-const { Repo, esOwnerOAdmin, LABELS_ROL_ORGANIZACION, LABELS_TIPO_ORGANIZACION } = window;
+const { Repo, esOwnerOAdmin, LABELS_ROL_ORGANIZACION, LABELS_TIPO_ORGANIZACION, LABELS_ESTADO_TURNO } = window;
 
 // ---- esOwnerOAdmin: helper puro que usa la vista para decidir qué mostrar ----
 
@@ -186,4 +186,52 @@ test('listarVencimientosDeUsuario devuelve vacío (no error) si RLS no deja ver 
   window.db = { from: () => ({ select: () => ({ eq: () => ({ order: async () => ({ data: [], error: null }) }) }) }) };
   const data = await Repo.listarVencimientosDeUsuario('user-ajeno');
   assert.deepEqual(data, []);
+});
+
+// ---- Turnos (Fase 4 B2B) ----
+
+test('LABELS_ESTADO_TURNO cubre los 3 estados del check de la base', () => {
+  for (const estado of ['pendiente_autorizacion', 'confirmado', 'cancelado']) assert.ok(LABELS_ESTADO_TURNO[estado]);
+});
+
+test('listarTurnosOrg filtra por org_id y ordena por inicio', async () => {
+  const filtros = [];
+  const query = {
+    select: (cols) => { filtros.push(['select', cols]); return query; },
+    eq: (col, val) => { filtros.push(['eq', col, val]); return query; },
+    order: (col) => { filtros.push(['order', col]); return { data: [{ id: 't1' }], error: null }; },
+  };
+  window.db = { from: (tabla) => { filtros.push(['from', tabla]); return query; } };
+  const data = await Repo.listarTurnosOrg('org-1');
+  assert.equal(JSON.stringify(filtros), JSON.stringify([['from', 'turnos'], ['select', '*'], ['eq', 'org_id', 'org-1'], ['order', 'inicio']]));
+  assert.equal(data[0].id, 't1');
+});
+
+test('crearTurno llama al rpc crear_turno con todos los parámetros, instructor null si no se pasa', async () => {
+  let llamado = null;
+  window.db = { rpc: async (fn, args) => { llamado = { fn, args }; return { data: 'turno-1', error: null }; } };
+  const id = await Repo.crearTurno('org-1', 'aer-1', '2026-08-10T10:00:00.000Z', '2026-08-10T11:00:00.000Z');
+  assert.equal(id, 'turno-1');
+  assert.equal(llamado.fn, 'crear_turno');
+  assert.equal(JSON.stringify(llamado.args), JSON.stringify({
+    p_org_id: 'org-1', p_aeronave_id: 'aer-1', p_inicio: '2026-08-10T10:00:00.000Z', p_fin: '2026-08-10T11:00:00.000Z', p_instructor_id: null,
+  }));
+});
+
+test('crearTurno propaga el error de solapamiento del constraint de exclusión', async () => {
+  window.db = { rpc: async () => ({ data: null, error: new Error('Ese horario ya está ocupado para esa aeronave') }) };
+  await assert.rejects(() => Repo.crearTurno('org-1', 'aer-1', 'x', 'y'), /ya está ocupado/);
+});
+
+test('confirmarTurno, rechazarTurno y cancelarTurno llaman cada uno a su rpc con el turno_id', async () => {
+  const llamadas = [];
+  window.db = { rpc: async (fn, args) => { llamadas.push({ fn, args }); return { error: null }; } };
+  await Repo.confirmarTurno('t1');
+  await Repo.rechazarTurno('t2');
+  await Repo.cancelarTurno('t3');
+  assert.equal(JSON.stringify(llamadas), JSON.stringify([
+    { fn: 'confirmar_turno', args: { p_turno_id: 't1' } },
+    { fn: 'rechazar_turno', args: { p_turno_id: 't2' } },
+    { fn: 'cancelar_turno', args: { p_turno_id: 't3' } },
+  ]));
 });

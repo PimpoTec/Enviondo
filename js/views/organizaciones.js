@@ -89,10 +89,11 @@ function renderOrganizaciones(activas) {
 async function renderDetalleOrganizacion(membresia) {
   const cont = document.getElementById('detalle-organizacion');
   const esGestor = esOwnerOAdmin(membresia.rol);
-  const [miembros, flota, instructores] = await Promise.all([
+  const [miembros, flota, instructores, turnos] = await Promise.all([
     esGestor ? Repo.listarMiembros(membresia.org_id) : Promise.resolve([]),
     Repo.listarFlotaOrg(membresia.org_id),
     Repo.listarInstructores(membresia.org_id),
+    Repo.listarTurnosOrg(membresia.org_id),
   ]);
 
   cont.innerHTML = `
@@ -127,6 +128,28 @@ async function renderDetalleOrganizacion(membresia) {
         ${esGestor ? `<div id="form-instructor-org" style="margin-top:12px"></div>` : ''}
       </div>
     ` : ''}
+
+    <div class="card">
+      <h2>${Icons.tag('calendar', 'Turnos')}</h2>
+      ${flota.length ? `
+        <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap">
+          <select id="turno-aeronave">
+            ${flota.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
+          </select>
+          ${instructores.filter((i) => i.activo).length ? `
+            <select id="turno-instructor">
+              <option value="">Sin instructor</option>
+              ${instructores.filter((i) => i.activo).map((i) => `<option value="${i.id}">${i.nro_licencia || ('Instructor ...' + i.user_id.slice(-6))}</option>`).join('')}
+            </select>
+          ` : ''}
+          <input type="datetime-local" id="turno-inicio">
+          <input type="datetime-local" id="turno-fin">
+          <button class="btn" id="btn-reservar-turno">Reservar</button>
+        </div>
+        <p class="muted" style="margin-top:4px">${membresia.rol === 'piloto_vinculado' ? 'Como piloto vinculado, tu turno se confirma directo.' : 'Tu turno queda pendiente de autorización de un owner/admin.'}</p>
+      ` : `<p class="muted">Todavía no hay aeronaves en la flota para reservar un turno.</p>`}
+      <div id="lista-turnos" style="margin-top:12px"></div>
+    </div>
   `;
 
   if (esGestor) {
@@ -160,6 +183,25 @@ async function renderDetalleOrganizacion(membresia) {
 
   if (membresia.organizaciones.tipo === 'escuela') {
     await renderInstructores(instructores, miembros, membresia, esGestor);
+  }
+
+  await renderTurnos(turnos, flota, membresia, esGestor);
+  const btnReservar = document.getElementById('btn-reservar-turno');
+  if (btnReservar) {
+    btnReservar.onclick = async () => {
+      const aeronaveId = document.getElementById('turno-aeronave').value;
+      const instructorSel = document.getElementById('turno-instructor');
+      const inicio = document.getElementById('turno-inicio').value;
+      const fin = document.getElementById('turno-fin').value;
+      if (!inicio || !fin) { UI.toast('Elegí inicio y fin del turno.', 'warn'); return; }
+      try {
+        await Repo.crearTurno(membresia.org_id, aeronaveId, new Date(inicio).toISOString(), new Date(fin).toISOString(), instructorSel ? instructorSel.value : null);
+        UI.toast('Turno registrado.', 'ok');
+        renderDetalleOrganizacion(membresia);
+      } catch (err) {
+        UI.toast('Error al reservar: ' + (err.message || err), 'error');
+      }
+    };
   }
 }
 
@@ -321,7 +363,7 @@ async function renderInstructores(instructores, miembros, membresia, esGestor) {
         <div class="progreso-item">
           <div class="pi-head">
             <span class="nombre">${i.nro_licencia || 'Sin nro. de licencia'} ${!i.activo ? '<span class="muted">(inactivo)</span>' : ''}</span>
-            ${peor ? `<span class="faltan estado-${peor.estado}">${peor.texto}</span>` : ''}
+            ${peor ? `<span class="badge ${peor.estado}">${peor.texto}</span>` : ''}
           </div>
           ${esGestor ? `
             <div style="display:flex; gap:8px; margin-top:8px">
@@ -379,6 +421,59 @@ async function renderInstructores(instructores, miembros, membresia, esGestor) {
       UI.toast('Error: ' + (err.message || err), 'error');
     }
   };
+}
+
+async function renderTurnos(turnos, flota, membresia, esGestor) {
+  const cont = document.getElementById('lista-turnos');
+  const user = await usuarioActual();
+  const aeronavePorId = Object.fromEntries(flota.map((a) => [a.id, a]));
+
+  // Los cancelados no aportan nada a la vista del día a día, y los turnos
+  // ya pasados tampoco — la agenda es "de ahora en adelante".
+  const ahora = new Date();
+  const vigentes = turnos.filter((t) => t.estado !== 'cancelado' && new Date(t.fin) >= ahora);
+  if (!vigentes.length) { cont.innerHTML = '<p class="muted">Sin turnos próximos.</p>'; return; }
+
+  cont.innerHTML = vigentes.map((t) => {
+    const esPropio = t.piloto_user_id === user?.id;
+    const aeronave = aeronavePorId[t.aeronave_id];
+    return `
+      <div class="progreso-item">
+        <div class="pi-head">
+          <span class="nombre">${aeronave ? aeronave.matricula : 'Aeronave'} <span class="muted">${new Date(t.inicio).toLocaleString()} → ${new Date(t.fin).toLocaleString()}</span></span>
+          <span class="badge ${t.estado === 'confirmado' ? 'ok' : t.estado === 'cancelado' ? 'danger' : 'warn'}">${LABELS_ESTADO_TURNO[t.estado]}</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+          ${esGestor && t.estado === 'pendiente_autorizacion' ? `
+            <button class="btn" data-confirmar-turno="${t.id}">Confirmar</button>
+            <button class="btn btn-secundario" data-rechazar-turno="${t.id}">Rechazar</button>
+          ` : ''}
+          ${(esPropio || esGestor) && t.estado !== 'cancelado' ? `<button class="btn btn-secundario" data-cancelar-turno="${t.id}">Cancelar</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  cont.querySelectorAll('[data-confirmar-turno]').forEach((b) => {
+    b.onclick = async () => {
+      try { await Repo.confirmarTurno(b.dataset.confirmarTurno); UI.toast('Turno confirmado.', 'ok'); renderDetalleOrganizacion(membresia); }
+      catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
+    };
+  });
+  cont.querySelectorAll('[data-rechazar-turno]').forEach((b) => {
+    b.onclick = async () => {
+      if (!(await UI.confirmar('¿Rechazar este turno?'))) return;
+      try { await Repo.rechazarTurno(b.dataset.rechazarTurno); UI.toast('Turno rechazado.', 'ok'); renderDetalleOrganizacion(membresia); }
+      catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
+    };
+  });
+  cont.querySelectorAll('[data-cancelar-turno]').forEach((b) => {
+    b.onclick = async () => {
+      if (!(await UI.confirmar('¿Cancelar este turno?', { peligro: true }))) return;
+      try { await Repo.cancelarTurno(b.dataset.cancelarTurno); UI.toast('Turno cancelado.', 'ok'); renderDetalleOrganizacion(membresia); }
+      catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
+    };
+  });
 }
 
 window.ViewOrganizaciones = ViewOrganizaciones;
