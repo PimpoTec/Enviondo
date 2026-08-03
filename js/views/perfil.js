@@ -598,10 +598,20 @@ const ViewPerfil = {
       };
     });
 
-    document.getElementById('btn-crear-org').onclick = async () => {
-      const nombre = document.getElementById('nueva-org-nombre').value.trim();
-      const tipo = document.getElementById('nueva-org-tipo').value;
-      const ownerEmail = document.getElementById('nueva-org-owner-email').value.trim();
+    // cont.querySelector (no document.getElementById): si en el rato que
+    // tardó el await de más arriba Supabase disparó un refresco de sesión
+    // y app.js volvió a renderizar toda la pantalla, este `cont` capturado
+    // al principio de la función queda "huérfano" (ya no vive en el
+    // documento real) — su innerHTML se sigue pudiendo asignar sin
+    // problema, pero un document.getElementById() ya no lo encuentra
+    // (busca en el documento vivo) y explota con "Cannot set properties
+    // of null". Buscando adentro de `cont` en vez de en todo el documento,
+    // esto sigue andando pase lo que pase con el render viejo.
+    const btnCrearOrg = cont.querySelector('#btn-crear-org');
+    if (btnCrearOrg) btnCrearOrg.onclick = async () => {
+      const nombre = cont.querySelector('#nueva-org-nombre').value.trim();
+      const tipo = cont.querySelector('#nueva-org-tipo').value;
+      const ownerEmail = cont.querySelector('#nueva-org-owner-email').value.trim();
       if (!nombre || !ownerEmail) { UI.toast('Completá el nombre y el email del owner.', 'warn'); return; }
       try {
         await Repo.crearOrganizacionAdmin(nombre, tipo, ownerEmail);
