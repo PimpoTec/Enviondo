@@ -625,8 +625,15 @@ const Repo = {
   // insert/update directo: la validación de "quién puede hacer qué" vive
   // una sola vez en el server (RLS + security definer), no duplicada acá.
   async listarMisOrganizaciones() {
+    // El filtro por user_id es imprescindible acá y NO es redundante con
+    // RLS: la política de organizacion_miembros también deja ver, a
+    // owner/admin, las filas de SUS invitados (para poder gestionarlos
+    // desde "Miembros") — sin este filtro, esas filas ajenas se colaban acá
+    // y aparecían como si fueran invitaciones propias del owner.
+    const user = await usuarioActual();
     const { data, error } = await window.db.from('organizacion_miembros')
       .select('id, org_id, rol, estado, organizaciones(id, tipo, nombre, plan, estado)')
+      .eq('user_id', user.id)
       .order('created_at');
     if (error) throw error;
     return data;

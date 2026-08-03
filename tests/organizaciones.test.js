@@ -74,15 +74,22 @@ test('quitarMiembro llama al rpc quitar_miembro con org y usuario', async () => 
   assert.equal(JSON.stringify(llamado.args), JSON.stringify({ p_org_id: 'org-1', p_user_id: 'user-2' }));
 });
 
-test('listarMisOrganizaciones arma el select con el join a organizaciones', async () => {
+test('listarMisOrganizaciones filtra por user_id (no debe traer membresías ajenas)', async () => {
   let filtros = [];
   const query = {
     select: (cols) => { filtros.push(['select', cols]); return query; },
+    eq: (col, val) => { filtros.push(['eq', col, val]); return query; },
     order: (col) => { filtros.push(['order', col]); return { data: [{ org_id: 'org-1', rol: 'owner', estado: 'activo' }], error: null }; },
   };
-  window.db = { from: (tabla) => { filtros.push(['from', tabla]); return query; } };
+  window.db = {
+    from: (tabla) => { filtros.push(['from', tabla]); return query; },
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } } }) },
+  };
   const data = await Repo.listarMisOrganizaciones();
-  assert.equal(filtros[0][1], 'organizacion_miembros');
+  assert.equal(JSON.stringify(filtros), JSON.stringify([
+    ['from', 'organizacion_miembros'], ['select', 'id, org_id, rol, estado, organizaciones(id, tipo, nombre, plan, estado)'],
+    ['eq', 'user_id', 'user-1'], ['order', 'created_at'],
+  ]));
   assert.equal(data[0].org_id, 'org-1');
 });
 
