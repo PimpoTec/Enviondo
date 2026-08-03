@@ -484,6 +484,50 @@ const Repo = {
     const { error } = await window.db.from('recordatorios').delete().eq('id', id);
     if (error) throw error;
   },
+
+  // ---- Organizaciones (Fase 0 B2B — ver sql/agregar_organizaciones.sql) ----
+  // Todas las escrituras pasan por funciones de Postgres (rpc), no por
+  // insert/update directo: la validación de "quién puede hacer qué" vive
+  // una sola vez en el server (RLS + security definer), no duplicada acá.
+  async listarMisOrganizaciones() {
+    const { data, error } = await window.db.from('organizacion_miembros')
+      .select('id, org_id, rol, estado, organizaciones(id, tipo, nombre, plan)')
+      .order('created_at');
+    if (error) throw error;
+    return data;
+  },
+  async crearOrganizacion(nombre, tipo) {
+    const { data, error } = await window.db.rpc('crear_organizacion', { p_nombre: nombre, p_tipo: tipo });
+    if (error) throw error;
+    return data;
+  },
+  async listarMiembros(orgId) {
+    const { data, error } = await window.db.from('organizacion_miembros')
+      .select('id, user_id, rol, estado, created_at').eq('org_id', orgId).order('created_at');
+    if (error) throw error;
+    return data;
+  },
+  async invitarMiembro(orgId, email, rol) {
+    const { data, error } = await window.db.rpc('invitar_miembro', { p_org_id: orgId, p_email: email, p_rol: rol });
+    if (error) throw error;
+    return data;
+  },
+  async aceptarInvitacion(orgId) {
+    const { error } = await window.db.rpc('aceptar_invitacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async rechazarInvitacion(orgId) {
+    const { error } = await window.db.rpc('rechazar_invitacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async salirDeOrganizacion(orgId) {
+    const { error } = await window.db.rpc('salir_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async quitarMiembro(orgId, userId) {
+    const { error } = await window.db.rpc('quitar_miembro', { p_org_id: orgId, p_user_id: userId });
+    if (error) throw error;
+  },
 };
 
 // Borra del bucket "aeronaves-fotos" el archivo detrás de una URL pública
@@ -601,6 +645,23 @@ function valorNocturnasAjustado(cursoId, agg, configsPorCurso) {
   return Math.max(0, Calc.round2(agg.total_noche - minimoHabNoc));
 }
 
+// ---- Organizaciones: labels y chequeos de rol puros (sin red), para que
+// la vista y los tests no dupliquen esta lista. ----
+const LABELS_ROL_ORGANIZACION = {
+  owner: 'Dueño/a',
+  admin: 'Administrador/a',
+  instructor: 'Instructor/a',
+  piloto_vinculado: 'Piloto vinculado',
+};
+const LABELS_TIPO_ORGANIZACION = { escuela: 'Escuela de vuelo', empresa: 'Empresa de vuelos privados' };
+
+function esOwnerOAdmin(rol) {
+  return rol === 'owner' || rol === 'admin';
+}
+
+window.LABELS_ROL_ORGANIZACION = LABELS_ROL_ORGANIZACION;
+window.LABELS_TIPO_ORGANIZACION = LABELS_TIPO_ORGANIZACION;
+window.esOwnerOAdmin = esOwnerOAdmin;
 window.CURSOS = CURSOS;
 window.CLAVES_REQUISITO_DISPONIBLES = CLAVES_REQUISITO_DISPONIBLES;
 window.LABELS_REQUISITO = LABELS_REQUISITO;

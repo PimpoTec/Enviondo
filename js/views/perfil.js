@@ -14,6 +14,7 @@ const MENU_PERFIL = [
   { id: 'preferencias', icon: 'wrench', label: 'Preferencias', desc: 'Tema, huso horario' },
   { id: 'costos', icon: 'dollar', label: 'Costos', desc: 'Gasto de la carrera', ruta: 'costos' },
   { id: 'exportar', icon: 'download', label: 'Exportar', desc: 'Hoja ANAC, Excel, PDF, backup', ruta: 'exportar' },
+  { id: 'organizaciones', icon: 'users', label: 'Organizaciones', desc: 'Escuela de vuelo o empresa a la que estás vinculado', ruta: 'organizaciones' },
   { id: 'alertas', icon: 'alertTriangle', label: 'Alertas', desc: 'Vencimientos, currency' },
   { id: 'notificaciones', icon: 'bell', label: 'Notificaciones', desc: 'Avisos push de vencimientos y vuelos' },
   { id: 'papelera', icon: 'trash', label: 'Papelera', desc: 'Vuelos borrados' },

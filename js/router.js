@@ -10,6 +10,7 @@ const RUTAS = [
   { id: 'totales', label: 'Totales', icon: 'barChart', render: () => ViewTotales.render() },
   { id: 'costos', label: 'Costos', icon: 'dollar', render: () => ViewCostos.render() },
   { id: 'exportar', label: 'Exportar', icon: 'download', render: () => ViewExportar.render() },
+  { id: 'organizaciones', label: 'Organizaciones', icon: 'users', render: () => ViewOrganizaciones.render() },
   { id: 'perfil', label: 'Perfil', icon: 'award', render: (p) => ViewPerfil.render(p) },
 ];
 

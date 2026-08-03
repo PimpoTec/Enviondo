@@ -402,7 +402,37 @@ los datos del usuario, incluidas las fotos, de forma permanente).
 
 ---
 
-## 14) Qué falta / mejoras futuras
+## 14) Organizaciones (escuelas de vuelo y empresas — opcional, Fase 0 B2B)
+
+Capa multi-tenant aditiva por encima del modelo de piloto individual: un
+piloto que nunca crea ni se une a una organización no nota que esto existe.
+Ver `PROPUESTA_B2B.md` (o el documento de propuesta del repo) para el plan
+completo de fases; esto es solo la Fase 0 fundacional — organizaciones y
+membresías con roles, sin flota de organización ni turnos todavía.
+
+1. Correr `sql/agregar_organizaciones.sql` en el **SQL Editor** de Supabase.
+   Crea las tablas `organizaciones` y `organizacion_miembros`, la función
+   `is_member_of()` (para RLS de esta y futuras tablas de organización) y
+   las funciones que hacen de única puerta de entrada para escribir:
+   `crear_organizacion`, `invitar_miembro`, `aceptar_invitacion`,
+   `rechazar_invitacion`, `salir_organizacion`, `quitar_miembro`.
+2. Nada más — Perfil → Organizaciones ya queda disponible para cualquier
+   piloto logueado. Ahí puede crear una organización (queda como `owner`),
+   invitar a otro piloto **ya registrado en la app** por su email (owner/admin
+   nomás), y cualquier piloto puede aceptar/rechazar sus propias invitaciones.
+3. Sin correr el SQL, la pantalla de Organizaciones falla al pedir los
+   datos — no rompe el resto de la app (bitácora, aeronaves, perfil de
+   piloto siguen intactos), pero ese ítem del menú de Perfil no funciona.
+
+Roles dentro de una organización: `owner` (control total), `admin` (mismo
+alcance salvo borrar la organización), `instructor` y `piloto_vinculado`
+(autogestión, sin permisos de gestión). Las fases siguientes (flota de
+organización, turnos con autogestión/autorización, despacho para empresas)
+se agregan con su propio `sql/agregar_*.sql` reutilizando `is_member_of()`.
+
+---
+
+## 15) Qué falta / mejoras futuras
 
 - Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
   `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está
