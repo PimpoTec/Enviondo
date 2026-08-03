@@ -511,6 +511,55 @@ const Repo = {
     if (error) throw error;
   },
 
+  // ---- Despacho / vuelos asignados (Fase 1 B2B, empresas — ver
+  // sql/agregar_vuelos_asignados.sql). Sin autogestión del piloto: solo
+  // owner/admin asignan, vía rpc (mismo motivo que turnos: la regla de
+  // permisos y el anti doble-booking viven en el server, no acá). ----
+  async listarVuelosAsignadosOrg(orgId) {
+    const { data, error } = await window.db.from('vuelos_asignados').select('*').eq('org_id', orgId).order('inicio');
+    if (error) throw error;
+    return data;
+  },
+  async asignarVuelo(orgId, aeronaveId, pilotoUserId, tramo, inicio, fin) {
+    const { data, error } = await window.db.rpc('asignar_vuelo', {
+      p_org_id: orgId, p_aeronave_id: aeronaveId, p_piloto_user_id: pilotoUserId, p_tramo: tramo, p_inicio: inicio, p_fin: fin,
+    });
+    if (error) throw error;
+    return data;
+  },
+  async actualizarEstadoVueloAsignado(vueloId, estado) {
+    const { error } = await window.db.rpc('actualizar_estado_vuelo_asignado', { p_vuelo_id: vueloId, p_estado: estado });
+    if (error) throw error;
+  },
+  async cancelarVueloAsignado(vueloId) {
+    await this.actualizarEstadoVueloAsignado(vueloId, 'cancelado');
+  },
+
+  // ---- Panel admin de organizaciones (ver
+  // sql/agregar_aprobacion_organizaciones.sql) — solo la cuenta admin de
+  // la app (esAdminApp()) puede ver todas y cambiarles el estado. ----
+  async listarOrganizacionesAdmin() {
+    const { data, error } = await window.db.from('organizaciones').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async aprobarOrganizacion(orgId) {
+    const { error } = await window.db.rpc('aprobar_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async rechazarOrganizacion(orgId) {
+    const { error } = await window.db.rpc('rechazar_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async suspenderOrganizacion(orgId) {
+    const { error } = await window.db.rpc('suspender_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async reactivarOrganizacion(orgId) {
+    const { error } = await window.db.rpc('reactivar_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+
   // ---- Notificaciones push (ver js/notificaciones.js para el flujo de
   // permiso/suscripción y supabase/functions/notificaciones-push para el
   // envío real) ----
@@ -577,7 +626,7 @@ const Repo = {
   // una sola vez en el server (RLS + security definer), no duplicada acá.
   async listarMisOrganizaciones() {
     const { data, error } = await window.db.from('organizacion_miembros')
-      .select('id, org_id, rol, estado, organizaciones(id, tipo, nombre, plan)')
+      .select('id, org_id, rol, estado, organizaciones(id, tipo, nombre, plan, estado)')
       .order('created_at');
     if (error) throw error;
     return data;
@@ -751,9 +800,25 @@ const LABELS_ESTADO_TURNO = {
   cancelado: 'Cancelado',
 };
 
+const LABELS_ESTADO_VUELO_ASIGNADO = {
+  programado: 'Programado',
+  en_curso: 'En curso',
+  completado: 'Completado',
+  cancelado: 'Cancelado',
+};
+
+const LABELS_ESTADO_ORGANIZACION = {
+  pendiente_aprobacion: 'Pendiente de aprobación',
+  activa: 'Activa',
+  suspendida: 'Suspendida',
+  rechazada: 'Rechazada',
+};
+
 window.LABELS_ROL_ORGANIZACION = LABELS_ROL_ORGANIZACION;
 window.LABELS_TIPO_ORGANIZACION = LABELS_TIPO_ORGANIZACION;
 window.LABELS_ESTADO_TURNO = LABELS_ESTADO_TURNO;
+window.LABELS_ESTADO_VUELO_ASIGNADO = LABELS_ESTADO_VUELO_ASIGNADO;
+window.LABELS_ESTADO_ORGANIZACION = LABELS_ESTADO_ORGANIZACION;
 window.esOwnerOAdmin = esOwnerOAdmin;
 window.CURSOS = CURSOS;
 window.CLAVES_REQUISITO_DISPONIBLES = CLAVES_REQUISITO_DISPONIBLES;

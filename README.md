@@ -464,6 +464,24 @@ El flujo de "piloto externo sin vincular ve disponibilidad pública y pide
 autorización" de `PROPUESTA_B2B.md` queda para una fase siguiente (misma
 tabla, un par de políticas más — no hace falta rediseñar nada).
 
+**Aprobación de organizaciones (control de alta):** correr además
+`sql/agregar_aprobacion_organizaciones.sql`. Antes de esto, cualquier
+piloto que tocaba "Crear organización" quedaba con una escuela/empresa
+100% operativa al instante — ahora nace `pendiente_aprobacion` y no puede
+cargar flota, instructores ni turnos/despacho hasta que la **cuenta admin
+de la app** (la misma de la sección 6, hardcodeada por email — no una
+tabla de roles nueva) la aprueba desde Perfil → Preferencias → Admin
+→ Organizaciones. Desde ahí también se puede rechazar, suspender o
+reactivar. Mientras está pendiente/suspendida, el owner puede seguir
+invitando miembros, pero ve un aviso explicando que falta la aprobación.
+
+**Despacho (Fase 1, solo empresas):** correr además
+`sql/agregar_vuelos_asignados.sql`. A diferencia de los turnos de escuela,
+acá no hay autogestión: solo el owner/admin asigna aeronave + piloto +
+tramo directamente (`Perfil → Organizaciones → Despacho`); el piloto
+asignado solo ve su propia agenda. Mismo mecanismo anti doble-booking que
+turnos (`EXCLUDE USING gist`).
+
 ---
 
 ## 15) Qué falta / mejoras futuras

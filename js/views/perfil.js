@@ -467,6 +467,7 @@ const ViewPerfil = {
       </div>
 
       <div id="bloque-licencias"></div>
+      <div id="bloque-organizaciones-admin"></div>
       <div id="bloque-errores"></div>
     `;
   },
@@ -497,7 +498,11 @@ const ViewPerfil = {
         document.querySelectorAll('#pref-admin button').forEach((x) => x.classList.toggle('active', x === b));
         this.mostrarAdmin = b.dataset.valor === '1';
         if (this.mostrarAdmin) await this._renderPanelAdmin();
-        else { document.getElementById('bloque-licencias').innerHTML = ''; document.getElementById('bloque-errores').innerHTML = ''; }
+        else {
+          document.getElementById('bloque-licencias').innerHTML = '';
+          document.getElementById('bloque-organizaciones-admin').innerHTML = '';
+          document.getElementById('bloque-errores').innerHTML = '';
+        }
       };
     });
   },
@@ -524,7 +529,63 @@ const ViewPerfil = {
     cont.querySelectorAll('button[data-accion="borrar-config"]').forEach((b) => {
       b.onclick = () => this._borrarConfig(b.dataset.id);
     });
+    await this._renderOrganizacionesAdmin();
     await this._renderErroresRecientes();
+  },
+
+  // Panel para aprobar/rechazar/suspender organizaciones (escuelas y
+  // empresas) B2B — ver sql/agregar_aprobacion_organizaciones.sql. Sin
+  // esto, cualquier piloto podía crear una organización y quedaba 100%
+  // operativa al instante; ahora nace 'pendiente_aprobacion' y solo esta
+  // cuenta admin la puede activar.
+  async _renderOrganizacionesAdmin() {
+    const cont = document.getElementById('bloque-organizaciones-admin');
+    if (!cont) return;
+    let organizaciones = [];
+    try {
+      organizaciones = await Repo.listarOrganizacionesAdmin();
+    } catch (err) {
+      cont.innerHTML = `<div class="card"><h2>${Icons.tag('users', 'Organizaciones')}</h2><p class="muted">${Icons.tag('alertTriangle', 'No se pudo leer el listado — ¿corriste sql/agregar_aprobacion_organizaciones.sql? (' + (err.message || err) + ')')}</p></div>`;
+      return;
+    }
+    const pendientes = organizaciones.filter((o) => o.estado === 'pendiente_aprobacion').length;
+    cont.innerHTML = `
+      <div class="card">
+        <h2>${Icons.tag('users', 'Organizaciones')} ${pendientes ? `<span class="badge warn">${pendientes} pendiente${pendientes > 1 ? 's' : ''}</span>` : ''}</h2>
+        <p class="muted" style="margin:0 0 10px">Escuelas y empresas dadas de alta en toda la app — solo vos podés aprobarlas, suspenderlas o reactivarlas.</p>
+        ${organizaciones.length ? organizaciones.map((o) => `
+          <div class="progreso-item">
+            <div class="pi-head">
+              <span class="nombre">${o.nombre} <span class="muted">— ${LABELS_TIPO_ORGANIZACION[o.tipo]}</span></span>
+              <span class="badge ${o.estado === 'activa' ? 'ok' : o.estado === 'pendiente_aprobacion' ? 'warn' : 'danger'}">${LABELS_ESTADO_ORGANIZACION[o.estado]}</span>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+              ${o.estado === 'pendiente_aprobacion' ? `
+                <button class="btn" data-org-accion="aprobar" data-org-id="${o.id}">Aprobar</button>
+                <button class="btn btn-secundario" data-org-accion="rechazar" data-org-id="${o.id}">Rechazar</button>
+              ` : ''}
+              ${o.estado === 'activa' ? `<button class="btn btn-secundario" data-org-accion="suspender" data-org-id="${o.id}">Suspender</button>` : ''}
+              ${o.estado === 'suspendida' ? `<button class="btn" data-org-accion="reactivar" data-org-id="${o.id}">Reactivar</button>` : ''}
+            </div>
+          </div>
+        `).join('') : '<p class="muted" style="margin:0">Todavía no se creó ninguna organización.</p>'}
+      </div>
+    `;
+    const ACCIONES = {
+      aprobar: Repo.aprobarOrganizacion, rechazar: Repo.rechazarOrganizacion,
+      suspender: Repo.suspenderOrganizacion, reactivar: Repo.reactivarOrganizacion,
+    };
+    cont.querySelectorAll('[data-org-accion]').forEach((b) => {
+      b.onclick = async () => {
+        try {
+          await ACCIONES[b.dataset.orgAccion].call(Repo, b.dataset.orgId);
+          UI.toast('Organización actualizada.', 'ok');
+          this._renderOrganizacionesAdmin();
+        } catch (err) {
+          UI.toast('Error: ' + (err.message || err), 'error');
+        }
+      };
+    });
   },
 
   // Monitoreo básico propio (sin Sentry ni nada de terceros): errores que
