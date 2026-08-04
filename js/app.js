@@ -172,6 +172,18 @@ async function mostrarApp() {
 
   document.getElementById('btn-perfil').onclick = () => Router.irA('perfil');
 
+  // mostrarApp() es exactamente "arranca una sesión" (al abrir la app con
+  // sesión ya guardada, o justo después de iniciar sesión) — nunca se
+  // llama por volver a la pestaña (eso pasa por Router.navegar() directo,
+  // ver visibilitychange más abajo). El cache local (js/cache.js) es
+  // "mostrar lo viejo ya, refrescar solo" — perfecto para navegar rápido
+  // DENTRO de una sesión, pero significa que si quedó algo viejo de la
+  // vez anterior, la primera pantalla lo mostraba tal cual hasta que
+  // navegabas a otro lado y volvías. Invalidando acá, la primera pantalla
+  // de cada sesión nueva siempre espera la red — se ve todo al día desde
+  // el arranque, sin tener que recargar a mano.
+  window.Cache?.invalidarTodo();
+
   Router.construirNav();
   await Router.navegar();
 
