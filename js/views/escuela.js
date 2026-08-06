@@ -226,10 +226,12 @@ async function renderVistaDespacho(main, membresia, esGestor) {
 }
 
 // ----------------------------------------------------------------------------
-// TURNOS — grilla estilo calendario, en bloques según la disponibilidad
-// configurada por el owner/admin. Un piloto ve 7 días hacia adelante para
-// la aeronave elegida; clickea un bloque libre para reservarlo, o uno
-// ocupado para ver el detalle (y confirmar/rechazar/cancelar si corresponde).
+// TURNOS — grilla estilo calendario tipo "scheduler": una columna por
+// aeronave, filas por bloque horario del día elegido (con navegación
+// día anterior/siguiente/hoy). Un turno ocupa tantas filas como bloques
+// dure (rowspan), coloreado según su estado y con el nombre del piloto
+// adentro. Clickear un bloque libre lo reserva; uno ocupado muestra el
+// detalle (y confirmar/rechazar/cancelar si corresponde).
 // ----------------------------------------------------------------------------
 async function renderVistaTurnos(main, membresia, esGestor) {
   const orgId = membresia.org_id;
@@ -239,6 +241,8 @@ async function renderVistaTurnos(main, membresia, esGestor) {
     Repo.listarTurnosOrg(orgId),
     Repo.obtenerDisponibilidadTurnos(orgId),
   ]);
+
+  const nombresPorPiloto = await Repo.obtenerNombresPilotosOrg(orgId, [...new Set(turnos.map((t) => t.piloto_user_id))]);
 
   main.innerHTML = `
     <div class="card">
@@ -252,10 +256,13 @@ async function renderVistaTurnos(main, membresia, esGestor) {
       <div class="card"><p class="muted">Todavía no hay aeronaves en la flota.</p></div>
     ` : `
       <div class="card">
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px">
-          <select id="turnos-aeronave">
-            ${flota.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
-          </select>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:8px">
+          <div style="display:flex; align-items:center; gap:8px">
+            <button class="btn btn-secundario" id="btn-dia-anterior" aria-label="Día anterior">‹</button>
+            <strong id="turnos-fecha-label"></strong>
+            <button class="btn btn-secundario" id="btn-dia-siguiente" aria-label="Día siguiente">›</button>
+            <button class="btn btn-secundario" id="btn-dia-hoy">Hoy</button>
+          </div>
           ${instructores.filter((i) => i.activo).length ? `
             <select id="turnos-instructor">
               <option value="">Sin instructor</option>
@@ -274,10 +281,16 @@ async function renderVistaTurnos(main, membresia, esGestor) {
   }
   if (!disponibilidad || !flota.length) return;
 
-  const selAeronave = document.getElementById('turnos-aeronave');
-  const pintarGrilla = () => renderGrillaTurnos(orgId, selAeronave.value, turnos, disponibilidad, membresia, esGestor);
-  selAeronave.onchange = pintarGrilla;
-  pintarGrilla();
+  let dia = new Date();
+  dia.setHours(0, 0, 0, 0);
+  const pintar = () => {
+    document.getElementById('turnos-fecha-label').textContent = dia.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    renderGrillaTurnos(orgId, dia, flota, turnos, disponibilidad, nombresPorPiloto, membresia, esGestor);
+  };
+  document.getElementById('btn-dia-anterior').onclick = () => { dia = new Date(dia); dia.setDate(dia.getDate() - 1); pintar(); };
+  document.getElementById('btn-dia-siguiente').onclick = () => { dia = new Date(dia); dia.setDate(dia.getDate() + 1); pintar(); };
+  document.getElementById('btn-dia-hoy').onclick = () => { dia = new Date(); dia.setHours(0, 0, 0, 0); pintar(); };
+  pintar();
 }
 
 function abrirFormHorario(orgId, disponibilidad, alGuardar) {
@@ -320,86 +333,109 @@ function abrirFormHorario(orgId, disponibilidad, alGuardar) {
   };
 }
 
-function renderGrillaTurnos(orgId, aeronaveId, turnos, disponibilidad, membresia, esGestor) {
+// Colores de fondo de cada bloque en la grilla, según estado.
+const COLOR_BLOQUE_TURNO = {
+  confirmado: '#2f7bda',
+  pendiente_autorizacion: '#e0922b',
+};
+
+function nombrePiloto(userId, nombresPorPiloto, user) {
+  if (userId === user?.id) return 'Vos';
+  return nombresPorPiloto[userId] || `Piloto ...${userId.slice(-6)}`;
+}
+
+async function renderGrillaTurnos(orgId, dia, flota, turnos, disponibilidad, nombresPorPiloto, membresia, esGestor) {
   const grilla = document.getElementById('grilla-turnos');
   const detalle = document.getElementById('detalle-bloque');
   detalle.innerHTML = '';
 
+  const diaSemana = dia.getDay();
+  if (!disponibilidad.dias_semana.includes(diaSemana)) {
+    grilla.innerHTML = '<p class="muted">Este día no está habilitado para reservar turnos.</p>';
+    return;
+  }
+
   const [hIni, mIni] = disponibilidad.hora_inicio.split(':').map(Number);
   const [hFin, mFin] = disponibilidad.hora_fin.split(':').map(Number);
   const duracion = disponibilidad.duracion_bloque_minutos;
-  const minutosDia = hFin * 60 + mFin - (hIni * 60 + mIni);
-  const cantBloques = Math.floor(minutosDia / duracion);
+  const minInicio = hIni * 60 + mIni;
+  const minFin = hFin * 60 + mFin;
+  const cantBloques = Math.floor((minFin - minInicio) / duracion);
 
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const dias = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(hoy);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  const inicioDia = new Date(dia);
+  const finDia = new Date(dia);
+  finDia.setDate(finDia.getDate() + 1);
+  const turnosDia = turnos.filter((t) => t.estado !== 'cancelado' && new Date(t.inicio) < finDia && new Date(t.fin) > inicioDia);
 
-  const turnosAeronave = turnos.filter((t) => t.aeronave_id === aeronaveId && t.estado !== 'cancelado');
+  const user = await usuarioActual();
+  const ahora = new Date();
+  // Cuántas filas de más, después de la fila donde arranca, ya quedan
+  // "ocupadas" por el rowspan de un turno más largo de un bloque — se
+  // cuenta por aeronave a medida que se recorren las filas de arriba
+  // hacia abajo, para no volver a dibujar esa celda.
+  const filasCubiertas = Object.fromEntries(flota.map((a) => [a.id, 0]));
 
-  const filas = Array.from({ length: cantBloques }, (_, i) => (hIni * 60 + mIni) + i * duracion);
+  let html = `<table class="tabla-turnos" style="border-collapse:collapse; width:100%; min-width:${100 + flota.length * 150}px">`;
+  html += '<thead><tr><th style="width:64px"></th>' + flota.map((a) => `
+    <th style="padding:6px; text-align:center; border-bottom:1px solid var(--borde)">
+      <div>${a.matricula}</div>
+      <div class="muted" style="font-weight:normal; font-size:12px">${a.marca_modelo}</div>
+    </th>
+  `).join('') + '</tr></thead><tbody>';
 
-  let html = '<table class="tabla-turnos" style="border-collapse:collapse; width:100%; min-width:640px">';
-  html += '<thead><tr><th></th>' + dias.map((d) => `<th style="padding:6px; text-align:center">${d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'numeric' })}</th>`).join('') + '</tr></thead><tbody>';
-
-  for (const minutosInicio of filas) {
+  for (let i = 0; i < cantBloques; i++) {
+    const minutosInicio = minInicio + i * duracion;
     const hh = String(Math.floor(minutosInicio / 60)).padStart(2, '0');
     const mm = String(minutosInicio % 60).padStart(2, '0');
-    html += `<tr><td class="muted" style="padding:4px 8px; white-space:nowrap">${hh}:${mm}</td>`;
-    for (const dia of dias) {
-      const diaSemana = dia.getDay();
-      const habilitado = disponibilidad.dias_semana.includes(diaSemana);
-      if (!habilitado) { html += '<td style="padding:2px"></td>'; continue; }
+    html += `<tr><td class="muted" style="padding:4px 8px; white-space:nowrap; border-right:1px solid var(--borde)">${hh}:${mm}</td>`;
+    for (const a of flota) {
+      if (filasCubiertas[a.id] > 0) { filasCubiertas[a.id]--; continue; }
       const inicio = new Date(dia);
       inicio.setMinutes(minutosInicio);
       const fin = new Date(inicio.getTime() + duracion * 60000);
-      const turno = turnosAeronave.find((t) => new Date(t.inicio) < fin && new Date(t.fin) > inicio);
-      const pasado = fin < new Date();
-      let color = 'var(--ok, #1a7f37)';
-      let texto = 'Libre';
+      const turno = turnosDia.find((t) => t.aeronave_id === a.id && new Date(t.inicio) <= inicio && new Date(t.fin) > inicio);
       if (turno) {
-        color = turno.estado === 'confirmado' ? 'var(--danger, #c0392b)' : 'var(--warn, #d9822b)';
-        texto = LABELS_ESTADO_TURNO[turno.estado];
-      } else if (pasado) {
-        color = 'var(--muted, #888)';
-        texto = '—';
+        const filasOcupa = Math.max(1, Math.round((new Date(turno.fin) - new Date(turno.inicio)) / (duracion * 60000)));
+        filasCubiertas[a.id] = filasOcupa - 1;
+        const color = COLOR_BLOQUE_TURNO[turno.estado] || '#888';
+        html += `<td rowspan="${filasOcupa}" style="padding:2px; vertical-align:top">
+          <div class="bloque-turno" data-turno="${turno.id}" style="height:100%; min-height:36px; background:${color}; color:#fff; border-radius:6px; padding:4px 6px; font-size:11px; cursor:pointer; line-height:1.3">
+            <div>${new Date(turno.inicio).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div style="font-weight:600">${nombrePiloto(turno.piloto_user_id, nombresPorPiloto, user)}</div>
+          </div>
+        </td>`;
+      } else {
+        const pasado = fin < ahora;
+        html += `<td style="padding:2px">
+          <button class="btn-bloque" data-inicio="${inicio.toISOString()}" data-fin="${fin.toISOString()}" data-aeronave="${a.id}" ${pasado ? 'disabled' : ''}
+            style="width:100%; min-height:36px; padding:6px 2px; font-size:11px; border:1px dashed var(--borde); color:${pasado ? 'var(--muted, #888)' : 'var(--ok, #1a7f37)'}; background:transparent; border-radius:6px; cursor:${pasado ? 'default' : 'pointer'}">
+            ${pasado ? '—' : 'Libre'}
+          </button>
+        </td>`;
       }
-      html += `<td style="padding:2px">
-        <button class="btn-bloque" data-inicio="${inicio.toISOString()}" data-fin="${fin.toISOString()}" data-turno="${turno ? turno.id : ''}" ${!turno && pasado ? 'disabled' : ''}
-          style="width:100%; padding:6px 2px; font-size:11px; border:1px solid ${color}; color:${color}; background:transparent; border-radius:6px; cursor:${!turno && pasado ? 'default' : 'pointer'}">
-          ${texto}
-        </button>
-      </td>`;
     }
     html += '</tr>';
   }
   html += '</tbody></table>';
   grilla.innerHTML = html;
 
+  grilla.querySelectorAll('.bloque-turno').forEach((el) => {
+    el.onclick = () => mostrarDetalleTurno(turnosDia.find((t) => t.id === el.dataset.turno), nombresPorPiloto, membresia, esGestor);
+  });
   grilla.querySelectorAll('.btn-bloque').forEach((b) => {
     if (b.disabled) return;
-    b.onclick = () => {
-      if (b.dataset.turno) {
-        mostrarDetalleTurno(turnosAeronave.find((t) => t.id === b.dataset.turno), membresia, esGestor);
-      } else {
-        mostrarFormReserva(orgId, b.dataset.inicio, b.dataset.fin, aeronaveId, membresia);
-      }
-    };
+    b.onclick = () => mostrarFormReserva(orgId, b.dataset.inicio, b.dataset.fin, b.dataset.aeronave, membresia);
   });
 }
 
-async function mostrarDetalleTurno(turno, membresia, esGestor) {
+async function mostrarDetalleTurno(turno, nombresPorPiloto, membresia, esGestor) {
   const detalle = document.getElementById('detalle-bloque');
   const user = await usuarioActual();
   const esPropio = turno.piloto_user_id === user?.id;
   detalle.innerHTML = `
     <div class="card">
       <h2>${Icons.tag('calendar', 'Detalle del turno')}</h2>
-      <p>${new Date(turno.inicio).toLocaleString()} → ${new Date(turno.fin).toLocaleString()}</p>
+      <p>${nombrePiloto(turno.piloto_user_id, nombresPorPiloto, user)} — ${new Date(turno.inicio).toLocaleString()} → ${new Date(turno.fin).toLocaleString()}</p>
       <p class="muted">Estado: ${LABELS_ESTADO_TURNO[turno.estado]}</p>
       <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
         ${esGestor && turno.estado === 'pendiente_autorizacion' ? `

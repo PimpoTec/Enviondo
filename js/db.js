@@ -549,6 +549,16 @@ const Repo = {
     });
     if (error) throw error;
   },
+  // Devuelve { [user_id]: nombre_completo } para los ids pedidos que
+  // además comparten la organización con quien llama (ver
+  // sql/agregar_nombres_pilotos_org.sql) — un id que no tiene nombre
+  // cargado o no comparte la org simplemente no aparece en el resultado.
+  async obtenerNombresPilotosOrg(orgId, userIds) {
+    if (!userIds.length) return {};
+    const { data, error } = await window.db.rpc('nombres_pilotos_org', { p_org_id: orgId, p_user_ids: userIds });
+    if (error) throw error;
+    return Object.fromEntries(data.filter((f) => f.nombre_completo).map((f) => [f.user_id, f.nombre_completo]));
+  },
 
   // ---- Panel admin de organizaciones (ver
   // sql/agregar_aprobacion_organizaciones.sql) — solo la cuenta admin de

@@ -281,6 +281,21 @@ test('guardarDisponibilidadTurnos propaga el error si no sos owner/admin', async
   await assert.rejects(() => Repo.guardarDisponibilidadTurnos('org-1', [1], '08:00', '20:00', 60), /No tenés permiso/);
 });
 
+test('obtenerNombresPilotosOrg llama al rpc nombres_pilotos_org y arma un mapa user_id -> nombre', async () => {
+  let llamado = null;
+  window.db = { rpc: async (fn, args) => { llamado = { fn, args }; return { data: [{ user_id: 'u1', nombre_completo: 'Juan Pérez' }, { user_id: 'u2', nombre_completo: null }], error: null }; } };
+  const mapa = await Repo.obtenerNombresPilotosOrg('org-1', ['u1', 'u2']);
+  assert.equal(llamado.fn, 'nombres_pilotos_org');
+  assert.equal(JSON.stringify(llamado.args), JSON.stringify({ p_org_id: 'org-1', p_user_ids: ['u1', 'u2'] }));
+  assert.equal(JSON.stringify(mapa), JSON.stringify({ u1: 'Juan Pérez' }));
+});
+
+test('obtenerNombresPilotosOrg no pega a la red si la lista de ids está vacía', async () => {
+  window.db = { rpc: async () => { throw new Error('no debería llamarse'); } };
+  const mapa = await Repo.obtenerNombresPilotosOrg('org-1', []);
+  assert.equal(JSON.stringify(mapa), '{}');
+});
+
 test('confirmarTurno, rechazarTurno y cancelarTurno llaman cada uno a su rpc con el turno_id', async () => {
   const llamadas = [];
   window.db = { rpc: async (fn, args) => { llamadas.push({ fn, args }); return { error: null }; } };
