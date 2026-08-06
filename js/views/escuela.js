@@ -20,8 +20,40 @@ const ViewEscuela = {
     const orgId = params.get('org');
     const vista = params.get('vista') || 'dashboard';
 
+    // El ítem "Escuela" del menú de piloto apunta a "#escuela" a secas (sin
+    // saber todavía a qué organización, ver navEscuela() en router.js) —
+    // acá se resuelve cuál: si el piloto pertenece a una sola, entra
+    // directo; si pertenece a varias, elige de una lista.
     if (!orgId) {
-      main.innerHTML = '<div class="card"><p class="muted">Elegí una escuela desde la pestaña de abajo.</p></div>';
+      const membresias = await Repo.listarMisOrganizaciones();
+      const activas = membresias.filter((m) => m.estado === 'activo' && m.organizaciones?.estado === 'activa');
+      if (activas.length === 1) {
+        window.location.hash = `escuela?org=${activas[0].org_id}&tipo=${activas[0].organizaciones.tipo}&vista=dashboard`;
+        return;
+      }
+      if (!activas.length) {
+        main.innerHTML = '<div class="card"><p class="muted">Todavía no pertenecés a ninguna escuela activa.</p></div>';
+        return;
+      }
+      main.innerHTML = `
+        <div class="card">
+          <h2>${Icons.tag('users', 'Elegí una escuela')}</h2>
+          <div id="lista-elegir-escuela"></div>
+        </div>
+      `;
+      const cont = document.getElementById('lista-elegir-escuela');
+      cont.innerHTML = activas.map((m) => `
+        <div class="progreso-item" data-org="${m.org_id}" data-tipo="${m.organizaciones.tipo}" style="cursor:pointer">
+          <div class="pi-head">
+            <span class="nombre">${m.organizaciones.nombre}</span>
+            <span class="faltan">${LABELS_ROL_ORGANIZACION[m.rol]}</span>
+          </div>
+          <p class="muted" style="margin:4px 0 0">${LABELS_TIPO_ORGANIZACION[m.organizaciones.tipo]}</p>
+        </div>
+      `).join('');
+      cont.querySelectorAll('[data-org]').forEach((el) => {
+        el.onclick = () => { window.location.hash = `escuela?org=${el.dataset.org}&tipo=${el.dataset.tipo}&vista=dashboard`; };
+      });
       return;
     }
 
