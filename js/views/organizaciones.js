@@ -272,6 +272,15 @@ async function renderDetalleOrganizacion(membresia) {
   }
 }
 
+// Wrapper de refresco: organizaciones.js normalmente refresca volviendo a
+// pintar toda la pantalla de detalle (renderDetalleOrganizacion). Cuando
+// estas mismas funciones se reusan desde js/views/escuela.js (pantalla
+// dedicada, sin ese contenedor), la membresía que se pasa trae un
+// `.rerender()` propio a usar en su lugar.
+function refrescarOrg(membresia) {
+  return membresia.rerender ? membresia.rerender() : renderDetalleOrganizacion(membresia);
+}
+
 function renderFlotaOrg(flota, membresia, esGestor) {
   const cont = document.getElementById('lista-flota-org');
   if (!flota.length) { cont.innerHTML = '<p class="muted">Todavía no hay aeronaves cargadas en esta organización.</p>'; return; }
@@ -302,7 +311,7 @@ function renderFlotaOrg(flota, membresia, esGestor) {
   cont.querySelectorAll('[data-borrar-aeronave]').forEach((b) => {
     b.onclick = async () => {
       if (!(await UI.confirmar('¿Borrar esta aeronave de la flota? Si tiene vuelos cargados, no se va a poder borrar.', { ok: 'Borrar', peligro: true }))) return;
-      try { await Repo.borrarAeronaveOrg(b.dataset.borrarAeronave); UI.toast('Aeronave borrada.', 'ok'); renderDetalleOrganizacion(membresia); }
+      try { await Repo.borrarAeronaveOrg(b.dataset.borrarAeronave); UI.toast('Aeronave borrada.', 'ok'); refrescarOrg(membresia); }
       catch (err) { UI.toast('No se pudo borrar: ' + (err.message || err), 'error'); }
     };
   });
@@ -349,7 +358,7 @@ function abrirFormAeronaveOrg(membresia, aeronave) {
     try {
       await Repo.guardarAeronaveOrg(membresia.org_id, datos);
       UI.toast('Aeronave guardada.', 'ok');
-      renderDetalleOrganizacion(membresia);
+      refrescarOrg(membresia);
     } catch (err) {
       UI.toast('Error al guardar: ' + (err.message || err), 'error');
     }
@@ -547,7 +556,7 @@ async function renderDespacho(despacho, flota, miembros, membresia, esGestor) {
       try {
         await Repo.actualizarEstadoVueloAsignado(b.dataset.estadoVuelo, b.dataset.nuevoEstado);
         UI.toast('Vuelo actualizado.', 'ok');
-        renderDetalleOrganizacion(membresia);
+        refrescarOrg(membresia);
       } catch (err) {
         UI.toast('Error: ' + (err.message || err), 'error');
       }

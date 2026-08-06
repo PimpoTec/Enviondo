@@ -247,6 +247,40 @@ test('crearTurno propaga el error de solapamiento del constraint de exclusión',
   await assert.rejects(() => Repo.crearTurno('org-1', 'aer-1', 'x', 'y'), /ya está ocupado/);
 });
 
+test('obtenerDisponibilidadTurnos filtra por org_id y trae una sola fila (o null)', async () => {
+  const filtros = [];
+  const query = {
+    select: (cols) => { filtros.push(['select', cols]); return query; },
+    eq: (col, val) => { filtros.push(['eq', col, val]); return query; },
+    maybeSingle: async () => { filtros.push(['maybeSingle']); return { data: { org_id: 'org-1', hora_inicio: '08:00' }, error: null }; },
+  };
+  window.db = { from: (tabla) => { filtros.push(['from', tabla]); return query; } };
+  const data = await Repo.obtenerDisponibilidadTurnos('org-1');
+  assert.equal(JSON.stringify(filtros), JSON.stringify([['from', 'disponibilidad_turnos'], ['select', '*'], ['eq', 'org_id', 'org-1'], ['maybeSingle']]));
+  assert.equal(data.hora_inicio, '08:00');
+});
+
+test('obtenerDisponibilidadTurnos devuelve null cuando la escuela todavía no configuró nada', async () => {
+  window.db = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) };
+  const data = await Repo.obtenerDisponibilidadTurnos('org-1');
+  assert.equal(data, null);
+});
+
+test('guardarDisponibilidadTurnos llama al rpc guardar_disponibilidad_turnos con todos los parámetros', async () => {
+  let llamado = null;
+  window.db = { rpc: async (fn, args) => { llamado = { fn, args }; return { error: null }; } };
+  await Repo.guardarDisponibilidadTurnos('org-1', [1, 2, 3, 4, 5], '08:00', '20:00', 60);
+  assert.equal(llamado.fn, 'guardar_disponibilidad_turnos');
+  assert.equal(JSON.stringify(llamado.args), JSON.stringify({
+    p_org_id: 'org-1', p_dias_semana: [1, 2, 3, 4, 5], p_hora_inicio: '08:00', p_hora_fin: '20:00', p_duracion_bloque_minutos: 60,
+  }));
+});
+
+test('guardarDisponibilidadTurnos propaga el error si no sos owner/admin', async () => {
+  window.db = { rpc: async () => ({ error: new Error('No tenés permiso para configurar la disponibilidad de esta organización') }) };
+  await assert.rejects(() => Repo.guardarDisponibilidadTurnos('org-1', [1], '08:00', '20:00', 60), /No tenés permiso/);
+});
+
 test('confirmarTurno, rechazarTurno y cancelarTurno llaman cada uno a su rpc con el turno_id', async () => {
   const llamadas = [];
   window.db = { rpc: async (fn, args) => { llamadas.push({ fn, args }); return { error: null }; } };

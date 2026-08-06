@@ -514,6 +514,37 @@ tramo directamente (`Perfil → Organizaciones → Despacho`); el piloto
 asignado solo ve su propia agenda. Mismo mecanismo anti doble-booking que
 turnos (`EXCLUDE USING gist`).
 
+**Disponibilidad de turnos y pantalla dedicada "Escuela":** correr además
+`sql/agregar_disponibilidad_turnos.sql`. Agrega la tabla
+`disponibilidad_turnos` (una fila por organización: qué días de la semana
+opera, de qué hora a qué hora, y en bloques de cuántos minutos) y la
+función `guardar_disponibilidad_turnos()` (owner/admin únicamente).
+`crear_turno()` queda actualizada para exigir que el horario pedido caiga
+dentro de esa disponibilidad (convirtiendo el `timestamptz` recibido a
+hora de Argentina antes de comparar) — si la escuela todavía no configuró
+nada, no se puede reservar.
+
+Del lado de la app, un piloto que pertenece a alguna organización activa
+ve una pestaña nueva **"Escuela"** en el menú de abajo (`js/router.js`,
+`RUTAS_NAV_PILOTO` + chequeo de `Repo.listarMisOrganizaciones()`). Al
+entrar, el menú de abajo cambia de significado por completo — deja de
+mostrar Inicio/Bitácora/Aeronaves/Totales y pasa a mostrar
+Dashboard/Turnos (o Despacho, si es una empresa)/Flota, con un botón
+"Piloto" para volver al modo personal (`js/views/escuela.js`):
+
+- **Dashboard:** aviones operativos, próximos turnos/vuelos, y (si sos
+  owner/admin de una escuela) cuántos turnos están pendientes de tu
+  autorización.
+- **Turnos:** grilla estilo calendario — filas por bloque horario, columnas
+  por los próximos 7 días, filtrable por aeronave. Bloque libre → click
+  para reservar (instructor opcional); bloque ocupado → click para ver el
+  detalle y confirmar/rechazar/cancelar según corresponda. El owner/admin
+  configura días/horario/duración del bloque desde el botón "Configurar
+  horario" arriba de la grilla.
+- **Flota / Despacho:** mismas pantallas que ya existían en
+  `Perfil → Organizaciones`, reutilizadas tal cual (no hay dos
+  implementaciones a mantener).
+
 ---
 
 ## 15) Qué falta / mejoras futuras

@@ -535,6 +535,21 @@ const Repo = {
     await this.actualizarEstadoVueloAsignado(vueloId, 'cancelado');
   },
 
+  // ---- Disponibilidad de turnos (ver sql/agregar_disponibilidad_turnos.sql)
+  // — días/horario/duración de bloque que el owner/admin configura para
+  // que la grilla de Turnos sepa qué horarios ofrecer. ----
+  async obtenerDisponibilidadTurnos(orgId) {
+    const { data, error } = await window.db.from('disponibilidad_turnos').select('*').eq('org_id', orgId).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async guardarDisponibilidadTurnos(orgId, diasSemana, horaInicio, horaFin, duracionMinutos) {
+    const { error } = await window.db.rpc('guardar_disponibilidad_turnos', {
+      p_org_id: orgId, p_dias_semana: diasSemana, p_hora_inicio: horaInicio, p_hora_fin: horaFin, p_duracion_bloque_minutos: duracionMinutos,
+    });
+    if (error) throw error;
+  },
+
   // ---- Panel admin de organizaciones (ver
   // sql/agregar_aprobacion_organizaciones.sql) — solo la cuenta admin de
   // la app (esAdminApp()) puede ver todas y cambiarles el estado. ----
