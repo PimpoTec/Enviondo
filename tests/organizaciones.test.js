@@ -6,6 +6,7 @@ const { loadApp } = require('./_helpers/loadApp');
 const ROOT = path.join(__dirname, '..');
 const { window } = loadApp([
   path.join(ROOT, 'js/calc.js'),
+  path.join(ROOT, 'js/cache.js'), // Repo.aceptarInvitacion/rechazarInvitacion/salirDeOrganizacion invalidan cache
   path.join(ROOT, 'js/db.js'),
 ]);
 const {

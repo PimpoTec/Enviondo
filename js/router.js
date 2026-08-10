@@ -49,11 +49,17 @@ function navEscuela(params) {
 }
 
 // Solo se llama en modo piloto (en modo escuela ya tenemos org/tipo en la
-// URL, no hace falta ir a la red para armar la barra) — así que el costo
-// de esta consulta de más se paga solo cuando hace falta.
+// URL, no hace falta ir a la red para armar la barra). Va con Cache.conCache
+// (no directo a Repo.listarMisOrganizaciones): sin esto, CADA navegación —
+// no solo la primera — esperaba este viaje a la red antes de mostrar nada
+// en pantalla (ni siquiera el esqueleto de carga, que recién arranca
+// después), y de ahí la sensación de "tocás y no pasa nada" por casi un
+// segundo en cada cambio de pantalla. Con cache, solo la primera vez de la
+// sesión paga ese costo — el resto es instantáneo (y se refresca solo en
+// segundo plano si algo cambió).
 async function tieneOrganizacionesActivas() {
   try {
-    const membresias = await Repo.listarMisOrganizaciones();
+    const membresias = await Cache.conCache('mis_organizaciones_nav', () => Repo.listarMisOrganizaciones());
     return membresias.some((m) => m.estado === 'activo' && m.organizaciones?.estado === 'activa');
   } catch { return false; }
 }
@@ -93,19 +99,27 @@ async function navegar() {
   const params = new URLSearchParams(queryStr || '');
   const ruta = RUTAS.find((r) => r.id === rutaId) || RUTAS[0];
 
-  await construirNav(ruta.id, params);
-  document.querySelectorAll('#bottom-nav button[data-ruta]').forEach((b) => {
-    const activa = b.dataset.ruta === ruta.id || (ruta.id === 'escuela' && b.dataset.ruta.startsWith('escuela-') && b.dataset.ruta === `escuela-${params.get('vista') || 'dashboard'}`);
-    b.classList.toggle('active', activa);
-    b.setAttribute('aria-selected', activa ? 'true' : 'false');
+  const main = document.getElementById('main-content');
+  // El esqueleto arranca ACÁ, antes de esperar nada — así el toque
+  // registra feedback visual enseguida pase lo que pase después (construir
+  // la barra de abajo, el fetch de la pantalla nueva). Solo se muestra si
+  // la navegación tarda más de un instante (ver skeletonDiferido); si es
+  // casi inmediata, no hay parpadeo de "cargando".
+  const cancelarSkeleton = UI.skeletonDiferido(main);
+
+  // Construir la barra de abajo y renderizar la pantalla no dependen uno
+  // del otro (tocan partes distintas del DOM) — van en paralelo, no en
+  // secuencia, para no sumar sus tiempos.
+  const navPromise = construirNav(ruta.id, params).then(() => {
+    document.querySelectorAll('#bottom-nav button[data-ruta]').forEach((b) => {
+      const activa = b.dataset.ruta === ruta.id || (ruta.id === 'escuela' && b.dataset.ruta.startsWith('escuela-') && b.dataset.ruta === `escuela-${params.get('vista') || 'dashboard'}`);
+      b.classList.toggle('active', activa);
+      b.setAttribute('aria-selected', activa ? 'true' : 'false');
+    });
   });
 
-  const main = document.getElementById('main-content');
-  // El esqueleto solo se muestra si la pantalla tarda más de un instante —
-  // si la navegación es casi inmediata, no hay parpadeo de "cargando".
-  const cancelarSkeleton = UI.skeletonDiferido(main);
   try {
-    await ruta.render(params);
+    await Promise.all([navPromise, ruta.render(params)]);
   } catch (err) {
     console.error(err);
     main.innerHTML = `<div class="card"><p>${Icons.tag('alertTriangle', 'Ocurrió un error cargando esta pantalla.')}</p><p class="muted">${err.message || err}</p></div>`;

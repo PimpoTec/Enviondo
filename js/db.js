@@ -706,14 +706,21 @@ const Repo = {
   async aceptarInvitacion(orgId) {
     const { error } = await window.db.rpc('aceptar_invitacion', { p_org_id: orgId });
     if (error) throw error;
+    // Puede ser la primera organización activa del piloto — sin esto, la
+    // pestaña "Escuela" del menú de abajo (router.js, cacheada para que la
+    // navegación no espere a la red en cada toque) tardaba hasta el
+    // refresco en segundo plano en aparecer.
+    Cache.invalidar('mis_organizaciones_nav');
   },
   async rechazarInvitacion(orgId) {
     const { error } = await window.db.rpc('rechazar_invitacion', { p_org_id: orgId });
     if (error) throw error;
+    Cache.invalidar('mis_organizaciones_nav');
   },
   async salirDeOrganizacion(orgId) {
     const { error } = await window.db.rpc('salir_organizacion', { p_org_id: orgId });
     if (error) throw error;
+    Cache.invalidar('mis_organizaciones_nav');
   },
   async quitarMiembro(orgId, userId) {
     const { error } = await window.db.rpc('quitar_miembro', { p_org_id: orgId, p_user_id: userId });
