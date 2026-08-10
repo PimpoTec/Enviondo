@@ -166,11 +166,25 @@ async function mostrarLogin(panelInicial) {
   submitConEnter(['nueva-clave'], 'btn-nueva-clave');
 }
 
+// user.id de la sesión que ya está mostrada — sirve para distinguir un
+// SIGNED_IN de verdad (login nuevo, o primera vez que arranca la app) de
+// uno que el propio SDK de Supabase reemite para la MISMA sesión al volver
+// de background (revalida el token al recuperar foco y, según la versión,
+// eso puede disparar el evento de nuevo). Sin este chequeo, cada vez que
+// volvías a la pestaña se disparaban DOS cargas a la vez: la del listener
+// de visibilitychange de acá abajo (liviana, Router.navegar() nomás) y la
+// de mostrarApp() completa (invalida cache + reconstruye nav + navega) —
+// de ahí la sensación de "carga dos veces" al volver a la app.
+let usuarioSesionMostrada = null;
+
 async function mostrarApp() {
   document.getElementById('vista-login').style.display = 'none';
   document.getElementById('vista-app').style.display = 'block';
 
   document.getElementById('btn-perfil').onclick = () => Router.irA('perfil');
+
+  const sesion = await Auth.getSesion();
+  usuarioSesionMostrada = sesion?.user?.id || null;
 
   // mostrarApp() es exactamente "arranca una sesión" (al abrir la app con
   // sesión ya guardada, o justo después de iniciar sesión) — nunca se
@@ -251,12 +265,22 @@ async function init() {
         await mostrarLogin('panel-nueva-clave');
       } else if (event === 'SIGNED_IN' && session && !esRecuperacion) {
         registrarActividad();
-        await mostrarApp();
+        // El SDK de Supabase reemite 'SIGNED_IN' para la MISMA sesión al
+        // volver del segundo plano (revalida el token al recuperar foco) —
+        // si ya es el mismo usuario que está mostrado, no hace falta la
+        // carga completa de mostrarApp() (invalida cache, reconstruye nav,
+        // vuelve a pedir todo a la red): alcanza con haber registrado la
+        // actividad. El listener de visibilitychange de más abajo ya se
+        // encarga de refrescar la pantalla actual si corresponde.
+        if (session.user.id !== usuarioSesionMostrada) {
+          await mostrarApp();
+        }
       } else if (event === 'SIGNED_OUT') {
         // Puede llegar por vías distintas al botón de cerrar sesión (token
         // vencido, otra pestaña, etc.) — hay que limpiar el cache siempre,
         // para que la próxima cuenta que entre en este dispositivo no vea
         // ni por un instante datos de la anterior.
+        usuarioSesionMostrada = null;
         window.Cache?.invalidarTodo();
         await window.Offline?.borrarTodosPendientes().catch(() => { /* noop */ });
         await mostrarLogin();

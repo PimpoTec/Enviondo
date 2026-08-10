@@ -158,8 +158,16 @@ const Repo = {
   async listarVuelos(filtros = {}) {
     const sinFiltros = !filtros.desde && !filtros.hasta && !filtros.aeronave_id && !filtros.finalidad_vuelo;
     const fetchFn = async () => {
+      // Orden secundario por hora de salida (y terciario por created_at):
+      // ordenar solo por fecha deja el orden de los vuelos del MISMO día
+      // librado a lo que Postgres devuelva (no garantiza nada más allá de
+      // la columna pedida) — con dos vuelos el mismo día, a veces salía el
+      // más nuevo primero y a veces al revés, sin ningún criterio visible.
       let q = window.db.from('vuelos').select('*, aeronaves(matricula, marca_modelo, potencia, clase, tarifa_hora_diurna, tarifa_hora_nocturna, moneda)')
-        .is('deleted_at', null).order('fecha', { ascending: false });
+        .is('deleted_at', null)
+        .order('fecha', { ascending: false })
+        .order('hora_salida_utc', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
       if (filtros.desde) q = q.gte('fecha', filtros.desde);
       if (filtros.hasta) q = q.lte('fecha', filtros.hasta);
       if (filtros.aeronave_id) q = q.eq('aeronave_id', filtros.aeronave_id);
@@ -225,9 +233,18 @@ const Repo = {
   // ---- Vuelos programados (agenda de próximos vuelos) ----
   async listarVuelosProgramados() {
     return Cache.conCache('vuelos_programados', async () => {
+      // Antes filtraba desde HOY — un vuelo programado para ayer que
+      // todavía no se cargó (la notificación de "cargá los datos" llega
+      // recién al día siguiente) desaparecía de esta lista apenas pasaba
+      // la medianoche, sin ninguna forma de "marcarlo como volado" ni de
+      // borrarlo: quedaba huérfano en la base para siempre. Con 30 días
+      // hacia atrás, sigue apareciendo (el Dashboard lo marca "Atrasado")
+      // hasta que el piloto lo carga o lo borra a mano.
+      const haceUnMes = new Date();
+      haceUnMes.setDate(haceUnMes.getDate() - 30);
       const { data, error } = await window.db.from('vuelos_programados')
         .select('*, aeronaves(matricula, marca_modelo)')
-        .gte('fecha', new Date().toISOString().slice(0, 10))
+        .gte('fecha', haceUnMes.toISOString().slice(0, 10))
         .order('fecha', { ascending: true });
       if (error) throw error;
       return data;

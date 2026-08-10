@@ -89,7 +89,9 @@ const ViewDashboard = {
     const fechaLocal = Calc.parseFechaLocal(p.fecha);
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
     const diasFaltan = fechaLocal ? Math.round((fechaLocal - hoy) / 86400000) : null;
-    const cuenta = diasFaltan === null ? fechaChica : diasFaltan <= 0 ? 'Hoy' : diasFaltan === 1 ? 'Mañana' : `En ${diasFaltan} días`;
+    const cuenta = diasFaltan === null ? fechaChica
+      : diasFaltan < 0 ? (diasFaltan === -1 ? 'Ayer' : `Hace ${-diasFaltan} días`)
+      : diasFaltan === 0 ? 'Hoy' : diasFaltan === 1 ? 'Mañana' : `En ${diasFaltan} días`;
     const hora = p.hora_prevista ? ` · ${p.hora_prevista.slice(0, 5)}` : '';
     const matricula = p.aeronaves?.matricula || 'Sin asignar';
     const esLocal = p.desde && p.hasta && p.desde === p.hasta;
@@ -152,7 +154,11 @@ const ViewDashboard = {
       const fechaLocal = Calc.parseFechaLocal(p.fecha);
       const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
       const diasFaltan = fechaLocal ? Math.round((fechaLocal - hoy) / 86400000) : null;
-      const cuenta = diasFaltan === null ? '' : diasFaltan <= 0 ? 'Hoy' : diasFaltan === 1 ? 'Mañana' : `En ${diasFaltan} días`;
+      // Atrasado (fecha ya pasada y todavía sin cargar) es un caso aparte
+      // de "Hoy" — antes ambos caían en el mismo "diasFaltan <= 0" y un
+      // vuelo de hace tres días se seguía mostrando como si fuera de hoy.
+      const atrasado = diasFaltan !== null && diasFaltan < 0;
+      const cuenta = diasFaltan === null ? '' : atrasado ? (diasFaltan === -1 ? 'Ayer' : `Hace ${-diasFaltan} días`) : diasFaltan === 0 ? 'Hoy' : diasFaltan === 1 ? 'Mañana' : `En ${diasFaltan} días`;
       const diaSemana = fechaLocal ? DIAS_SEMANA[fechaLocal.getDay()] : '';
       const esLocal = p.desde && p.hasta && p.desde === p.hasta;
       const prefLabel = obtenerPrefHorario() === 'local' ? 'hora local' : 'UTC';
@@ -178,7 +184,7 @@ const ViewDashboard = {
                 <p class="plan-fecha-grande">${fechaGrande}${diaSemana ? ` <span class="muted" style="font-size:13px;font-weight:500">· ${diaSemana}</span>` : ''}</p>
                 ${p.hora_prevista ? `<p class="plan-hora">${p.hora_prevista.slice(0, 5)} ${prefLabel}</p>` : ''}
               </div>
-              ${cuenta ? `<span class="plan-countdown">${Icons.clock(13)} ${cuenta}</span>` : ''}
+              ${cuenta ? `<span class="plan-countdown"${atrasado ? ' style="color:var(--warn, #d9822b)"' : ''}>${Icons.tag(atrasado ? 'alertTriangle' : 'clock', cuenta)}</span>` : ''}
             </div>
           </div>
 
