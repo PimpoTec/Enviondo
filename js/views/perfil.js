@@ -550,8 +550,14 @@ const ViewPerfil = {
       </div>
     `;
 
+    // cont.querySelector (no document.getElementById): si un render
+    // concurrente reemplaza el documento mientras tanto (ver comentario de
+    // render-token más arriba), cont puede quedar detached — igual sigue
+    // siendo válido consultarlo a ÉL directamente, a diferencia de una
+    // consulta contra el document en vivo, que ya no lo va a encontrar.
     CURSOS.forEach((curso) => {
-      document.getElementById(`btn-agregar-${curso.id}`).onclick = () => this._agregarRequisito(curso.id);
+      const btn = cont.querySelector(`#btn-agregar-${curso.id}`);
+      if (btn) btn.onclick = () => this._agregarRequisito(curso.id);
     });
     cont.querySelectorAll('button[data-accion="guardar-config"]').forEach((b) => {
       b.onclick = () => this._guardarConfig(b.dataset.id);
