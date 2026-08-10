@@ -402,7 +402,152 @@ los datos del usuario, incluidas las fotos, de forma permanente).
 
 ---
 
-## 14) Qué falta / mejoras futuras
+## 14) Organizaciones (escuelas de vuelo y empresas — opcional, Fase 0 B2B)
+
+Capa multi-tenant aditiva por encima del modelo de piloto individual: un
+piloto que nunca crea ni se une a una organización no nota que esto existe.
+Ver `PROPUESTA_B2B.md` (o el documento de propuesta del repo) para el plan
+completo de fases; esto es solo la Fase 0 fundacional — organizaciones y
+membresías con roles, sin flota de organización ni turnos todavía.
+
+1. Correr `sql/agregar_organizaciones.sql` en el **SQL Editor** de Supabase.
+   Crea las tablas `organizaciones` y `organizacion_miembros`, la función
+   `is_member_of()` (para RLS de esta y futuras tablas de organización) y
+   las funciones que hacen de única puerta de entrada para escribir:
+   `crear_organizacion`, `invitar_miembro`, `aceptar_invitacion`,
+   `rechazar_invitacion`, `salir_organizacion`, `quitar_miembro`.
+2. Nada más — Perfil → Organizaciones ya queda disponible para cualquier
+   piloto logueado (para ver a qué organizaciones pertenece, invitar
+   miembros si es owner/admin, y aceptar/rechazar sus propias invitaciones).
+   **Crear una organización nueva es aparte y está restringido — ver la
+   sección "Aprobación de organizaciones" más abajo.**
+3. Sin correr el SQL, la pantalla de Organizaciones falla al pedir los
+   datos — no rompe el resto de la app (bitácora, aeronaves, perfil de
+   piloto siguen intactos), pero ese ítem del menú de Perfil no funciona.
+
+Roles dentro de una organización: `owner` (control total), `admin` (mismo
+alcance salvo borrar la organización), `instructor` y `piloto_vinculado`
+(autogestión, sin permisos de gestión). Las fases siguientes (turnos con
+autogestión/autorización, despacho para empresas) se agregan con su propio
+`sql/agregar_*.sql` reutilizando `is_member_of()`.
+
+**Flota de organización (Fase 2):** correr además `sql/agregar_flota_org.sql`
+(depende del anterior). Reutiliza la misma tabla `aeronaves` de siempre —
+una aeronave pertenece a un piloto (`user_id`, como hoy) O a una
+organización (`org_id` nuevo), nunca a las dos cosas; las aeronaves
+personales existentes no se tocan. El owner/admin arma y edita la flota
+(matrícula, tarifas, horas de célula/motor, próxima inspección anual)
+desde `Perfil → Organizaciones`; instructor/piloto_vinculado la ven pero
+no la editan.
+
+**Instructores (Fase 3, solo escuelas):** correr además
+`sql/agregar_instructores.sql`. Un instructor primero es un miembro más de
+la organización (invitado con rol "Instructor/a"); esta migración solo
+agrega su nro. de licencia y si está activo — sus vencimientos (CMA,
+habilitación, IFR) siguen viviendo en la misma tabla `vencimientos` de
+siempre, del propio piloto, sin duplicar nada. Lo único nuevo es una
+política de RLS aditiva que deja al owner/admin **leer** (nunca editar)
+los vencimientos de sus instructores activos, para ver si algo está por
+vencer sin que el piloto tenga que cargarlo dos veces.
+
+**Turnos (Fase 4, solo escuelas):** correr además `sql/agregar_turnos.sql`.
+Cualquier miembro activo puede reservar un turno sobre una aeronave de la
+flota de la organización: un **piloto vinculado** se autogestiona (queda
+confirmado directo); cualquier otro rol (instructor, o admin/owner
+reservando para sí) queda `pendiente_autorizacion` hasta que un owner/admin
+lo confirma o rechaza. El doble booking de una misma aeronave lo impide
+**Postgres** (constraint `EXCLUDE USING gist`, necesita la extensión
+`btree_gist`), no una validación de cliente — ni con dos pestañas abiertas
+a la vez se puede reservar el mismo horario dos veces.
+
+Alcance de esta primera versión: solo reservan miembros de la organización.
+El flujo de "piloto externo sin vincular ve disponibilidad pública y pide
+autorización" de `PROPUESTA_B2B.md` queda para una fase siguiente (misma
+tabla, un par de políticas más — no hace falta rediseñar nada).
+
+**Aprobación de organizaciones (control de alta):** correr además
+`sql/agregar_aprobacion_organizaciones.sql`. Agrega el estado
+`pendiente_aprobacion`/`activa`/`suspendida`/`rechazada` a `organizaciones`
+y deja que la **cuenta admin de la app** (la misma de la sección 6,
+hardcodeada por email) apruebe/rechace/suspenda/reactive cualquier
+organización desde Perfil → Preferencias → Admin → Organizaciones. Una
+organización no `activa` no puede cargar flota, instructores ni
+turnos/despacho — el owner puede seguir invitando miembros mientras tanto,
+pero ve un aviso explicando que falta la aprobación.
+
+**Quién puede crear una organización — correr además
+`sql/restringir_creacion_organizaciones.sql`.** Cerrado del todo: ya NO
+existe una forma de que un piloto cree su propia organización. La única
+puerta es el panel de arriba (Perfil → Preferencias → Admin →
+Organizaciones), donde la cuenta admin completa nombre, tipo y el **email
+de quien va a ser el owner** — la organización nace `activa` directo (la
+crea el admin a propósito, no hace falta aprobarla aparte). Si ese email
+ya tiene cuenta en la app, queda asignado como owner al instante; si no
+tiene cuenta todavía, se le manda una invitación real por mail (ver Edge
+Function `crear-organizacion` más abajo) y queda asignado como owner en
+cuanto la acepta. El owner (o cualquier admin que él invite) es quien
+después invita a instructores/pilotos vinculados y carga la flota — el
+admin de la app no tiene que volver a tocar nada de esa organización una
+vez creada, salvo para aprobar/suspender.
+
+1. Desplegá la función (usa la `service_role key`, que Supabase inyecta
+   sola, y `admin.auth.admin.inviteUserByEmail` para el caso de un owner
+   sin cuenta todavía):
+   ```bash
+   supabase functions deploy crear-organizacion --project-ref TU-PROJECT-REF --no-verify-jwt
+   ```
+   (`--no-verify-jwt` por el mismo motivo que `notificaciones-push`/
+   `borrar-cuenta`: la función valida quién llama leyendo el JWT ella
+   misma, contra `is_licencias_admin()` del lado del server — nunca confía
+   en lo que diga el cliente.)
+2. El mail que recibe un owner sin cuenta previa es la plantilla de
+   **"Invite user"** de Supabase Auth (Authentication → Email Templates
+   en el dashboard) — personalizala ahí si querés que mencione a Vuelux/tu
+   escuela en vez del texto genérico por defecto.
+3. Sin desplegar la función, el botón "Crear" del panel admin muestra un
+   error claro en vez de fallar en silencio.
+
+**Despacho (Fase 1, solo empresas):** correr además
+`sql/agregar_vuelos_asignados.sql`. A diferencia de los turnos de escuela,
+acá no hay autogestión: solo el owner/admin asigna aeronave + piloto +
+tramo directamente (`Perfil → Organizaciones → Despacho`); el piloto
+asignado solo ve su propia agenda. Mismo mecanismo anti doble-booking que
+turnos (`EXCLUDE USING gist`).
+
+**Disponibilidad de turnos y pantalla dedicada "Escuela":** correr además
+`sql/agregar_disponibilidad_turnos.sql`. Agrega la tabla
+`disponibilidad_turnos` (una fila por organización: qué días de la semana
+opera, de qué hora a qué hora, y en bloques de cuántos minutos) y la
+función `guardar_disponibilidad_turnos()` (owner/admin únicamente).
+`crear_turno()` queda actualizada para exigir que el horario pedido caiga
+dentro de esa disponibilidad (convirtiendo el `timestamptz` recibido a
+hora de Argentina antes de comparar) — si la escuela todavía no configuró
+nada, no se puede reservar.
+
+Del lado de la app, un piloto que pertenece a alguna organización activa
+ve una pestaña nueva **"Escuela"** en el menú de abajo (`js/router.js`,
+`RUTAS_NAV_PILOTO` + chequeo de `Repo.listarMisOrganizaciones()`). Al
+entrar, el menú de abajo cambia de significado por completo — deja de
+mostrar Inicio/Bitácora/Aeronaves/Totales y pasa a mostrar
+Dashboard/Turnos (o Despacho, si es una empresa)/Flota, con un botón
+"Piloto" para volver al modo personal (`js/views/escuela.js`):
+
+- **Dashboard:** aviones operativos, próximos turnos/vuelos, y (si sos
+  owner/admin de una escuela) cuántos turnos están pendientes de tu
+  autorización.
+- **Turnos:** grilla estilo calendario — filas por bloque horario, columnas
+  por los próximos 7 días, filtrable por aeronave. Bloque libre → click
+  para reservar (instructor opcional); bloque ocupado → click para ver el
+  detalle y confirmar/rechazar/cancelar según corresponda. El owner/admin
+  configura días/horario/duración del bloque desde el botón "Configurar
+  horario" arriba de la grilla.
+- **Flota / Despacho:** mismas pantallas que ya existían en
+  `Perfil → Organizaciones`, reutilizadas tal cual (no hay dos
+  implementaciones a mantener).
+
+---
+
+## 15) Qué falta / mejoras futuras
 
 - Códigos ANAC reales para multimotor/reactor/turbohélice/aeroaplicador en
   `js/exportadorAnac.js` (`CLASE_ABREV`) — solo monomotor ('MONTT') está

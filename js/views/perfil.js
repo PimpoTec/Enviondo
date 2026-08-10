@@ -14,6 +14,7 @@ const MENU_PERFIL = [
   { id: 'preferencias', icon: 'wrench', label: 'Preferencias', desc: 'Tema, huso horario' },
   { id: 'costos', icon: 'dollar', label: 'Costos', desc: 'Gasto de la carrera', ruta: 'costos' },
   { id: 'exportar', icon: 'download', label: 'Exportar', desc: 'Hoja ANAC, Excel, PDF, backup', ruta: 'exportar' },
+  { id: 'organizaciones', icon: 'users', label: 'Organizaciones', desc: 'Escuela de vuelo o empresa a la que estás vinculado', ruta: 'organizaciones' },
   { id: 'alertas', icon: 'alertTriangle', label: 'Alertas', desc: 'Vencimientos, currency' },
   { id: 'notificaciones', icon: 'bell', label: 'Notificaciones', desc: 'Avisos push de vencimientos y vuelos' },
   { id: 'papelera', icon: 'trash', label: 'Papelera', desc: 'Vuelos borrados' },
@@ -118,6 +119,16 @@ function calcularEstadoHabilitacion({ repasoVuelo, vuelos, diasVentanaCurrency }
 
 const ViewPerfil = {
   seccion: null, // null = menú · 'personales' | 'preferencias' | 'alertas' | 'papelera'
+  // Contador de "qué render es el más nuevo". app.js vuelve a llamar a
+  // Router.navegar() (que termina acá) cada vez que la pestaña vuelve a
+  // primer plano — si eso pasa MIENTRAS este render todavía está esperando
+  // la red, el render viejo no se tiene que enterar de nada: en vez de
+  // seguir de largo y terminar escribiendo sobre un documento que ya
+  // cambió (eso rompía con "Cannot set properties of null" en cuanto
+  // Preferencias tardaba un toque más por el panel admin de
+  // organizaciones), cada render pide un número acá y se fija, después de
+  // cada await, si sigue siendo el más nuevo — si no, corta solo.
+  _token: 0,
   cursosActivos: ['PPA'],
   esAdmin: false,
   mostrarAdmin: false,
@@ -135,6 +146,7 @@ const ViewPerfil = {
   // algo que ni se mostraba). Preferencias, por ejemplo, no necesita ni
   // vuelos ni papelera ni datos del piloto.
   async render(params) {
+    const miToken = ++this._token;
     const main = document.getElementById('main-content');
 
     // Navegación fresca (el router siempre pasa `params`) vs re-render interno
@@ -155,6 +167,7 @@ const ViewPerfil = {
     try {
       if (!this.seccion) {
         const [papelera, vencimientos] = await Promise.all([Repo.listarVuelosBorrados(), Repo.listarVencimientos()]);
+        if (miToken !== this._token) return;
         main.innerHTML = this._htmlMenu(papelera.length, vencimientos);
         this._bindMenu();
         return;
@@ -169,17 +182,20 @@ const ViewPerfil = {
         this.configPorCurso = (await Promise.all(this.cursosActivos.map(async (cursoId) => ({
           curso: CURSOS.find((c) => c.id === cursoId), config: await Repo.listarConfigLicencia(cursoId),
         })))).filter(({ config }) => config.length); // ej. HAB_NOC sin requisitos de referencia todavía: no mostrar una tabla vacía
+        if (miToken !== this._token) return;
         main.innerHTML = volver + this._htmlPersonales();
         this._bindPersonales();
       } else if (this.seccion === 'preferencias') {
         this.esAdmin = await Repo.esAdminApp();
+        if (miToken !== this._token) return;
         main.innerHTML = volver + this._htmlPreferencias();
         this._bindPreferencias();
-        if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin();
+        if (this.esAdmin && this.mostrarAdmin) await this._renderPanelAdmin(miToken);
       } else if (this.seccion === 'alertas') {
         const [vencimientos, vuelos, cursosActivos] = await Promise.all([
           Repo.listarVencimientos(), Repo.listarVuelos(), Repo.getCursosActivos(),
         ]);
+        if (miToken !== this._token) return;
         const diasVentana = calcularVentanaCurrency(cursosActivos);
         main.innerHTML = volver + this._htmlAlertas(vencimientos);
         this._bindAlertas();
@@ -200,14 +216,24 @@ const ViewPerfil = {
           this._eventosProgramados = programados;
           this._eventosVencimientos = vencimientos;
         }
+        if (miToken !== this._token) return;
         main.innerHTML = volver + this._htmlNotificaciones();
         this._bindNotificaciones();
       } else if (this.seccion === 'papelera') {
         const papelera = await Repo.listarVuelosBorrados();
+        if (miToken !== this._token) return;
         main.innerHTML = volver + this._htmlPapelera(papelera);
         this._bindPapelera();
       }
-      document.getElementById('btn-volver-perfil').onclick = () => Router.irA('perfil');
+      // Doble guardia: el chequeo de token de arriba ya corta los renders
+      // viejos ANTES de tocar el DOM en cada sección, pero 'preferencias'
+      // todavía puede volverse vieja DESPUÉS de eso (el await de
+      // _renderPanelAdmin) — de ahí el chequeo de token acá también. El
+      // guard de null es la última red de contención: si por lo que sea
+      // igual llegamos acá con un documento que ya cambió, no explota.
+      if (miToken !== this._token) return;
+      const btnVolver = document.getElementById('btn-volver-perfil');
+      if (btnVolver) btnVolver.onclick = () => Router.irA('perfil');
     } finally {
       cancelarSkeleton();
     }
@@ -466,6 +492,7 @@ const ViewPerfil = {
       </div>
 
       <div id="bloque-licencias"></div>
+      <div id="bloque-organizaciones-admin"></div>
       <div id="bloque-errores"></div>
     `;
   },
@@ -496,15 +523,24 @@ const ViewPerfil = {
         document.querySelectorAll('#pref-admin button').forEach((x) => x.classList.toggle('active', x === b));
         this.mostrarAdmin = b.dataset.valor === '1';
         if (this.mostrarAdmin) await this._renderPanelAdmin();
-        else { document.getElementById('bloque-licencias').innerHTML = ''; document.getElementById('bloque-errores').innerHTML = ''; }
+        else {
+          document.getElementById('bloque-licencias').innerHTML = '';
+          document.getElementById('bloque-organizaciones-admin').innerHTML = '';
+          document.getElementById('bloque-errores').innerHTML = '';
+        }
       };
     });
   },
 
   // ---- Vista admin: TODOS los cursos con sus requisitos, editables ----
-  async _renderPanelAdmin() {
+  // miToken: el de render() cuando se llama desde ahí (para poder cortar
+  // si ese render quedó viejo); si se llama suelta (ej. al prender el
+  // toggle de Admin en Preferencias) toma un token propio y nuevo — un
+  // click del usuario siempre es la intención más reciente.
+  async _renderPanelAdmin(miToken = ++this._token) {
     const cont = document.getElementById('bloque-licencias');
     const todos = await Repo.listarConfigLicenciaTodos();
+    if (miToken !== this._token) return;
 
     cont.innerHTML = `
       <div class="card" style="border:1px solid var(--brand)">
@@ -514,8 +550,14 @@ const ViewPerfil = {
       </div>
     `;
 
+    // cont.querySelector (no document.getElementById): si un render
+    // concurrente reemplaza el documento mientras tanto (ver comentario de
+    // render-token más arriba), cont puede quedar detached — igual sigue
+    // siendo válido consultarlo a ÉL directamente, a diferencia de una
+    // consulta contra el document en vivo, que ya no lo va a encontrar.
     CURSOS.forEach((curso) => {
-      document.getElementById(`btn-agregar-${curso.id}`).onclick = () => this._agregarRequisito(curso.id);
+      const btn = cont.querySelector(`#btn-agregar-${curso.id}`);
+      if (btn) btn.onclick = () => this._agregarRequisito(curso.id);
     });
     cont.querySelectorAll('button[data-accion="guardar-config"]').forEach((b) => {
       b.onclick = () => this._guardarConfig(b.dataset.id);
@@ -523,23 +565,118 @@ const ViewPerfil = {
     cont.querySelectorAll('button[data-accion="borrar-config"]').forEach((b) => {
       b.onclick = () => this._borrarConfig(b.dataset.id);
     });
-    await this._renderErroresRecientes();
+    await this._renderOrganizacionesAdmin(miToken);
+    await this._renderErroresRecientes(miToken);
+  },
+
+  // Panel para aprobar/rechazar/suspender organizaciones (escuelas y
+  // empresas) B2B — ver sql/agregar_aprobacion_organizaciones.sql. Sin
+  // esto, cualquier piloto podía crear una organización y quedaba 100%
+  // operativa al instante; ahora nace 'pendiente_aprobacion' y solo esta
+  // cuenta admin la puede activar.
+  async _renderOrganizacionesAdmin(miToken = ++this._token) {
+    const cont = document.getElementById('bloque-organizaciones-admin');
+    if (!cont) return;
+    let organizaciones = [];
+    try {
+      organizaciones = await Repo.listarOrganizacionesAdmin();
+    } catch (err) {
+      if (miToken !== this._token) return;
+      cont.innerHTML = `<div class="card"><h2>${Icons.tag('users', 'Organizaciones')}</h2><p class="muted">${Icons.tag('alertTriangle', 'No se pudo leer el listado — ¿corriste sql/agregar_aprobacion_organizaciones.sql? (' + (err.message || err) + ')')}</p></div>`;
+      return;
+    }
+    if (miToken !== this._token) return;
+    const pendientes = organizaciones.filter((o) => o.estado === 'pendiente_aprobacion').length;
+    cont.innerHTML = `
+      <div class="card">
+        <h2>${Icons.tag('users', 'Organizaciones')} ${pendientes ? `<span class="badge warn">${pendientes} pendiente${pendientes > 1 ? 's' : ''}</span>` : ''}</h2>
+        <p class="muted" style="margin:0 0 10px">Solo vos podés crear escuelas/empresas — le asignás el owner por email acá mismo. Si ese email todavía no tiene cuenta en la app, le mandamos una invitación para que se registre.</p>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px">
+          <input type="text" id="nueva-org-nombre" placeholder="Nombre (ej. Aeroclub San Justo)" style="flex:1; min-width:200px">
+          <select id="nueva-org-tipo">
+            <option value="escuela">Escuela de vuelo</option>
+            <option value="empresa">Empresa de vuelos privados</option>
+          </select>
+          <input type="email" id="nueva-org-owner-email" placeholder="Email del owner" style="flex:1; min-width:200px">
+          <button class="btn" id="btn-crear-org">Crear</button>
+        </div>
+
+        ${organizaciones.length ? organizaciones.map((o) => `
+          <div class="progreso-item">
+            <div class="pi-head">
+              <span class="nombre">${o.nombre} <span class="muted">— ${LABELS_TIPO_ORGANIZACION[o.tipo]}</span></span>
+              <span class="badge ${o.estado === 'activa' ? 'ok' : o.estado === 'pendiente_aprobacion' ? 'warn' : 'danger'}">${LABELS_ESTADO_ORGANIZACION[o.estado]}</span>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+              ${o.estado === 'pendiente_aprobacion' ? `
+                <button class="btn" data-org-accion="aprobar" data-org-id="${o.id}">Aprobar</button>
+                <button class="btn btn-secundario" data-org-accion="rechazar" data-org-id="${o.id}">Rechazar</button>
+              ` : ''}
+              ${o.estado === 'activa' ? `<button class="btn btn-secundario" data-org-accion="suspender" data-org-id="${o.id}">Suspender</button>` : ''}
+              ${o.estado === 'suspendida' ? `<button class="btn" data-org-accion="reactivar" data-org-id="${o.id}">Reactivar</button>` : ''}
+            </div>
+          </div>
+        `).join('') : '<p class="muted" style="margin:0">Todavía no se creó ninguna organización.</p>'}
+      </div>
+    `;
+    const ACCIONES = {
+      aprobar: Repo.aprobarOrganizacion, rechazar: Repo.rechazarOrganizacion,
+      suspender: Repo.suspenderOrganizacion, reactivar: Repo.reactivarOrganizacion,
+    };
+    cont.querySelectorAll('[data-org-accion]').forEach((b) => {
+      b.onclick = async () => {
+        try {
+          await ACCIONES[b.dataset.orgAccion].call(Repo, b.dataset.orgId);
+          UI.toast('Organización actualizada.', 'ok');
+          this._renderOrganizacionesAdmin();
+        } catch (err) {
+          UI.toast('Error: ' + (err.message || err), 'error');
+        }
+      };
+    });
+
+    // cont.querySelector (no document.getElementById): si en el rato que
+    // tardó el await de más arriba Supabase disparó un refresco de sesión
+    // y app.js volvió a renderizar toda la pantalla, este `cont` capturado
+    // al principio de la función queda "huérfano" (ya no vive en el
+    // documento real) — su innerHTML se sigue pudiendo asignar sin
+    // problema, pero un document.getElementById() ya no lo encuentra
+    // (busca en el documento vivo) y explota con "Cannot set properties
+    // of null". Buscando adentro de `cont` en vez de en todo el documento,
+    // esto sigue andando pase lo que pase con el render viejo.
+    const btnCrearOrg = cont.querySelector('#btn-crear-org');
+    if (btnCrearOrg) btnCrearOrg.onclick = async () => {
+      const nombre = cont.querySelector('#nueva-org-nombre').value.trim();
+      const tipo = cont.querySelector('#nueva-org-tipo').value;
+      const ownerEmail = cont.querySelector('#nueva-org-owner-email').value.trim();
+      if (!nombre || !ownerEmail) { UI.toast('Completá el nombre y el email del owner.', 'warn'); return; }
+      try {
+        await Repo.crearOrganizacionAdmin(nombre, tipo, ownerEmail);
+        UI.toast('Organización creada.', 'ok');
+        this._renderOrganizacionesAdmin();
+      } catch (err) {
+        UI.toast('Error al crear: ' + (err.message || err), 'error');
+      }
+    };
   },
 
   // Monitoreo básico propio (sin Sentry ni nada de terceros): errores que
   // le pasaron a CUALQUIER usuario de la app, capturados solos por
   // js/errorLog.js — así te enterás de que algo se rompió sin depender de
   // que alguien te escriba.
-  async _renderErroresRecientes() {
+  async _renderErroresRecientes(miToken = ++this._token) {
     const cont = document.getElementById('bloque-errores');
     if (!cont) return;
     let errores = [];
     try {
       errores = await Repo.listarErroresRecientes();
     } catch (err) {
+      if (miToken !== this._token) return;
       cont.innerHTML = `<div class="card"><h2>${Icons.tag('alertTriangle', 'Errores recientes')}</h2><p class="muted">${Icons.tag('alertTriangle', 'No se pudo leer el registro — ¿corriste sql/agregar_registro_errores.sql? (' + (err.message || err) + ')')}</p></div>`;
       return;
     }
+    if (miToken !== this._token) return;
     cont.innerHTML = `
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">

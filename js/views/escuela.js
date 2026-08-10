@@ -1,0 +1,495 @@
+// ============================================================================
+// VISTA: ESCUELA — pantalla "modo organización". A diferencia de
+// js/views/organizaciones.js (que muestra TODAS las organizaciones propias
+// en una sola pantalla larga, pensada para gestionarlas desde Perfil), acá
+// un piloto "entra" a UNA organización puntual (llega desde la pestaña
+// "Escuela" del menú de abajo, ver js/router.js) y navega sus propias
+// sub-pantallas: Dashboard, Turnos (o Despacho si es empresa) y Flota.
+//
+// La Flota reusa las mismas funciones de renderizado que organizaciones.js
+// (renderFlotaOrg/abrirFormAeronaveOrg son funciones globales de ese
+// archivo — no hace falta duplicarlas, este archivo se carga después en
+// index.html). El Dashboard y la grilla de Turnos son nuevos: la grilla es
+// el pedido central de esta pantalla — un calendario de bloques según la
+// disponibilidad que configuró el owner/admin (sql/agregar_disponibilidad_turnos.sql).
+// ============================================================================
+
+const ViewEscuela = {
+  async render(params) {
+    const main = document.getElementById('main-content');
+    const orgId = params.get('org');
+    const vista = params.get('vista') || 'dashboard';
+
+    // El ítem "Escuela" del menú de piloto apunta a "#escuela" a secas (sin
+    // saber todavía a qué organización, ver navEscuela() en router.js) —
+    // acá se resuelve cuál: si el piloto pertenece a una sola, entra
+    // directo; si pertenece a varias, elige de una lista.
+    if (!orgId) {
+      const membresias = await Repo.listarMisOrganizaciones();
+      const activas = membresias.filter((m) => m.estado === 'activo' && m.organizaciones?.estado === 'activa');
+      if (activas.length === 1) {
+        window.location.hash = `escuela?org=${activas[0].org_id}&tipo=${activas[0].organizaciones.tipo}&vista=dashboard`;
+        return;
+      }
+      if (!activas.length) {
+        main.innerHTML = '<div class="card"><p class="muted">Todavía no pertenecés a ninguna escuela activa.</p></div>';
+        return;
+      }
+      main.innerHTML = `
+        <div class="card">
+          <h2>${Icons.tag('users', 'Elegí una escuela')}</h2>
+          <div id="lista-elegir-escuela"></div>
+        </div>
+      `;
+      const cont = document.getElementById('lista-elegir-escuela');
+      cont.innerHTML = activas.map((m) => `
+        <div class="progreso-item" data-org="${m.org_id}" data-tipo="${m.organizaciones.tipo}" style="cursor:pointer">
+          <div class="pi-head">
+            <span class="nombre">${m.organizaciones.nombre}</span>
+            <span class="faltan">${LABELS_ROL_ORGANIZACION[m.rol]}</span>
+          </div>
+          <p class="muted" style="margin:4px 0 0">${LABELS_TIPO_ORGANIZACION[m.organizaciones.tipo]}</p>
+        </div>
+      `).join('');
+      cont.querySelectorAll('[data-org]').forEach((el) => {
+        el.onclick = () => { window.location.hash = `escuela?org=${el.dataset.org}&tipo=${el.dataset.tipo}&vista=dashboard`; };
+      });
+      return;
+    }
+
+    const membresias = await Repo.listarMisOrganizaciones();
+    const membresia = membresias.find((m) => m.org_id === orgId && m.estado === 'activo');
+    if (!membresia) {
+      main.innerHTML = '<div class="card"><p class="muted">No pertenecés (o ya no pertenecés) a esta organización.</p></div>';
+      return;
+    }
+
+    const org = membresia.organizaciones;
+    if (org.estado !== 'activa') {
+      main.innerHTML = `
+        <div class="card" style="border:1px solid var(--warn)">
+          <h2>${Icons.tag('alertTriangle', org.nombre)}</h2>
+          <p class="muted">${org.estado === 'pendiente_aprobacion'
+            ? 'Todavía la tiene que aprobar el admin de la app antes de poder operar.'
+            : org.estado === 'suspendida'
+              ? 'Está suspendida por el admin de la app.'
+              : 'El admin de la app rechazó esta organización.'}</p>
+        </div>
+      `;
+      return;
+    }
+
+    const esGestor = esOwnerOAdmin(membresia.rol);
+    if (vista === 'flota') return renderVistaFlota(main, membresia, esGestor);
+    if (vista === 'despacho') return renderVistaDespacho(main, membresia, esGestor);
+    if (vista === 'turnos') return renderVistaTurnos(main, membresia, esGestor);
+    return renderVistaDashboard(main, membresia, esGestor);
+  },
+};
+
+// ----------------------------------------------------------------------------
+// DASHBOARD
+// ----------------------------------------------------------------------------
+async function renderVistaDashboard(main, membresia, esGestor) {
+  const org = membresia.organizaciones;
+  const esEmpresa = org.tipo === 'empresa';
+  const [flota, agenda] = await Promise.all([
+    Repo.listarFlotaOrg(membresia.org_id),
+    esEmpresa ? Repo.listarVuelosAsignadosOrg(membresia.org_id) : Repo.listarTurnosOrg(membresia.org_id),
+  ]);
+
+  const ahora = new Date();
+  const proximos = agenda
+    .filter((t) => t.estado !== 'cancelado' && new Date(t.fin) >= ahora)
+    .sort((a, b) => new Date(a.inicio) - new Date(b.inicio))
+    .slice(0, 5);
+  const pendientes = esEmpresa ? [] : agenda.filter((t) => t.estado === 'pendiente_autorizacion');
+  const aeronavePorId = Object.fromEntries(flota.map((a) => [a.id, a]));
+
+  main.innerHTML = `
+    <div class="card">
+      <h2>${org.nombre}</h2>
+      <p class="muted">Sos ${LABELS_ROL_ORGANIZACION[membresia.rol]} — ${LABELS_TIPO_ORGANIZACION[org.tipo]}</p>
+    </div>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h2>${Icons.tag('plane', 'Aviones operativos')}</h2>
+        <p style="font-size:28px; font-weight:700; margin:4px 0">${flota.length}</p>
+        <p class="muted">Aeronaves cargadas en la flota</p>
+      </div>
+      ${esGestor && !esEmpresa ? `
+        <div class="card">
+          <h2>${Icons.tag('bell', 'Pendientes de autorización')}</h2>
+          <p style="font-size:28px; font-weight:700; margin:4px 0">${pendientes.length}</p>
+          <p class="muted">${pendientes.length ? 'Turnos esperando tu confirmación' : 'Sin turnos pendientes'}</p>
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="card">
+      <h2>${Icons.tag('calendar', esEmpresa ? 'Próximos vuelos asignados' : 'Próximos turnos reservados')}</h2>
+      <div id="dash-proximos"></div>
+    </div>
+  `;
+
+  const cont = document.getElementById('dash-proximos');
+  if (!proximos.length) {
+    cont.innerHTML = `<p class="muted">${esEmpresa ? 'Sin vuelos asignados próximos.' : 'Sin turnos próximos.'}</p>`;
+  } else {
+    cont.innerHTML = proximos.map((t) => {
+      const aeronave = aeronavePorId[t.aeronave_id];
+      const titulo = esEmpresa ? (t.tramo || 'Vuelo') : (aeronave ? aeronave.matricula : 'Aeronave');
+      const estadoLabel = esEmpresa ? LABELS_ESTADO_VUELO_ASIGNADO[t.estado] : LABELS_ESTADO_TURNO[t.estado];
+      return `
+        <div class="progreso-item">
+          <div class="pi-head">
+            <span class="nombre">${titulo} <span class="muted">${new Date(t.inicio).toLocaleString()} → ${new Date(t.fin).toLocaleString()}</span></span>
+            <span class="badge ${t.estado === 'confirmado' || t.estado === 'completado' ? 'ok' : 'warn'}">${estadoLabel}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+// ----------------------------------------------------------------------------
+// FLOTA — reusa renderFlotaOrg / abrirFormAeronaveOrg de organizaciones.js
+// ----------------------------------------------------------------------------
+async function renderVistaFlota(main, membresia, esGestor) {
+  const flota = await Repo.listarFlotaOrg(membresia.org_id);
+  main.innerHTML = `
+    <div class="card">
+      <h2>${Icons.tag('plane', 'Flota')}</h2>
+      <div id="lista-flota-org"></div>
+      ${esGestor ? `<button class="btn" id="btn-nueva-aeronave-org" style="margin-top:12px">Agregar aeronave</button>` : ''}
+      <div id="form-aeronave-org"></div>
+    </div>
+  `;
+  renderFlotaOrg(flota, { org_id: membresia.org_id, rerender: () => renderVistaFlota(main, membresia, esGestor) }, esGestor);
+  const btnNueva = document.getElementById('btn-nueva-aeronave-org');
+  if (btnNueva) btnNueva.onclick = () => abrirFormAeronaveOrg({ org_id: membresia.org_id, rerender: () => renderVistaFlota(main, membresia, esGestor) });
+}
+
+// ----------------------------------------------------------------------------
+// DESPACHO (empresas)
+// ----------------------------------------------------------------------------
+async function renderVistaDespacho(main, membresia, esGestor) {
+  const [flota, miembros, despacho] = await Promise.all([
+    Repo.listarFlotaOrg(membresia.org_id),
+    esGestor ? Repo.listarMiembros(membresia.org_id) : Promise.resolve([]),
+    Repo.listarVuelosAsignadosOrg(membresia.org_id),
+  ]);
+  const activos = miembros.filter((m) => m.estado === 'activo');
+
+  main.innerHTML = `
+    <div class="card">
+      <h2>${Icons.tag('calendar', 'Despacho')}</h2>
+      ${esGestor && flota.length && activos.length ? `
+        <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap">
+          <select id="despacho-aeronave">
+            ${flota.map((a) => `<option value="${a.id}">${a.matricula} — ${a.marca_modelo}</option>`).join('')}
+          </select>
+          <select id="despacho-piloto">
+            ${activos.map((m) => `<option value="${m.user_id}">${LABELS_ROL_ORGANIZACION[m.rol]} ...${m.user_id.slice(-6)}</option>`).join('')}
+          </select>
+          <input type="text" id="despacho-tramo" placeholder="Tramo (ej. SABE-SAZR)">
+          <input type="datetime-local" id="despacho-inicio">
+          <input type="datetime-local" id="despacho-fin">
+          <button class="btn" id="btn-asignar-vuelo">Asignar</button>
+        </div>
+      ` : esGestor ? `<p class="muted">Para asignar un vuelo hace falta al menos una aeronave en la flota y un miembro activo.</p>` : ''}
+      <div id="lista-despacho" style="margin-top:12px"></div>
+    </div>
+  `;
+
+  await renderDespacho(despacho, flota, miembros, { org_id: membresia.org_id, organizaciones: membresia.organizaciones, rerender: () => renderVistaDespacho(main, membresia, esGestor) }, esGestor);
+
+  const btnAsignar = document.getElementById('btn-asignar-vuelo');
+  if (btnAsignar) {
+    btnAsignar.onclick = async () => {
+      const aeronaveId = document.getElementById('despacho-aeronave').value;
+      const pilotoId = document.getElementById('despacho-piloto').value;
+      const tramo = document.getElementById('despacho-tramo').value.trim();
+      const inicio = document.getElementById('despacho-inicio').value;
+      const fin = document.getElementById('despacho-fin').value;
+      if (!tramo || !inicio || !fin) { UI.toast('Completá tramo, inicio y fin.', 'warn'); return; }
+      try {
+        await Repo.asignarVuelo(membresia.org_id, aeronaveId, pilotoId, tramo, new Date(inicio).toISOString(), new Date(fin).toISOString());
+        UI.toast('Vuelo asignado.', 'ok');
+        renderVistaDespacho(main, membresia, esGestor);
+      } catch (err) {
+        UI.toast('Error al asignar: ' + (err.message || err), 'error');
+      }
+    };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TURNOS — grilla estilo calendario tipo "scheduler": una columna por
+// aeronave, filas por bloque horario del día elegido (con navegación
+// día anterior/siguiente/hoy). Un turno ocupa tantas filas como bloques
+// dure (rowspan), coloreado según su estado y con el nombre del piloto
+// adentro. Clickear un bloque libre lo reserva; uno ocupado muestra el
+// detalle (y confirmar/rechazar/cancelar si corresponde).
+// ----------------------------------------------------------------------------
+async function renderVistaTurnos(main, membresia, esGestor) {
+  const orgId = membresia.org_id;
+  const [flota, instructores, turnos, disponibilidad] = await Promise.all([
+    Repo.listarFlotaOrg(orgId),
+    Repo.listarInstructores(orgId),
+    Repo.listarTurnosOrg(orgId),
+    Repo.obtenerDisponibilidadTurnos(orgId),
+  ]);
+
+  const nombresPorPiloto = await Repo.obtenerNombresPilotosOrg(orgId, [...new Set(turnos.map((t) => t.piloto_user_id))]);
+
+  main.innerHTML = `
+    <div class="card">
+      <h2>${Icons.tag('calendar', 'Turnos')}</h2>
+      ${esGestor ? `<button class="btn btn-secundario" id="btn-config-horario">${disponibilidad ? 'Editar horario' : 'Configurar horario'}</button>` : ''}
+      <div id="config-horario"></div>
+    </div>
+    ${!disponibilidad ? `
+      <div class="card"><p class="muted">Esta escuela todavía no configuró su horario de turnos.${esGestor ? ' Usá el botón de arriba para configurarlo.' : ' Avisale al owner/admin.'}</p></div>
+    ` : !flota.length ? `
+      <div class="card"><p class="muted">Todavía no hay aeronaves en la flota.</p></div>
+    ` : `
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:8px">
+          <div style="display:flex; align-items:center; gap:8px">
+            <button class="btn btn-secundario" id="btn-dia-anterior" aria-label="Día anterior">‹</button>
+            <strong id="turnos-fecha-label"></strong>
+            <button class="btn btn-secundario" id="btn-dia-siguiente" aria-label="Día siguiente">›</button>
+            <button class="btn btn-secundario" id="btn-dia-hoy">Hoy</button>
+          </div>
+          ${instructores.filter((i) => i.activo).length ? `
+            <select id="turnos-instructor">
+              <option value="">Sin instructor</option>
+              ${instructores.filter((i) => i.activo).map((i) => `<option value="${i.id}">${i.nro_licencia || ('Instructor ...' + i.user_id.slice(-6))}</option>`).join('')}
+            </select>
+          ` : ''}
+        </div>
+        <div id="grilla-turnos" style="overflow-x:auto"></div>
+      </div>
+      <div id="detalle-bloque"></div>
+    `}
+  `;
+
+  if (esGestor) {
+    document.getElementById('btn-config-horario').onclick = () => abrirFormHorario(orgId, disponibilidad, () => renderVistaTurnos(main, membresia, esGestor));
+  }
+  if (!disponibilidad || !flota.length) return;
+
+  let dia = new Date();
+  dia.setHours(0, 0, 0, 0);
+  const pintar = () => {
+    document.getElementById('turnos-fecha-label').textContent = dia.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    renderGrillaTurnos(orgId, dia, flota, turnos, disponibilidad, nombresPorPiloto, membresia, esGestor);
+  };
+  document.getElementById('btn-dia-anterior').onclick = () => { dia = new Date(dia); dia.setDate(dia.getDate() - 1); pintar(); };
+  document.getElementById('btn-dia-siguiente').onclick = () => { dia = new Date(dia); dia.setDate(dia.getDate() + 1); pintar(); };
+  document.getElementById('btn-dia-hoy').onclick = () => { dia = new Date(); dia.setHours(0, 0, 0, 0); pintar(); };
+  pintar();
+}
+
+function abrirFormHorario(orgId, disponibilidad, alGuardar) {
+  const cont = document.getElementById('config-horario');
+  const dias = disponibilidad?.dias_semana || [1, 2, 3, 4, 5];
+  const nombresDias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  cont.innerHTML = `
+    <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--borde)">
+      <div class="form-grupo">
+        <label>Días habilitados</label>
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+          ${nombresDias.map((n, i) => `
+            <label style="display:flex; align-items:center; gap:4px; font-weight:normal">
+              <input type="checkbox" data-dia="${i}" ${dias.includes(i) ? 'checked' : ''}> ${n}
+            </label>
+          `).join('')}
+        </div>
+      </div>
+      <div class="grid cols-3">
+        <div class="form-grupo"><label for="cfg-hora-inicio">Apertura</label><input type="time" id="cfg-hora-inicio" value="${disponibilidad?.hora_inicio?.slice(0, 5) || '08:00'}"></div>
+        <div class="form-grupo"><label for="cfg-hora-fin">Cierre</label><input type="time" id="cfg-hora-fin" value="${disponibilidad?.hora_fin?.slice(0, 5) || '20:00'}"></div>
+        <div class="form-grupo"><label for="cfg-duracion">Duración del bloque (min)</label><input type="number" id="cfg-duracion" value="${disponibilidad?.duracion_bloque_minutos || 60}" min="1"></div>
+      </div>
+      <button class="btn" id="btn-guardar-horario">Guardar</button>
+    </div>
+  `;
+  document.getElementById('btn-guardar-horario').onclick = async () => {
+    const diasSel = Array.from(cont.querySelectorAll('[data-dia]:checked')).map((el) => Number(el.dataset.dia));
+    if (!diasSel.length) { UI.toast('Elegí al menos un día.', 'warn'); return; }
+    const horaInicio = document.getElementById('cfg-hora-inicio').value;
+    const horaFin = document.getElementById('cfg-hora-fin').value;
+    const duracion = Number(document.getElementById('cfg-duracion').value);
+    try {
+      await Repo.guardarDisponibilidadTurnos(orgId, diasSel, horaInicio, horaFin, duracion);
+      UI.toast('Horario guardado.', 'ok');
+      alGuardar();
+    } catch (err) {
+      UI.toast('Error al guardar: ' + (err.message || err), 'error');
+    }
+  };
+}
+
+// Colores de fondo de cada bloque en la grilla, según estado.
+const COLOR_BLOQUE_TURNO = {
+  confirmado: '#2f7bda',
+  pendiente_autorizacion: '#e0922b',
+};
+
+function nombrePiloto(userId, nombresPorPiloto, user) {
+  if (userId === user?.id) return 'Vos';
+  return nombresPorPiloto[userId] || `Piloto ...${userId.slice(-6)}`;
+}
+
+async function renderGrillaTurnos(orgId, dia, flota, turnos, disponibilidad, nombresPorPiloto, membresia, esGestor) {
+  const grilla = document.getElementById('grilla-turnos');
+  const detalle = document.getElementById('detalle-bloque');
+  detalle.innerHTML = '';
+
+  const diaSemana = dia.getDay();
+  if (!disponibilidad.dias_semana.includes(diaSemana)) {
+    grilla.innerHTML = '<p class="muted">Este día no está habilitado para reservar turnos.</p>';
+    return;
+  }
+
+  const [hIni, mIni] = disponibilidad.hora_inicio.split(':').map(Number);
+  const [hFin, mFin] = disponibilidad.hora_fin.split(':').map(Number);
+  const duracion = disponibilidad.duracion_bloque_minutos;
+  const minInicio = hIni * 60 + mIni;
+  const minFin = hFin * 60 + mFin;
+  const cantBloques = Math.floor((minFin - minInicio) / duracion);
+
+  const inicioDia = new Date(dia);
+  const finDia = new Date(dia);
+  finDia.setDate(finDia.getDate() + 1);
+  const turnosDia = turnos.filter((t) => t.estado !== 'cancelado' && new Date(t.inicio) < finDia && new Date(t.fin) > inicioDia);
+
+  const user = await usuarioActual();
+  const ahora = new Date();
+  // Cuántas filas de más, después de la fila donde arranca, ya quedan
+  // "ocupadas" por el rowspan de un turno más largo de un bloque — se
+  // cuenta por aeronave a medida que se recorren las filas de arriba
+  // hacia abajo, para no volver a dibujar esa celda.
+  const filasCubiertas = Object.fromEntries(flota.map((a) => [a.id, 0]));
+
+  let html = `<table class="tabla-turnos" style="border-collapse:collapse; width:100%; min-width:${100 + flota.length * 150}px">`;
+  html += '<thead><tr><th style="width:64px"></th>' + flota.map((a) => `
+    <th style="padding:6px; text-align:center; border-bottom:1px solid var(--borde)">
+      <div>${a.matricula}</div>
+      <div class="muted" style="font-weight:normal; font-size:12px">${a.marca_modelo}</div>
+    </th>
+  `).join('') + '</tr></thead><tbody>';
+
+  for (let i = 0; i < cantBloques; i++) {
+    const minutosInicio = minInicio + i * duracion;
+    const hh = String(Math.floor(minutosInicio / 60)).padStart(2, '0');
+    const mm = String(minutosInicio % 60).padStart(2, '0');
+    html += `<tr><td class="muted" style="padding:4px 8px; white-space:nowrap; border-right:1px solid var(--borde)">${hh}:${mm}</td>`;
+    for (const a of flota) {
+      if (filasCubiertas[a.id] > 0) { filasCubiertas[a.id]--; continue; }
+      const inicio = new Date(dia);
+      inicio.setMinutes(minutosInicio);
+      const fin = new Date(inicio.getTime() + duracion * 60000);
+      const turno = turnosDia.find((t) => t.aeronave_id === a.id && new Date(t.inicio) <= inicio && new Date(t.fin) > inicio);
+      if (turno) {
+        const filasOcupa = Math.max(1, Math.round((new Date(turno.fin) - new Date(turno.inicio)) / (duracion * 60000)));
+        filasCubiertas[a.id] = filasOcupa - 1;
+        const color = COLOR_BLOQUE_TURNO[turno.estado] || '#888';
+        html += `<td rowspan="${filasOcupa}" style="padding:2px; vertical-align:top">
+          <div class="bloque-turno" data-turno="${turno.id}" style="height:100%; min-height:36px; background:${color}; color:#fff; border-radius:6px; padding:4px 6px; font-size:11px; cursor:pointer; line-height:1.3">
+            <div>${new Date(turno.inicio).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div style="font-weight:600">${nombrePiloto(turno.piloto_user_id, nombresPorPiloto, user)}</div>
+          </div>
+        </td>`;
+      } else {
+        const pasado = fin < ahora;
+        html += `<td style="padding:2px">
+          <button class="btn-bloque" data-inicio="${inicio.toISOString()}" data-fin="${fin.toISOString()}" data-aeronave="${a.id}" ${pasado ? 'disabled' : ''}
+            style="width:100%; min-height:36px; padding:6px 2px; font-size:11px; border:1px dashed var(--borde); color:${pasado ? 'var(--muted, #888)' : 'var(--ok, #1a7f37)'}; background:transparent; border-radius:6px; cursor:${pasado ? 'default' : 'pointer'}">
+            ${pasado ? '—' : 'Libre'}
+          </button>
+        </td>`;
+      }
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  grilla.innerHTML = html;
+
+  grilla.querySelectorAll('.bloque-turno').forEach((el) => {
+    el.onclick = () => mostrarDetalleTurno(turnosDia.find((t) => t.id === el.dataset.turno), nombresPorPiloto, membresia, esGestor);
+  });
+  grilla.querySelectorAll('.btn-bloque').forEach((b) => {
+    if (b.disabled) return;
+    b.onclick = () => mostrarFormReserva(orgId, b.dataset.inicio, b.dataset.fin, b.dataset.aeronave, membresia);
+  });
+}
+
+async function mostrarDetalleTurno(turno, nombresPorPiloto, membresia, esGestor) {
+  const detalle = document.getElementById('detalle-bloque');
+  const user = await usuarioActual();
+  const esPropio = turno.piloto_user_id === user?.id;
+  detalle.innerHTML = `
+    <div class="card">
+      <h2>${Icons.tag('calendar', 'Detalle del turno')}</h2>
+      <p>${nombrePiloto(turno.piloto_user_id, nombresPorPiloto, user)} — ${new Date(turno.inicio).toLocaleString()} → ${new Date(turno.fin).toLocaleString()}</p>
+      <p class="muted">Estado: ${LABELS_ESTADO_TURNO[turno.estado]}</p>
+      <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+        ${esGestor && turno.estado === 'pendiente_autorizacion' ? `
+          <button class="btn" id="btn-confirmar-turno">Confirmar</button>
+          <button class="btn btn-secundario" id="btn-rechazar-turno">Rechazar</button>
+        ` : ''}
+        ${(esPropio || esGestor) && turno.estado !== 'cancelado' ? `<button class="btn btn-secundario" id="btn-cancelar-turno">Cancelar</button>` : ''}
+      </div>
+    </div>
+  `;
+  const refrescar = () => window.Router.navegar();
+  const btnConfirmar = document.getElementById('btn-confirmar-turno');
+  if (btnConfirmar) btnConfirmar.onclick = async () => {
+    try { await Repo.confirmarTurno(turno.id); UI.toast('Turno confirmado.', 'ok'); refrescar(); }
+    catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
+  };
+  const btnRechazar = document.getElementById('btn-rechazar-turno');
+  if (btnRechazar) btnRechazar.onclick = async () => {
+    if (!(await UI.confirmar('¿Rechazar este turno?'))) return;
+    try { await Repo.rechazarTurno(turno.id); UI.toast('Turno rechazado.', 'ok'); refrescar(); }
+    catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
+  };
+  const btnCancelar = document.getElementById('btn-cancelar-turno');
+  if (btnCancelar) btnCancelar.onclick = async () => {
+    if (!(await UI.confirmar('¿Cancelar este turno?', { peligro: true }))) return;
+    try { await Repo.cancelarTurno(turno.id); UI.toast('Turno cancelado.', 'ok'); refrescar(); }
+    catch (err) { UI.toast('Error: ' + (err.message || err), 'error'); }
+  };
+}
+
+function mostrarFormReserva(orgId, inicioIso, finIso, aeronaveId, membresia) {
+  const detalle = document.getElementById('detalle-bloque');
+  const instructorSel = document.getElementById('turnos-instructor');
+  detalle.innerHTML = `
+    <div class="card">
+      <h2>${Icons.tag('plusCircle', 'Reservar turno')}</h2>
+      <p>${new Date(inicioIso).toLocaleString()} → ${new Date(finIso).toLocaleString()}</p>
+      <p class="muted">${membresia.rol === 'piloto_vinculado' ? 'Se confirma directo.' : 'Queda pendiente de autorización de un owner/admin.'}</p>
+      <div style="display:flex; gap:8px; margin-top:8px">
+        <button class="btn" id="btn-confirmar-reserva">Reservar</button>
+        <button class="btn btn-secundario" id="btn-cancelar-reserva">Cancelar</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('btn-cancelar-reserva').onclick = () => { detalle.innerHTML = ''; };
+  document.getElementById('btn-confirmar-reserva').onclick = async () => {
+    try {
+      await Repo.crearTurno(orgId, aeronaveId, inicioIso, finIso, instructorSel ? (instructorSel.value || null) : null);
+      UI.toast('Turno reservado.', 'ok');
+      window.Router.navegar();
+    } catch (err) {
+      UI.toast('Error al reservar: ' + (err.message || err), 'error');
+    }
+  };
+}
+
+window.ViewEscuela = ViewEscuela;

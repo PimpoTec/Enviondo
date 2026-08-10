@@ -80,6 +80,30 @@ const Repo = {
     Cache.invalidar('aeronaves');
   },
 
+  // ---- Flota de organización (Fase 2 B2B — ver sql/agregar_flota_org.sql).
+  // Misma tabla `aeronaves` que la flota personal, pero con org_id en vez
+  // de user_id (propiedad dual) — nunca se mezclan en el mismo listado, y
+  // esta flota no pasa por el cache de "mis" aeronaves (Cache.conCache),
+  // porque no es del usuario sino de la organización. ----
+  async listarFlotaOrg(orgId) {
+    const { data, error } = await window.db.from('aeronaves').select('*').eq('org_id', orgId).order('matricula');
+    if (error) throw error;
+    return data;
+  },
+  async guardarAeronaveOrg(orgId, aeronave) {
+    if (aeronave.id) {
+      const { error } = await window.db.from('aeronaves').update(aeronave).eq('id', aeronave.id);
+      if (error) throw error;
+    } else {
+      const { error } = await window.db.from('aeronaves').insert({ ...aeronave, org_id: orgId, user_id: null });
+      if (error) throw error;
+    }
+  },
+  async borrarAeronaveOrg(id) {
+    const { error } = await window.db.from('aeronaves').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   // Sube la foto a Storage (bucket público "aeronaves-fotos", carpeta
   // propia = user_id — ver sql/agregar_foto_aeronave.sql) y guarda la URL
   // pública en la ficha. Nombre de archivo único por subida (no se
@@ -134,8 +158,16 @@ const Repo = {
   async listarVuelos(filtros = {}) {
     const sinFiltros = !filtros.desde && !filtros.hasta && !filtros.aeronave_id && !filtros.finalidad_vuelo;
     const fetchFn = async () => {
+      // Orden secundario por hora de salida (y terciario por created_at):
+      // ordenar solo por fecha deja el orden de los vuelos del MISMO día
+      // librado a lo que Postgres devuelva (no garantiza nada más allá de
+      // la columna pedida) — con dos vuelos el mismo día, a veces salía el
+      // más nuevo primero y a veces al revés, sin ningún criterio visible.
       let q = window.db.from('vuelos').select('*, aeronaves(matricula, marca_modelo, potencia, clase, tarifa_hora_diurna, tarifa_hora_nocturna, moneda)')
-        .is('deleted_at', null).order('fecha', { ascending: false });
+        .is('deleted_at', null)
+        .order('fecha', { ascending: false })
+        .order('hora_salida_utc', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
       if (filtros.desde) q = q.gte('fecha', filtros.desde);
       if (filtros.hasta) q = q.lte('fecha', filtros.hasta);
       if (filtros.aeronave_id) q = q.eq('aeronave_id', filtros.aeronave_id);
@@ -201,9 +233,18 @@ const Repo = {
   // ---- Vuelos programados (agenda de próximos vuelos) ----
   async listarVuelosProgramados() {
     return Cache.conCache('vuelos_programados', async () => {
+      // Antes filtraba desde HOY — un vuelo programado para ayer que
+      // todavía no se cargó (la notificación de "cargá los datos" llega
+      // recién al día siguiente) desaparecía de esta lista apenas pasaba
+      // la medianoche, sin ninguna forma de "marcarlo como volado" ni de
+      // borrarlo: quedaba huérfano en la base para siempre. Con 30 días
+      // hacia atrás, sigue apareciendo (el Dashboard lo marca "Atrasado")
+      // hasta que el piloto lo carga o lo borra a mano.
+      const haceUnMes = new Date();
+      haceUnMes.setDate(haceUnMes.getDate() - 30);
       const { data, error } = await window.db.from('vuelos_programados')
         .select('*, aeronaves(matricula, marca_modelo)')
-        .gte('fecha', new Date().toISOString().slice(0, 10))
+        .gte('fecha', haceUnMes.toISOString().slice(0, 10))
         .order('fecha', { ascending: true });
       if (error) throw error;
       return data;
@@ -424,6 +465,142 @@ const Repo = {
     if (error) throw error;
     Cache.invalidar('vencimientos');
   },
+  // Vencimientos de OTRO usuario (para que owner/admin vean el CMA/
+  // habilitación de sus instructores) — sin cache, porque el cache de
+  // 'vencimientos' es para los propios del usuario logueado, no para los
+  // de un tercero. RLS es quien de verdad decide si esta consulta trae
+  // algo o vuelve vacía (ver sql/agregar_instructores.sql).
+  async listarVencimientosDeUsuario(userId) {
+    const { data, error } = await window.db.from('vencimientos').select('*').eq('user_id', userId).order('fecha_vencimiento');
+    if (error) throw error;
+    return data;
+  },
+
+  // ---- Instructores (Fase 3 B2B — ver sql/agregar_instructores.sql).
+  // Un instructor primero tiene que ser miembro de la organización con
+  // rol 'instructor' (ver invitarMiembro) — acá solo se agregan sus datos
+  // propios de instructor (nro de licencia, activo/inactivo). ----
+  async listarInstructores(orgId) {
+    const { data, error } = await window.db.from('instructores').select('*').eq('org_id', orgId).order('created_at');
+    if (error) throw error;
+    return data;
+  },
+  async agregarInstructor(orgId, userId, nroLicencia) {
+    const { error } = await window.db.from('instructores').insert({ org_id: orgId, user_id: userId, nro_licencia: nroLicencia || null });
+    if (error) throw error;
+  },
+  async actualizarInstructor(id, cambios) {
+    const { error } = await window.db.from('instructores').update(cambios).eq('id', id);
+    if (error) throw error;
+  },
+  async quitarInstructor(id) {
+    const { error } = await window.db.from('instructores').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // ---- Turnos (Fase 4 B2B — ver sql/agregar_turnos.sql). Todas las
+  // escrituras pasan por rpc: quién puede reservar/confirmar/rechazar/
+  // cancelar, y con qué estado inicial, es una regla de negocio que vive
+  // una sola vez en el server (además, el server es quien de verdad
+  // impide el doble booking vía constraint de exclusión — no esta capa). ----
+  async listarTurnosOrg(orgId) {
+    const { data, error } = await window.db.from('turnos').select('*').eq('org_id', orgId).order('inicio');
+    if (error) throw error;
+    return data;
+  },
+  async crearTurno(orgId, aeronaveId, inicio, fin, instructorId) {
+    const { data, error } = await window.db.rpc('crear_turno', {
+      p_org_id: orgId, p_aeronave_id: aeronaveId, p_inicio: inicio, p_fin: fin, p_instructor_id: instructorId || null,
+    });
+    if (error) throw error;
+    return data;
+  },
+  async confirmarTurno(turnoId) {
+    const { error } = await window.db.rpc('confirmar_turno', { p_turno_id: turnoId });
+    if (error) throw error;
+  },
+  async rechazarTurno(turnoId) {
+    const { error } = await window.db.rpc('rechazar_turno', { p_turno_id: turnoId });
+    if (error) throw error;
+  },
+  async cancelarTurno(turnoId) {
+    const { error } = await window.db.rpc('cancelar_turno', { p_turno_id: turnoId });
+    if (error) throw error;
+  },
+
+  // ---- Despacho / vuelos asignados (Fase 1 B2B, empresas — ver
+  // sql/agregar_vuelos_asignados.sql). Sin autogestión del piloto: solo
+  // owner/admin asignan, vía rpc (mismo motivo que turnos: la regla de
+  // permisos y el anti doble-booking viven en el server, no acá). ----
+  async listarVuelosAsignadosOrg(orgId) {
+    const { data, error } = await window.db.from('vuelos_asignados').select('*').eq('org_id', orgId).order('inicio');
+    if (error) throw error;
+    return data;
+  },
+  async asignarVuelo(orgId, aeronaveId, pilotoUserId, tramo, inicio, fin) {
+    const { data, error } = await window.db.rpc('asignar_vuelo', {
+      p_org_id: orgId, p_aeronave_id: aeronaveId, p_piloto_user_id: pilotoUserId, p_tramo: tramo, p_inicio: inicio, p_fin: fin,
+    });
+    if (error) throw error;
+    return data;
+  },
+  async actualizarEstadoVueloAsignado(vueloId, estado) {
+    const { error } = await window.db.rpc('actualizar_estado_vuelo_asignado', { p_vuelo_id: vueloId, p_estado: estado });
+    if (error) throw error;
+  },
+  async cancelarVueloAsignado(vueloId) {
+    await this.actualizarEstadoVueloAsignado(vueloId, 'cancelado');
+  },
+
+  // ---- Disponibilidad de turnos (ver sql/agregar_disponibilidad_turnos.sql)
+  // — días/horario/duración de bloque que el owner/admin configura para
+  // que la grilla de Turnos sepa qué horarios ofrecer. ----
+  async obtenerDisponibilidadTurnos(orgId) {
+    const { data, error } = await window.db.from('disponibilidad_turnos').select('*').eq('org_id', orgId).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async guardarDisponibilidadTurnos(orgId, diasSemana, horaInicio, horaFin, duracionMinutos) {
+    const { error } = await window.db.rpc('guardar_disponibilidad_turnos', {
+      p_org_id: orgId, p_dias_semana: diasSemana, p_hora_inicio: horaInicio, p_hora_fin: horaFin, p_duracion_bloque_minutos: duracionMinutos,
+    });
+    if (error) throw error;
+  },
+  // Devuelve { [user_id]: nombre_completo } para los ids pedidos que
+  // además comparten la organización con quien llama (ver
+  // sql/agregar_nombres_pilotos_org.sql) — un id que no tiene nombre
+  // cargado o no comparte la org simplemente no aparece en el resultado.
+  async obtenerNombresPilotosOrg(orgId, userIds) {
+    if (!userIds.length) return {};
+    const { data, error } = await window.db.rpc('nombres_pilotos_org', { p_org_id: orgId, p_user_ids: userIds });
+    if (error) throw error;
+    return Object.fromEntries(data.filter((f) => f.nombre_completo).map((f) => [f.user_id, f.nombre_completo]));
+  },
+
+  // ---- Panel admin de organizaciones (ver
+  // sql/agregar_aprobacion_organizaciones.sql) — solo la cuenta admin de
+  // la app (esAdminApp()) puede ver todas y cambiarles el estado. ----
+  async listarOrganizacionesAdmin() {
+    const { data, error } = await window.db.from('organizaciones').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async aprobarOrganizacion(orgId) {
+    const { error } = await window.db.rpc('aprobar_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async rechazarOrganizacion(orgId) {
+    const { error } = await window.db.rpc('rechazar_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async suspenderOrganizacion(orgId) {
+    const { error } = await window.db.rpc('suspender_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
+  async reactivarOrganizacion(orgId) {
+    const { error } = await window.db.rpc('reactivar_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+  },
 
   // ---- Notificaciones push (ver js/notificaciones.js para el flujo de
   // permiso/suscripción y supabase/functions/notificaciones-push para el
@@ -482,6 +659,71 @@ const Repo = {
   },
   async borrarRecordatorio(id) {
     const { error } = await window.db.from('recordatorios').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // ---- Organizaciones (Fase 0 B2B — ver sql/agregar_organizaciones.sql) ----
+  // Todas las escrituras pasan por funciones de Postgres (rpc), no por
+  // insert/update directo: la validación de "quién puede hacer qué" vive
+  // una sola vez en el server (RLS + security definer), no duplicada acá.
+  async listarMisOrganizaciones() {
+    // El filtro por user_id es imprescindible acá y NO es redundante con
+    // RLS: la política de organizacion_miembros también deja ver, a
+    // owner/admin, las filas de SUS invitados (para poder gestionarlos
+    // desde "Miembros") — sin este filtro, esas filas ajenas se colaban acá
+    // y aparecían como si fueran invitaciones propias del owner.
+    const user = await usuarioActual();
+    const { data, error } = await window.db.from('organizacion_miembros')
+      .select('id, org_id, rol, estado, organizaciones(id, tipo, nombre, plan, estado)')
+      .eq('user_id', user.id)
+      .order('created_at');
+    if (error) throw error;
+    return data;
+  },
+  // Solo la cuenta admin de la app puede crear organizaciones (ver
+  // sql/restringir_creacion_organizaciones.sql) — pasa por la Edge
+  // Function porque, si el email del owner todavía no tiene cuenta, hace
+  // falta mandarle una invitación real (service_role, no puede vivir acá).
+  async crearOrganizacionAdmin(nombre, tipo, ownerEmail) {
+    const { data, error } = await window.db.functions.invoke('crear-organizacion', {
+      body: { nombre, tipo, owner_email: ownerEmail, redirect_to: window.location.origin + window.location.pathname },
+    });
+    if (error) throw new Error(await mensajeDeErrorFuncion(error));
+    if (data?.error) throw new Error(data.error);
+    return data?.org_id;
+  },
+  async listarMiembros(orgId) {
+    const { data, error } = await window.db.from('organizacion_miembros')
+      .select('id, user_id, rol, estado, created_at').eq('org_id', orgId).order('created_at');
+    if (error) throw error;
+    return data;
+  },
+  async invitarMiembro(orgId, email, rol) {
+    const { data, error } = await window.db.rpc('invitar_miembro', { p_org_id: orgId, p_email: email, p_rol: rol });
+    if (error) throw error;
+    return data;
+  },
+  async aceptarInvitacion(orgId) {
+    const { error } = await window.db.rpc('aceptar_invitacion', { p_org_id: orgId });
+    if (error) throw error;
+    // Puede ser la primera organización activa del piloto — sin esto, la
+    // pestaña "Escuela" del menú de abajo (router.js, cacheada para que la
+    // navegación no espere a la red en cada toque) tardaba hasta el
+    // refresco en segundo plano en aparecer.
+    Cache.invalidar('mis_organizaciones_nav');
+  },
+  async rechazarInvitacion(orgId) {
+    const { error } = await window.db.rpc('rechazar_invitacion', { p_org_id: orgId });
+    if (error) throw error;
+    Cache.invalidar('mis_organizaciones_nav');
+  },
+  async salirDeOrganizacion(orgId) {
+    const { error } = await window.db.rpc('salir_organizacion', { p_org_id: orgId });
+    if (error) throw error;
+    Cache.invalidar('mis_organizaciones_nav');
+  },
+  async quitarMiembro(orgId, userId) {
+    const { error } = await window.db.rpc('quitar_miembro', { p_org_id: orgId, p_user_id: userId });
     if (error) throw error;
   },
 };
@@ -601,6 +843,46 @@ function valorNocturnasAjustado(cursoId, agg, configsPorCurso) {
   return Math.max(0, Calc.round2(agg.total_noche - minimoHabNoc));
 }
 
+// ---- Organizaciones: labels y chequeos de rol puros (sin red), para que
+// la vista y los tests no dupliquen esta lista. ----
+const LABELS_ROL_ORGANIZACION = {
+  owner: 'Dueño/a',
+  admin: 'Administrador/a',
+  instructor: 'Instructor/a',
+  piloto_vinculado: 'Piloto vinculado',
+};
+const LABELS_TIPO_ORGANIZACION = { escuela: 'Escuela de vuelo', empresa: 'Empresa de vuelos privados' };
+
+function esOwnerOAdmin(rol) {
+  return rol === 'owner' || rol === 'admin';
+}
+
+const LABELS_ESTADO_TURNO = {
+  pendiente_autorizacion: 'Pendiente de autorización',
+  confirmado: 'Confirmado',
+  cancelado: 'Cancelado',
+};
+
+const LABELS_ESTADO_VUELO_ASIGNADO = {
+  programado: 'Programado',
+  en_curso: 'En curso',
+  completado: 'Completado',
+  cancelado: 'Cancelado',
+};
+
+const LABELS_ESTADO_ORGANIZACION = {
+  pendiente_aprobacion: 'Pendiente de aprobación',
+  activa: 'Activa',
+  suspendida: 'Suspendida',
+  rechazada: 'Rechazada',
+};
+
+window.LABELS_ROL_ORGANIZACION = LABELS_ROL_ORGANIZACION;
+window.LABELS_TIPO_ORGANIZACION = LABELS_TIPO_ORGANIZACION;
+window.LABELS_ESTADO_TURNO = LABELS_ESTADO_TURNO;
+window.LABELS_ESTADO_VUELO_ASIGNADO = LABELS_ESTADO_VUELO_ASIGNADO;
+window.LABELS_ESTADO_ORGANIZACION = LABELS_ESTADO_ORGANIZACION;
+window.esOwnerOAdmin = esOwnerOAdmin;
 window.CURSOS = CURSOS;
 window.CLAVES_REQUISITO_DISPONIBLES = CLAVES_REQUISITO_DISPONIBLES;
 window.LABELS_REQUISITO = LABELS_REQUISITO;
